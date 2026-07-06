@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Licensed brand fonts — drop the .woff2 files into public/fonts/.
+   If a file is missing the browser just falls back to Georgia; nothing breaks. */
+@font-face {
+  font-family: "La Luxes Serif";
+  src: url("/fonts/LaLuxesSerif.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Recoleta";
+  src: url("/fonts/Recoleta-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Recoleta";
+  src: url("/fonts/Recoleta-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Recoleta";
+  src: url("/fonts/Recoleta-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+
+:root {
+  --cream: #f6f4f1;
+  --taupe: #957f67;
+  --sand: #cfbda9;
+  --font-laluxes: "La Luxes Serif";
+  --font-recoleta: "Recoleta";
+}
+
+@layer base {
+  h1, h2, h3 {
+    @apply font-heading text-taupe;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-taupe text-cream hover:bg-[#7f6c57];
+  }
+  .btn-secondary {
+    @apply btn border border-sand bg-white text-taupe hover:bg-sand/30;
+  }
+  .btn-danger {
+    @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50;
+  }
+  .card {
+    @apply rounded-2xl border border-sand/60 bg-white p-6 shadow-soft;
+  }
+  .input {
+    @apply w-full rounded-xl border border-sand bg-white px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-sand focus:border-taupe;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-taupe;
+  }
+  .table-th {
+    @apply px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-taupe;
+  }
+  .table-td {
+    @apply px-4 py-3 text-sm;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}
