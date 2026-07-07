@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 
 const empty = {
   code: "", name: "", street1: "", street2: "",
@@ -51,6 +51,7 @@ export default function PublicReturnPage() {
           <Link href="/return/status" className="btn-primary mt-5 inline-flex">
             Check Return Status
           </Link>
+          <p className="mt-4 text-xs text-ink/50">
             Questions? Contact us at hello@erendirasboutique.com
           </p>
         </div>
