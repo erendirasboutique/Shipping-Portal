@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProvider } from "@/lib/shipping";
+import { getProvider, PROVIDERS } from "@/lib/shipping";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
@@ -15,7 +15,15 @@ export async function POST(req: Request) {
       parcel: body.parcel,
       signature: !!body.signature,
     });
-    return NextResponse.json({ shipment_id: result.shipmentRef, rates: result.rates });
+    return NextResponse.json({
+      shipment_id: result.shipmentRef,
+      rates: result.rates,
+      debug: {
+        requested_provider: body.provider ?? "(missing)",
+        known_providers: PROVIDERS,
+        build: "multi-provider-v2",
+      },
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 });
   }
