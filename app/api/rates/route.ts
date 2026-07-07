@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createShipment, filterRates } from "@/lib/easypost";
+import { getProvider } from "@/lib/shipping";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
@@ -9,15 +9,13 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const shipment = await createShipment({
+    const provider = getProvider(body.provider);
+    const result = await provider.getRates({
       to: body.to,
       parcel: body.parcel,
       signature: !!body.signature,
     });
-    return NextResponse.json({
-      shipment_id: shipment.id,
-      rates: filterRates(shipment),
-    });
+    return NextResponse.json({ shipment_id: result.shipmentRef, rates: result.rates });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 });
   }
