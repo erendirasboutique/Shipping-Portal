@@ -12,6 +12,7 @@ type Rate = {
   rate: string;
   currency: string;
   delivery_days: number | null;
+  retail_rate?: string | null;
 };
 
 const emptyForm = {
