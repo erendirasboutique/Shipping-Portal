@@ -56,6 +56,7 @@ export const easypost: ShippingProvider = {
           rate: r.rate,
           currency: r.currency,
           delivery_days: r.delivery_days ?? null,
+          retail_rate: r.retail_rate ?? r.list_rate ?? null,
         })),
     };
   },
