@@ -34,6 +34,14 @@ const emptyForm = {
   customer_id: null as string | null,
 };
 
+function CarrierMark({ carrier }: { carrier: string }) {
+  return (
+    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-taupe/15 font-heading text-[10px] text-taupe">
+      {carrier.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
 function CreateLabelInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -42,21 +50,24 @@ function CreateLabelInner() {
 
   const [form, setForm] = useState({ ...emptyForm });
   const [orderId, setOrderId] = useState<string | null>(null);
-  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation">("easypost");
+  const [manual, setManual] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
+  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation">("easypost");
   const [rates, setRates] = useState<Rate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
+  const [oneClick, setOneClick] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load draft when continuing from Orders
   useEffect(() => {
     if (!draftId) return;
     (async () => {
       const { data } = await supabase.from("shipping_orders").select("*").eq("id", draftId).single();
       if (data) {
         setOrderId(data.id);
+        setManual(true);
         setForm({
           to_name: data.to_name ?? "",
           to_street1: data.to_street1 ?? "",
@@ -80,7 +91,6 @@ function CreateLabelInner() {
     })();
   }, [draftId, supabase]);
 
-  // Customer search
   useEffect(() => {
     const q = search.trim();
     if (q.length < 2) {
@@ -115,11 +125,15 @@ function CreateLabelInner() {
     }));
     setSearch("");
     setResults([]);
+    setManual(true);
+    setRates([]);
+    setSelectedRate(null);
   }
 
   function set(key: string, value: any) {
     setForm((f) => ({ ...f, [key]: value }));
-    setRates([]); // address/parcel changed → rates stale
+    setRates([]);
+    setSelectedRate(null);
   }
 
   async function saveDraft(silent = false): Promise<string | null> {
@@ -146,6 +160,7 @@ function CreateLabelInner() {
     setError(null);
     setBusy("rates");
     setRates([]);
+    setSelectedRate(null);
     try {
       const res = await fetch("/api/rates", {
         method: "POST",
@@ -197,10 +212,18 @@ function CreateLabelInner() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      router.push("/"); // redirect home after successful purchase
+      router.push("/");
     } catch (e: any) {
       setError(e.message);
       setBusy(null);
+    }
+  }
+
+  function onRateClick(rate: Rate) {
+    if (oneClick) {
+      buy(rate);
+    } else {
+      setSelectedRate(rate);
     }
   }
 
@@ -208,33 +231,53 @@ function CreateLabelInner() {
     form.to_name && form.to_street1 && form.to_city && form.to_state && form.to_zip &&
     (Number(form.weight_lb) > 0 || Number(form.weight_oz) > 0);
 
+  const carriers = Array.from(new Set(rates.map((r) => r.carrier)));
+
   return (
     <Shell>
-      <h1 className="text-3xl">Create Label</h1>
+      {/* One-click toggle */}
+      <div className="mb-5 flex items-center gap-3">
+        <button
+          onClick={() => setOneClick(!oneClick)}
+          aria-pressed={oneClick}
+          className={`relative h-7 w-12 rounded-full transition-colors ${oneClick ? "bg-taupe" : "bg-sand/60"}`}
+        >
+          <span
+            className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${oneClick ? "left-6" : "left-1"}`}
+          />
+        </button>
+        <span className="font-heading text-xl text-taupe">
+          One-Click Purchase {oneClick ? "On" : "Off"}
+        </span>
+      </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
-        <div className="space-y-6">
-          {/* Customer search */}
-          <div className="card">
-            <h2 className="text-lg">Ship to</h2>
-            <div className="relative mt-3">
+      {error && (
+        <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+      )}
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_1.3fr_0.9fr]">
+        {/* Column 1: address + packaging */}
+        <div className="space-y-5">
+          <div className="card !rounded-[2rem]">
+            <h2 className="text-center text-2xl">1. Address Information</h2>
+            <div className="relative mt-5">
               <input
                 className="input"
-                placeholder="Search saved customers by name, email, or phone…"
+                placeholder="Search Existing Customers"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
               {results.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-sand bg-white shadow-soft">
+                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-taupe/20 bg-white shadow-lg">
                   {results.map((c) => (
                     <button
                       key={c.id}
                       onClick={() => pickCustomer(c)}
-                      className="block w-full px-4 py-2.5 text-left text-sm hover:bg-sand/30"
+                      className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream"
                     >
                       <span className="font-medium">{c.name}</span>
                       <span className="ml-2 text-ink/60">
-                        {[c.city, c.state].filter(Boolean).join(", ")} {c.email ? `· ${c.email}` : ""}
+                        {[c.city, c.state].filter(Boolean).join(", ")}
                       </span>
                     </button>
                   ))}
@@ -242,138 +285,213 @@ function CreateLabelInner() {
               )}
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="label">Name</label>
-                <input className="input" value={form.to_name} onChange={(e) => set("to_name", e.target.value)} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">Street</label>
-                <input className="input" value={form.to_street1} onChange={(e) => set("to_street1", e.target.value)} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">Apt / Suite (optional)</label>
-                <input className="input" value={form.to_street2} onChange={(e) => set("to_street2", e.target.value)} />
-              </div>
-              <div>
-                <label className="label">City</label>
-                <input className="input" value={form.to_city} onChange={(e) => set("to_city", e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">State</label>
-                  <input className="input" maxLength={2} value={form.to_state} onChange={(e) => set("to_state", e.target.value.toUpperCase())} />
-                </div>
-                <div>
-                  <label className="label">ZIP</label>
-                  <input className="input" value={form.to_zip} onChange={(e) => set("to_zip", e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <label className="label">Phone</label>
-                <input className="input" value={form.to_phone} onChange={(e) => set("to_phone", e.target.value)} />
-              </div>
-              <div>
-                <label className="label">Email</label>
-                <input className="input" value={form.to_email} onChange={(e) => set("to_email", e.target.value)} />
-              </div>
-            </div>
-          </div>
-
-          {/* Package */}
-          <div className="card">
-            <h2 className="text-lg">Package</h2>
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <div>
-                <label className="label">Length (in)</label>
-                <input type="number" className="input" value={form.length} onChange={(e) => set("length", Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="label">Width (in)</label>
-                <input type="number" className="input" value={form.width} onChange={(e) => set("width", Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="label">Height (in)</label>
-                <input type="number" className="input" value={form.height} onChange={(e) => set("height", Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="label">Weight (lb)</label>
-                <input type="number" min={0} className="input" value={form.weight_lb} onChange={(e) => set("weight_lb", Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="label">Weight (oz)</label>
-                <input type="number" min={0} step={0.1} className="input" value={form.weight_oz} onChange={(e) => set("weight_oz", Number(e.target.value))} />
-              </div>
-              <div className="flex items-end pb-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-taupe"
-                    checked={form.signature_confirmation}
-                    onChange={(e) => set("signature_confirmation", e.target.checked)}
-                  />
-                  Signature confirmation
-                </label>
-              </div>
-            </div>
-            <div className="mt-4">
-              <label className="label">Order notes</label>
-              <textarea className="input" rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
-            </div>
-          </div>
-          <div className="mt-4">
-              <label className="label">Shipping Provider</label>
-              <select
-                className="input"
-                value={provider}
-                onChange={(e) => { setProvider(e.target.value as any); setRates([]); }}
+            {!manual ? (
+              <button
+                onClick={() => setManual(true)}
+                className="mt-4 w-full text-center text-sm text-taupe underline underline-offset-2"
               >
-                <option value="easypost">EasyPost</option>
-                <option value="shippo">Shippo</option>
-                <option value="shipstation">ShipStation</option>
-              </select>
-            </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button onClick={() => saveDraft()} disabled={busy !== null} className="btn-secondary">
-              {busy === "draft" ? "Saving…" : orderId ? "Update draft" : "Save draft"}
-            </button>
-            <button onClick={getRates} disabled={!canRate || busy !== null} className="btn-primary">
-              {busy === "rates" ? "Getting rates…" : "Get rates"}
-            </button>
+                Enter Address Manually
+              </button>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                <div>
+                  <label className="label">Name</label>
+                  <input className="input" value={form.to_name} onChange={(e) => set("to_name", e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Street</label>
+                  <input className="input" value={form.to_street1} onChange={(e) => set("to_street1", e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Apt / Suite (optional)</label>
+                  <input className="input" value={form.to_street2} onChange={(e) => set("to_street2", e.target.value)} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label className="label">City</label>
+                    <input className="input" value={form.to_city} onChange={(e) => set("to_city", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">State</label>
+                    <input className="input" maxLength={2} value={form.to_state} onChange={(e) => set("to_state", e.target.value.toUpperCase())} />
+                  </div>
+                  <div>
+                    <label className="label">ZIP</label>
+                    <input className="input" value={form.to_zip} onChange={(e) => set("to_zip", e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Phone</label>
+                    <input className="input" value={form.to_phone} onChange={(e) => set("to_phone", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">Email</label>
+                    <input className="input" value={form.to_email} onChange={(e) => set("to_email", e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          {!canRate && (
-            <p className="text-sm text-taupe/70">Enter a full address and a weight above 0 to get rates.</p>
-          )}
-          {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+
+          <div className="card !rounded-[2rem]">
+            <h2 className="text-center text-2xl">2. Choose Packaging</h2>
+            <div className="mt-5 rounded-2xl border-2 border-taupe/60 bg-cream/50 px-5 py-4 text-center font-medium">
+              Box / My Packaging
+            </div>
+            <div className="mt-5 flex items-center gap-3">
+              <span className="w-24 shrink-0 text-sm font-medium">Dimensions</span>
+              <input type="number" className="input !px-2 text-center" value={form.length} onChange={(e) => set("length", Number(e.target.value))} />
+              <input type="number" className="input !px-2 text-center" value={form.width} onChange={(e) => set("width", Number(e.target.value))} />
+              <input type="number" className="input !px-2 text-center" value={form.height} onChange={(e) => set("height", Number(e.target.value))} />
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="w-24 shrink-0 text-sm font-medium">Weight</span>
+              <div className="relative flex-1">
+                <input type="number" min={0} className="input !px-2 text-center" value={form.weight_lb} onChange={(e) => set("weight_lb", Number(e.target.value))} />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/50">lbs</span>
+              </div>
+              <div className="relative flex-1">
+                <input type="number" min={0} step={0.1} className="input !px-2 text-center" value={form.weight_oz} onChange={(e) => set("weight_oz", Number(e.target.value))} />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/50">oz</span>
+              </div>
+            </div>
+            <button
+              onClick={getRates}
+              disabled={!canRate || busy !== null}
+              className="btn-primary mt-6 w-full !py-3"
+            >
+              {busy === "rates" ? "Getting Rates…" : "Get Rates"}
+            </button>
+            {!canRate && (
+              <p className="mt-3 text-center text-xs text-ink/50">
+                Enter a full address and a weight above 0.
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Rates */}
-        <div className="card h-fit">
-          <h2 className="text-lg">Rates</h2>
+        {/* Column 2: shipping method */}
+        <div className="card !rounded-[2rem]">
+          <h2 className="text-center text-2xl">3. Choose Shipping Method</h2>
+
           {rates.length === 0 ? (
-            <p className="mt-3 text-sm text-ink/60">
-              Rates from USPS, UPS, and FedEx will appear here.
-            </p>
+            <div className="mt-14 text-center">
+              <svg viewBox="0 0 64 48" className="mx-auto w-24 text-sand" aria-hidden>
+                <rect x="8" y="14" width="28" height="20" rx="2" fill="currentColor" opacity="0.5" />
+                <rect x="14" y="8" width="16" height="10" rx="2" fill="currentColor" />
+                <circle cx="16" cy="40" r="4" fill="currentColor" />
+                <path d="M44 34h12M44 28h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <p className="mx-auto mt-4 max-w-[220px] text-sm text-ink/60">
+                Enter destination info and get rates to see shipping options.
+              </p>
+            </div>
           ) : (
-            <ul className="mt-3 space-y-2">
-              {rates.map((r) => (
-                <li key={r.id} className="flex items-center justify-between rounded-xl border border-sand/60 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {r.carrier} · {r.service}
-                    </p>
-                    <p className="text-xs text-ink/60">
-                      {r.delivery_days ? `${r.delivery_days} day${r.delivery_days === 1 ? "" : "s"}` : "Delivery estimate unavailable"}
-                    </p>
+            <div className="mt-5 space-y-6">
+              {carriers.map((carrier) => (
+                <div key={carrier}>
+                  <div className="flex items-center gap-2">
+                    <CarrierMark carrier={carrier} />
+                    <p className="font-heading text-xl text-taupe">{carrier}</p>
                   </div>
-                  <button onClick={() => buy(r)} disabled={busy !== null} className="btn-primary !px-4 !py-2">
-                    {busy === r.id ? "Buying…" : `Buy $${r.rate}`}
-                  </button>
-                </li>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {rates
+                      .filter((r) => r.carrier === carrier)
+                      .map((r) => {
+                        const active = selectedRate?.id === r.id;
+                        return (
+                          <button
+                            key={r.id}
+                            onClick={() => onRateClick(r)}
+                            disabled={busy !== null}
+                            className={`rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${
+                              active
+                                ? "border-taupe bg-taupe/10"
+                                : "border-taupe/20 bg-white hover:border-taupe/50"
+                            }`}
+                          >
+                            <p className="text-xs text-ink/50">
+                              {r.delivery_days ? `${r.delivery_days} business day${r.delivery_days === 1 ? "" : "s"}` : "Delivery estimate n/a"}
+                            </p>
+                            <p className="mt-1 text-sm font-medium leading-snug">{r.service}</p>
+                            <p className="mt-2 font-heading text-2xl text-taupe">
+                              {busy === r.id ? "Buying…" : `$${r.rate}`}
+                            </p>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
               ))}
-            </ul>
+
+              {!oneClick && (
+                <button
+                  onClick={() => selectedRate && buy(selectedRate)}
+                  disabled={!selectedRate || busy !== null}
+                  className="btn-primary w-full !py-3"
+                >
+                  {selectedRate
+                    ? busy === selectedRate.id
+                      ? "Buying…"
+                      : `Buy ${selectedRate.carrier} ${selectedRate.service} — $${selectedRate.rate}`
+                    : "Select a rate above"}
+                </button>
+              )}
+              {oneClick && (
+                <p className="text-center text-xs text-ink/50">
+                  One-click is on — clicking a rate buys the label immediately.
+                </p>
+              )}
+            </div>
           )}
+        </div>
+
+        {/* Column 3: additional options */}
+        <div className="card h-fit !rounded-[2rem]">
+          <h2 className="text-2xl">Additional options</h2>
+
+          <div className="mt-5">
+            <label className="label">Shipping provider</label>
+            <select
+              className="input"
+              value={provider}
+              onChange={(e) => { setProvider(e.target.value as any); setRates([]); setSelectedRate(null); }}
+            >
+              <option value="easypost">EasyPost</option>
+              <option value="shippo">Shippo</option>
+              <option value="shipstation">ShipStation</option>
+            </select>
+          </div>
+
+          <label className="mt-5 flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-taupe"
+              checked={form.signature_confirmation}
+              onChange={(e) => set("signature_confirmation", e.target.checked)}
+            />
+            Require Signature
+          </label>
+
+          <div className="mt-5">
+            <label className="label">Order notes</label>
+            <textarea
+              className="input"
+              rows={3}
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            />
+          </div>
+
+          <div className="my-5 h-px bg-taupe/15" />
+
+          <button onClick={() => saveDraft()} disabled={busy !== null} className="btn-secondary w-full">
+            {busy === "draft" ? "Saving…" : orderId ? "Update Draft" : "Save Draft"}
+          </button>
+          <p className="mt-3 text-xs leading-relaxed text-ink/50">
+            Drafts can be continued later from the Orders page.
+          </p>
         </div>
       </div>
     </Shell>
