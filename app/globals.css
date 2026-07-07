@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Licensed brand fonts — drop the .woff2 files into public/fonts/.
-   If a file is missing the browser just falls back to Georgia; nothing breaks. */
+/* Licensed brand fonts — files live in public/fonts/. Missing files fall back to Georgia. */
 @font-face {
   font-family: "La Luxes Serif";
   src: url("/fonts/la-luxes-serif.woff2") format("woff2");
@@ -17,13 +16,13 @@
 }
 @font-face {
   font-family: "Recoleta";
-  src: url("/fonts/recoleta-regular.woff2") format("woff2");
+  src: url("/fonts/Recoleta-Medium.woff2") format("woff2");
   font-weight: 500;
   font-display: swap;
 }
 @font-face {
   font-family: "Recoleta";
-  src: url("/fonts/recoleta-regular.woff2") format("woff2");
+  src: url("/fonts/Recoleta-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-display: swap;
 }
@@ -41,50 +40,58 @@
     @apply font-heading text-taupe;
   }
 }
-/* Dark mode */
-.dark body { background: #221d18; color: #e9e2d8; }
-.dark .card { background: #2b251f; border-color: rgba(207, 189, 169, 0.25); }
-.dark .bg-white, .dark .bg-cream { background-color: #2b251f; }
-.dark .bg-white\/60 { background-color: rgba(43, 37, 31, 0.6); }
-.dark .text-ink { color: #e9e2d8; }
-.dark .input { background: #221d18; border-color: rgba(207, 189, 169, 0.35); color: #e9e2d8; }
-.dark .btn-secondary { background: #2b251f; }
-.dark .table-td, .dark .table-th { color: #e9e2d8; }
-.dark .hover\:bg-sand\/15:hover, .dark .hover\:bg-sand\/20:hover,
-.dark .hover\:bg-sand\/30:hover, .dark .hover\:bg-sand\/40:hover {
-  background-color: rgba(207, 189, 169, 0.12);
-}
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply btn bg-taupe text-cream hover:bg-[#7f6c57];
   }
   .btn-secondary {
-    @apply btn border border-sand bg-white text-taupe hover:bg-sand/30;
+    @apply btn border border-taupe/40 bg-transparent text-taupe hover:bg-taupe hover:text-cream;
   }
   .btn-danger {
-    @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50;
+    @apply btn border border-red-300/70 bg-transparent text-red-800 hover:bg-red-800 hover:text-cream;
   }
   .card {
-    @apply rounded-2xl border border-sand/60 bg-white p-6 shadow-soft;
+    @apply rounded border border-taupe/25 bg-white p-6;
   }
   .input {
-    @apply w-full rounded-xl border border-sand bg-white px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-sand focus:border-taupe;
+    @apply w-full rounded border border-taupe/30 bg-white px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-sand focus:border-taupe;
   }
   .label {
-    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-taupe;
+    @apply mb-1 block text-[10px] font-medium uppercase tracking-[0.18em] text-taupe;
   }
   .table-th {
-    @apply px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-taupe;
+    @apply border-b border-taupe/25 px-4 py-3 text-left text-[10px] font-medium uppercase tracking-[0.18em] text-taupe;
   }
   .table-td {
     @apply px-4 py-3 text-sm;
   }
   .pill {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center rounded-sm border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em];
+  }
+  .eyebrow {
+    @apply text-[10px] uppercase tracking-[0.3em] text-taupe/70;
+  }
+  .rule {
+    @apply h-px w-full bg-taupe/25;
+  }
+  .rule-dashed {
+    @apply h-px w-full border-t border-dashed border-taupe/35;
+  }
+  .stamp {
+    @apply rounded border border-dashed border-taupe/60 bg-cream px-6 py-4 text-center;
   }
 }
 
+/* Dark mode */
+.dark body { background: #26211b; color: #e9e2d8; }
+.dark .card, .dark .input, .dark .bg-white { background-color: #2e2820; }
+.dark .bg-cream, .dark .stamp { background-color: #26211b; }
+.dark .text-ink { color: #e9e2d8; }
+.dark .input { color: #e9e2d8; }
+.dark .btn-secondary { background: transparent; }
+.dark .table-td, .dark .table-th { color: #e9e2d8; }
+.dark .table-th { color: #cfbda9; }
