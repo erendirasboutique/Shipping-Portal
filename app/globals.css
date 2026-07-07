@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 /* Licensed brand fonts — files live in public/fonts/. Missing files fall back to Georgia. */
 @font-face {
   font-family: "La Luxes Serif";
@@ -26,7 +25,6 @@
   font-weight: 600;
   font-display: swap;
 }
-
 :root {
   --cream: #f6f4f1;
   --taupe: #957f67;
@@ -34,16 +32,14 @@
   --font-laluxes: "La Luxes Serif";
   --font-recoleta: "Recoleta";
 }
-
 @layer base {
   h1, h2, h3 {
     @apply font-heading text-taupe;
   }
 }
-
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply btn bg-taupe text-cream hover:bg-[#7f6c57];
@@ -85,7 +81,6 @@
     @apply rounded border border-dashed border-taupe/60 bg-cream px-6 py-4 text-center;
   }
 }
-
 /* Dark mode */
 .dark body { background: #26211b; color: #e9e2d8; }
 .dark .card, .dark .input, .dark .bg-white { background-color: #2e2820; }
