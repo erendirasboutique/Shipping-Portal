@@ -412,7 +412,10 @@ function CreateLabelInner() {
                     : null;
                   return sorted.map((r) => {
                     const active = selectedRate?.id === r.id;
-                    
+                    const retail =
+                      r.retail_rate && Number(r.retail_rate) > Number(r.rate)
+                        ? Number(r.retail_rate).toFixed(2)
+                        : null;
                     return (
                       <div key={r.id} className="relative">
                         {r.id === cheapestId && (
