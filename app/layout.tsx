@@ -6,17 +6,17 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Erendira Shipping Studio",
+    default: "Erendira's Boutique · Shipping Studio",
     template: "%s · Erendira Shipping Studio",
   },
   description:
-    "Internal shipping portal for Erendira's Boutique — labels, orders, customers, returns, and batch printing.",
+    "Internal shipping portal for Erendira's Boutique",
   icons: {
     icon: "/favicon.ico",
     apple: "/logo2.png",
   },
   openGraph: {
-    title: "Erendira Shipping Studio",
+    title: "Erendira's Boutique · Shipping Studio",
     description: "Internal shipping portal for Erendira's Boutique.",
     url: siteUrl,
     siteName: "Erendira Shipping Studio",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Erendira Shipping Studio",
+    title: "Erendira's Boutique · Shipping Studio",
     description: "Internal shipping portal for Erendira's Boutique.",
     images: ["/og.png"],
   },
