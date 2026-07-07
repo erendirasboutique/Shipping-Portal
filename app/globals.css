@@ -41,6 +41,19 @@
     @apply font-heading text-taupe;
   }
 }
+/* Dark mode */
+.dark body { background: #221d18; color: #e9e2d8; }
+.dark .card { background: #2b251f; border-color: rgba(207, 189, 169, 0.25); }
+.dark .bg-white, .dark .bg-cream { background-color: #2b251f; }
+.dark .bg-white\/60 { background-color: rgba(43, 37, 31, 0.6); }
+.dark .text-ink { color: #e9e2d8; }
+.dark .input { background: #221d18; border-color: rgba(207, 189, 169, 0.35); color: #e9e2d8; }
+.dark .btn-secondary { background: #2b251f; }
+.dark .table-td, .dark .table-th { color: #e9e2d8; }
+.dark .hover\:bg-sand\/15:hover, .dark .hover\:bg-sand\/20:hover,
+.dark .hover\:bg-sand\/30:hover, .dark .hover\:bg-sand\/40:hover {
+  background-color: rgba(207, 189, 169, 0.12);
+}
 
 @layer components {
   .btn {
@@ -74,3 +87,4 @@
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 }
+
