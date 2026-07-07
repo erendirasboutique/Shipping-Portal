@@ -104,22 +104,30 @@ export default function CustomersPage() {
     setEditing(null);
     load();
   }
-
-  function importCsv(file: File) {
+function importCsv(file: File) {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"),
+      error: (err) => setMsg(`Couldn't read that file: ${err.message}`),
       complete: async (result) => {
+        if (!result.data?.length) {
+          setMsg("That CSV appears to be empty.");
+          return;
+        }
         setBusy(true);
         const res = await fetch("/api/customers/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rows: result.data }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setBusy(false);
-        setMsg(res.ok ? `Imported ${data.imported} customers.` : data.error);
+        setMsg(
+          res.ok
+            ? `Imported ${data.imported} customers${data.skipped ? ` (${data.skipped} rows skipped — no name)` : ""}.`
+            : data.error || "Import failed."
+        );
         load();
       },
     });
