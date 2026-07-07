@@ -103,9 +103,18 @@ export default function OrdersPage() {
   }
 
   function copyNotification(order: any) {
-    const c = order.customer_id ? customers[order.customer_id] : null;
-    const first = (order.to_name || c?.name || "").split(" ")[0];
-    const text = `Hi ${first}! Your Erendira's Boutique order has shipped via ${order.carrier} ${order.mail_class}. Track it here: ${order.tracking_url || `https://track.erendirasboutique.com/${order.tracking_number}`}`;
+    const shipDate = new Date(order.created_at).toLocaleDateString("en-US");
+    const text = `A package was shipped to you via ${order.carrier} and will be delivered to:
+ 
+${order.to_name}
+${order.to_street1}
+${order.to_city}, ${order.to_state}, ${order.to_zip}
+Shipment Date: ${shipDate}
+Mail Class: ${order.mail_class}
+Tracking Number: ${order.tracking_number}
+Check the package status:
+https://track.erendirasboutique.com/?tracking=${order.tracking_number}
+For questions about this package, please contact us or ${order.carrier}`;
     navigator.clipboard.writeText(text);
     setMsg("Notification copied to clipboard.");
   }
