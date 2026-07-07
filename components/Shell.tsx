@@ -42,44 +42,54 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16">
-      <header className="pt-6">
-        <div className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-4">
-            <Image src="/logo2.png" alt="Erendira's Boutique" width={56} height={56} className="h-12 w-auto" />
-            <div className="hidden sm:block">
-              <p className="eyebrow">Erendira&apos;s Boutique</p>
-              <p className="font-heading text-xl leading-tight text-taupe">Shipping Studio</p>
-            </div>
-          </Link>
-          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.15em] text-taupe">
-            <span className="hidden max-w-[180px] truncate normal-case tracking-normal text-ink/60 md:block">{email}</span>
-            <button onClick={toggleDark} className="hover:underline">{dark ? "Light" : "Dark"}</button>
-            <span className="text-taupe/40">/</span>
-            <button onClick={signOut} className="hover:underline">Sign out</button>
-          </div>
-        </div>
+    <div className="flex min-h-screen flex-col gap-8 p-4 lg:flex-row lg:p-8">
+      <aside className="flex w-full flex-col lg:sticky lg:top-8 lg:w-60 lg:shrink-0 lg:self-start">
+        <Link href="/">
+          <Image src="/logo2.png" alt="Erendira's Boutique" width={150} height={64} className="h-auto w-36" />
+        </Link>
+        <p className="eyebrow mt-6">Erendira&apos;s Boutique</p>
+        <p className="font-heading text-2xl leading-tight text-taupe">Shipping Studio</p>
 
-        <div className="rule mt-5" />
-        <nav className="flex flex-wrap items-center gap-x-7 gap-y-1 py-3">
+        <div className="rule-dashed my-5" />
+
+        <nav className="flex flex-col gap-1">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`border-b pb-0.5 text-[11px] uppercase tracking-[0.2em] transition-colors ${
+              className={`rounded-full px-4 py-2.5 text-[11px] uppercase tracking-[0.2em] transition-colors ${
                 pathname === item.href
-                  ? "border-taupe text-taupe"
-                  : "border-transparent text-ink/60 hover:text-taupe"
+                  ? "bg-taupe text-cream"
+                  : "text-ink/70 hover:bg-taupe/10 hover:text-taupe"
               }`}
             >
               {item.label}
             </Link>
           ))}
         </nav>
-        <div className="rule-dashed" />
-      </header>
 
-      <main className="pt-8">{children}</main>
+        <div className="rule-dashed my-5" />
+
+        <div className="rounded-2xl border border-dashed border-taupe/40 bg-cream p-4 dark:bg-transparent">
+          <p className="eyebrow">Quick tip</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink/70">
+            Purchased labels are saved automatically and can be printed from Batch Print.
+          </p>
+        </div>
+
+        <button onClick={toggleDark} className="btn-secondary mt-5 w-full">
+          {dark ? "Light Mode" : "Dark Mode"}
+        </button>
+
+        <div className="mt-4 flex items-center justify-between gap-2 text-xs">
+          <span className="min-w-0 truncate text-ink/60">{email}</span>
+          <button onClick={signOut} className="shrink-0 uppercase tracking-[0.15em] text-taupe hover:underline">
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   );
 }
