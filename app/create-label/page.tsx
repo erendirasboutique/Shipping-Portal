@@ -398,48 +398,76 @@ function CreateLabelInner() {
               </p>
             </div>
           ) : (
-            <div className="mt-5 space-y-6">
-              {carriers.map((carrier) => (
-                <div key={carrier}>
-                  <div className="flex items-center gap-2">
-                    <CarrierMark carrier={carrier} />
-                    <p className="font-heading text-xl text-taupe">{carrier}</p>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    {rates
-                      .filter((r) => r.carrier === carrier)
-                      .map((r) => {
-                        const active = selectedRate?.id === r.id;
-                        return (
-                          <button
-                            key={r.id}
-                            onClick={() => onRateClick(r)}
-                            disabled={busy !== null}
-                            className={`rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${
-                              active
-                                ? "border-taupe bg-taupe/10"
-                                : "border-taupe/20 bg-white hover:border-taupe/50"
-                            }`}
-                          >
+            <div className="mt-5">
+              <p className="font-heading text-xl text-taupe">Best Rates</p>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {(() => {
+                  const sorted = [...rates].sort((a, b) => Number(a.rate) - Number(b.rate));
+                  const cheapestId = sorted[0]?.id;
+                  const withDays = sorted.filter((r) => r.delivery_days != null);
+                  const fastestId = withDays.length
+                    ? withDays.reduce((min, r) =>
+                        (r.delivery_days as number) < (min.delivery_days as number) ? r : min
+                      ).id
+                    : null;
+                  return sorted.map((r) => {
+                    const active = selectedRate?.id === r.id;
+                    const retail =
+                      r.retail_rate && Number(r.retail_rate) > Number(r.rate)
+                        ? Number(r.retail_rate).toFixed(2)
+                        : null;
+                    return (
+                      <div key={r.id} className="relative">
+                        {r.id === cheapestId && (
+                          <span className="absolute -top-2.5 left-4 z-10 rounded-full border border-taupe/40 bg-cream px-2.5 py-0.5 text-[10px] font-medium text-taupe">
+                            Recommended
+                          </span>
+                        )}
+                        {r.id === fastestId && r.id !== cheapestId && (
+                          <span className="absolute -top-2.5 left-4 z-10 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-medium text-amber-800">
+                            Fastest
+                          </span>
+                        )}
+                        <button
+                          onClick={() => onRateClick(r)}
+                          disabled={busy !== null}
+                          className={`w-full rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${
+                            active
+                              ? "border-taupe bg-taupe/10"
+                              : "border-taupe/20 bg-white hover:border-taupe/50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
                             <p className="text-xs text-ink/50">
-                              {r.delivery_days ? `${r.delivery_days} business day${r.delivery_days === 1 ? "" : "s"}` : "Delivery estimate n/a"}
+                              {r.delivery_days
+                                ? `${r.delivery_days} Day${r.delivery_days === 1 ? "" : "s"}`
+                                : "Estimate n/a"}
                             </p>
-                            <p className="mt-1 text-sm font-medium leading-snug">{r.service}</p>
-                            <p className="mt-2 font-heading text-2xl text-taupe">
+                            <CarrierMark carrier={r.carrier} />
+                          </div>
+                          <p className="mt-1 text-sm font-semibold leading-snug">{r.service}</p>
+                          <div className="mt-2 flex items-baseline justify-between gap-2">
+                            {retail ? (
+                              <span className="text-sm text-ink/40 line-through">${retail}</span>
+                            ) : (
+                              <span />
+                            )}
+                            <span className="font-heading text-2xl text-taupe">
                               {busy === r.id ? "Buying…" : `$${r.rate}`}
-                            </p>
-                          </button>
-                        );
-                      })}
-                  </div>
-                </div>
-              ))}
+                            </span>
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
 
               {!oneClick && (
                 <button
                   onClick={() => selectedRate && buy(selectedRate)}
                   disabled={!selectedRate || busy !== null}
-                  className="btn-primary w-full !py-3"
+                  className="btn-primary mt-5 w-full !py-3"
                 >
                   {selectedRate
                     ? busy === selectedRate.id
@@ -449,7 +477,7 @@ function CreateLabelInner() {
                 </button>
               )}
               {oneClick && (
-                <p className="text-center text-xs text-ink/50">
+                <p className="mt-4 text-center text-xs text-ink/50">
                   One-click is on — clicking a rate buys the label immediately.
                 </p>
               )}
