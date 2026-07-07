@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { refundShipment } from "@/lib/easypost";
+import { getProvider } from "@/lib/shipping";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -9,11 +9,21 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { order_id, shipment_id } = await req.json();
-    const refunded = await refundShipment(shipment_id);
-    const refund_status = refunded.refund_status || "submitted";
-
+    const { order_id } = await req.json();
     const admin = supabaseAdmin();
+
+    const { data: order, error: loadErr } = await admin
+      .from("shipping_orders")
+      .select("provider, easypost_shipment_id, provider_transaction_id")
+      .eq("id", order_id).single();
+    if (loadErr || !order) throw new Error("Order not found");
+
+    const provider = getProvider(order.provider);
+    const { refund_status } = await provider.refund({
+      shipmentRef: order.easypost_shipment_id,
+      transactionRef: order.provider_transaction_id,
+    });
+
     const { error } = await admin
       .from("shipping_orders")
       .update({ refund_status, status: "refunded" })
