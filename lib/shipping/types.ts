@@ -32,6 +32,7 @@ export interface RateOption {
   rate: string;
   currency: string;
   delivery_days: number | null;
+  retail_rate?: string | null;
 }
 
 export interface RatesResult {
