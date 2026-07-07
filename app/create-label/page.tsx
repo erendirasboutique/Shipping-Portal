@@ -34,10 +34,20 @@ const emptyForm = {
   customer_id: null as string | null,
 };
 
+const CARRIER_COLORS: Record<string, string> = {
+  UPS: "bg-[#351c15] text-[#ffb500]",
+  USPS: "bg-[#333366] text-white",
+  FedEx: "bg-[#4d148c] text-[#ff6600]",
+};
+
 function CarrierMark({ carrier }: { carrier: string }) {
   return (
-    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-taupe/15 font-heading text-[10px] text-taupe">
-      {carrier.slice(0, 2).toUpperCase()}
+    <span
+      className={`flex h-7 w-9 items-center justify-center rounded-md text-[9px] font-bold tracking-tight ${
+        CARRIER_COLORS[carrier] || "bg-taupe/15 text-taupe"
+      }`}
+    >
+      {carrier.toUpperCase().slice(0, 5)}
     </span>
   );
 }
