@@ -320,6 +320,18 @@ function CreateLabelInner() {
               <textarea className="input" rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
+          <div className="mt-4">
+              <label className="label">Shipping provider</label>
+              <select
+                className="input"
+                value={provider}
+                onChange={(e) => { setProvider(e.target.value as any); setRates([]); }}
+              >
+                <option value="easypost">EasyPost</option>
+                <option value="shippo">Shippo</option>
+                <option value="pitneybowes">Pitney Bowes</option>
+              </select>
+            </div>
 
           <div className="flex flex-wrap gap-3">
             <button onClick={() => saveDraft()} disabled={busy !== null} className="btn-secondary">
