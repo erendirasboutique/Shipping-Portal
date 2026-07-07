@@ -193,8 +193,7 @@ function CreateLabelInner() {
       const res = await fetch("/api/labels/buy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: id, shipment_id: shipmentId, rate_id: rate.id }),
-      });
+        body: JSON.stringify({ order_id: id, shipment_id: shipmentId, rate_id: rate.id, provider }),
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       router.push("/"); // redirect home after successful purchase
