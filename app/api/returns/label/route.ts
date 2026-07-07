@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createShipment, filterRates, buyShipment } from "@/lib/easypost";
+import { getProvider } from "@/lib/shipping";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// Creates a USPS return label (customer -> boutique) for a return request
-// and buys the cheapest USPS rate.
+// Creates a USPS return label (customer -> boutique) and buys the cheapest USPS rate.
+// With RETURNS_PROVIDER=shippo these are scan-based: you're only billed if the label is used.
 export async function POST(req: Request) {
   const supabase = supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -21,8 +21,10 @@ export async function POST(req: Request) {
       .single();
     if (error || !rr) throw new Error("Return request not found");
 
-    // is_return swaps direction: to_address = customer, EasyPost routes back to from_address.
-    const shipment = await createShipment({
+    const providerName = process.env.RETURNS_PROVIDER || "shippo";
+    const provider = getProvider(providerName);
+
+    const input = {
       to: {
         name: rr.from_name,
         street1: rr.from_street1,
@@ -36,22 +38,27 @@ export async function POST(req: Request) {
       },
       parcel: parcel || { length: 14, width: 17, height: 1, weight_lb: 1, weight_oz: 0 },
       isReturn: true,
-    });
+    };
 
-    const uspsRates = filterRates(shipment).filter((r: any) => r.carrier === "USPS");
+    const { shipmentRef, rates } = await provider.getRates(input);
+    const uspsRates = rates.filter((r) => r.carrier === "USPS");
     if (!uspsRates.length) throw new Error("No USPS rates returned for this address");
 
-    const bought = await buyShipment(shipment.id, uspsRates[0].id);
+    const bought = await provider.buy({
+      shipmentRef,
+      rateId: uspsRates[0].id,
+      input,
+    });
 
     const update = {
       status: "label_created",
-      easypost_shipment_id: bought.id,
-      label_url: bought.postage_label?.label_url ?? null,
-      tracking_number: bought.tracking_code ?? null,
-      tracking_url: bought.tracker?.public_url ?? null,
+      easypost_shipment_id: bought.shipmentRef,
+      label_url: bought.label_url,
+      tracking_number: bought.tracking_number,
+      tracking_url: bought.tracking_url,
       carrier: "USPS",
-      mail_class: bought.selected_rate?.service ?? null,
-      postage_amount: bought.selected_rate?.rate ? Number(bought.selected_rate.rate) : null,
+      mail_class: bought.service,
+      postage_amount: bought.rate,
     };
     const { error: upErr } = await admin.from("return_requests").update(update).eq("id", request_id);
     if (upErr) throw new Error(upErr.message);
