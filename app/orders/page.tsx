@@ -103,18 +103,29 @@ export default function OrdersPage() {
   }
 
   function copyNotification(order: any) {
-    const shipDate = new Date(order.created_at).toLocaleDateString("en-US");
-    const text = `A package was shipped to you via ${order.carrier} and will be delivered to:
- 
-${order.to_name}
-${order.to_street1}
-${order.to_city}, ${order.to_state}, ${order.to_zip}
+    const carrier = order.carrier || "the shipping carrier";
+    const shipDate = new Date(order.updated_at || order.created_at || Date.now())
+      .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const address = [
+      order.to_street1,
+      order.to_street2,
+      `${order.to_city}, ${order.to_state} ${order.to_zip}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const text = `A package was shipped to you via ${carrier} and will be delivered to:
+
+${order.to_name || ""}
+${address}
+
 Shipment Date: ${shipDate}
-Mail Class: ${order.mail_class}
-Tracking Number: ${order.tracking_number}
+Mail Class: ${order.mail_class || ""}
+Tracking Number: ${order.tracking_number || ""}
+
 Check the package status:
-https://track.erendirasboutique.com/?tracking=${order.tracking_number}
-For questions about this package, please contact us or ${order.carrier}`;
+https://track.erendirasboutique.com/?tracking=${order.tracking_number || ""}
+
+For questions about this package, please contact us or ${carrier}.`;
     navigator.clipboard.writeText(text);
     setMsg("Notification copied to clipboard.");
   }
