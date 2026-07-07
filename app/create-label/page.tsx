@@ -322,7 +322,7 @@ function CreateLabelInner() {
             </div>
           </div>
           <div className="mt-4">
-              <label className="label">Shipping provider</label>
+              <label className="label">Shipping Provider</label>
               <select
                 className="input"
                 value={provider}
@@ -330,7 +330,7 @@ function CreateLabelInner() {
               >
                 <option value="easypost">EasyPost</option>
                 <option value="shippo">Shippo</option>
-                <option value="pitneybowes">shipstation</option>
+                <option value="shipstation">ShipStation</option>
               </select>
             </div>
 
