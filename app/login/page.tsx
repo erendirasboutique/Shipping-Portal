@@ -24,20 +24,24 @@ function LoginInner() {
     });
   }
 
-  async function signInCode() {
+ async function signInCode() {
     if (!code.trim()) return;
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/auth/code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) return setError(data.error);
-    router.push("/");
-    router.refresh();
+    try {
+      const res = await fetch("/api/auth/code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Sign-in failed (${res.status})`);
+      router.push("/");
+      router.refresh();
+    } catch (e: any) {
+      setError(e.message);
+      setBusy(false);
+    }
   }
 
   return (
