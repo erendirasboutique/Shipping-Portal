@@ -329,7 +329,7 @@ function CreateLabelInner() {
               >
                 <option value="easypost">EasyPost</option>
                 <option value="shippo">Shippo</option>
-                <option value="pitneybowes">Pitney Bowes</option>
+                <option value="pitneybowes">shipstation</option>
               </select>
             </div>
 
