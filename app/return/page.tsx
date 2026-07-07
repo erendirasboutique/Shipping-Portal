@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import Link from "next/link";
 
 const empty = {
   code: "", name: "", street1: "", street2: "",
