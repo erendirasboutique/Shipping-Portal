@@ -151,6 +151,7 @@ function CreateLabelInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          provider,
           to: {
             name: form.to_name,
             street1: form.to_street1,
