@@ -17,13 +17,13 @@
 }
 @font-face {
   font-family: "Recoleta";
-  src: url("/fonts/Recoleta-Medium.woff2") format("woff2");
+  src: url("/fonts/recoleta-regular.woff2") format("woff2");
   font-weight: 500;
   font-display: swap;
 }
 @font-face {
   font-family: "Recoleta";
-  src: url("/fonts/Recoleta-SemiBold.woff2") format("woff2");
+  src: url("/fonts/recoleta-regular.woff2") format("woff2");
   font-weight: 600;
   font-display: swap;
 }
