@@ -6,12 +6,12 @@
    If a file is missing the browser just falls back to Georgia; nothing breaks. */
 @font-face {
   font-family: "La Luxes Serif";
-  src: url("/fonts/LaLuxesSerif.woff2") format("woff2");
+  src: url("/fonts/la-luxes-serif.woff2") format("woff2");
   font-display: swap;
 }
 @font-face {
   font-family: "Recoleta";
-  src: url("/fonts/Recoleta-Regular.woff2") format("woff2");
+  src: url("/fonts/recoleta-regular.woff2") format("woff2");
   font-weight: 400;
   font-display: swap;
 }
