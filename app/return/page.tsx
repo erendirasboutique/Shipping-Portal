@@ -44,10 +44,12 @@ export default function PublicReturnPage() {
           <h1 className="mt-6 text-3xl">Request received</h1>
           <p className="mt-3 text-sm leading-relaxed text-ink/70">
             Thanks, {form.name.split(" ")[0]}! We&apos;ve received your return request.
-            We&apos;ll email your prepaid USPS return label to{" "}
-            <span className="font-medium">{form.email || "you"}</span> shortly.
+            Once your prepaid USPS label is ready, come back and print it with your return code:
           </p>
-          <p className="mt-4 text-xs text-ink/50">
+          <p className="mt-3 font-mono text-lg tracking-[0.25em] text-taupe">{form.code}</p>
+          <Link href="/return/status" className="btn-primary mt-5 inline-flex">
+            Check Return Status
+          </Link>
             Questions? Contact us at hello@erendirasboutique.com
           </p>
         </div>
