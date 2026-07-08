@@ -48,15 +48,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && !isPublic) {
-    const { data: staff } = await supabase
-      .from("staff_users")
-      .select("id, active")
-      .eq("email", user.email)
-      .eq("active", true)
-      .maybeSingle();
+ if (user && !isPublic) {
+    const email = (user.email || "").toLowerCase();
+    const ALLOWED_DOMAINS = [
+      "shoperendirasboutique.com",
+      "erendirasboutique.com",
+      "dylanmontoya.com",
+      "lucilamontoya.com",
+      "erendiramoreno.com",
+    ];
+    const ALLOWED_EMAILS = ["staff@erendirasboutique.com"];
 
-    if (!staff) {
+    const domain = email.split("@")[1] || "";
+    const allowed =
+      ALLOWED_EMAILS.includes(email) || ALLOWED_DOMAINS.includes(domain);
+
+    if (!allowed) {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = "/login";
