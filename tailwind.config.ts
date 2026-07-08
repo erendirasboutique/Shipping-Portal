@@ -6,11 +6,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        cream: "#f6f4f1",
-        taupe: "#957f67",
-        sand: "#cfbda9",
-        ink: "#3f362d",
-        espresso: "#26211b",
+        cream: "rgb(var(--c-cream) / <alpha-value>)",
+        taupe: "rgb(var(--c-taupe) / <alpha-value>)",
+        sand: "rgb(var(--c-sand) / <alpha-value>)",
+        ink: "rgb(var(--c-ink) / <alpha-value>)",
+        white: "rgb(var(--c-surface) / <alpha-value>)",
       },
       fontFamily: {
         heading: ["var(--font-laluxes)", "Georgia", "serif"],
@@ -18,7 +18,7 @@ const config: Config = {
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
-        soft: "0 2px 16px rgba(149,127,103,0.12)",
+        soft: "0 2px 16px rgba(90, 74, 58, 0.14)",
       },
     },
   },
