@@ -34,7 +34,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     localStorage.setItem("theme", next ? "dark" : "light");
     document.documentElement.classList.toggle("dark", next);
   }
-
   async function signOut() {
     await supabaseBrowser().auth.signOut();
     router.push("/login");
