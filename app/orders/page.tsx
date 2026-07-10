@@ -14,6 +14,44 @@ function StatusText({ status }: { status: string }) {
   return <span className="text-sm text-ink/60">{map[status] || status}</span>;
 }
 
+function StatusPill({ status }: { status: string }) {
+  if (status === "draft") {
+    return (
+      <span className="rounded-full border border-dashed border-taupe/50 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-taupe">
+        draft
+      </span>
+    );
+  }
+  if (status === "refunded") {
+    return (
+      <span className="rounded-full border border-red-400/50 bg-red-50 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-red-700">
+        refunded
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full border border-taupe/45 bg-cream px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-ink/80">
+      purchased
+    </span>
+  );
+}
+
+function initials(name: string | null) {
+  return (name || "?")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function dateKey(dt: string) {
+  return new Date(dt).toLocaleDateString("en-US", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+}
+
 export default function OrdersPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const router = useRouter();
@@ -37,8 +75,20 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const counts = useMemo(() => {
+    const c = { all: orders.length, to_print: 0, draft: 0, refunded: 0 };
+    for (const o of orders) {
+      if (o.status === "draft") c.draft++;
+      if (o.status === "refunded") c.refunded++;
+      if (o.status === "purchased" && o.print_status === "not_printed") c.to_print++;
+    }
+    return c;
+  }, [orders]);
+
   const shown = orders.filter((o) => {
-    if (filter !== "all" && o.status !== filter) return false;
+    if (filter === "draft" && o.status !== "draft") return false;
+    if (filter === "refunded" && o.status !== "refunded") return false;
+    if (filter === "to_print" && !(o.status === "purchased" && o.print_status === "not_printed")) return false;
     if (!q.trim()) return true;
     const s = q.toLowerCase();
     return (
@@ -47,6 +97,26 @@ export default function OrdersPage() {
       (o.to_city || "").toLowerCase().includes(s)
     );
   });
+
+  const groups = useMemo(() => {
+    const todayKey = dateKey(new Date().toISOString());
+    const g: { label: string; items: any[] }[] = [];
+    for (const o of shown) {
+      const k = dateKey(o.created_at);
+      const label = k === todayKey ? `Today · ${k}` : k;
+      const last = g[g.length - 1];
+      if (last && last.label === label) last.items.push(o);
+      else g.push({ label, items: [o] });
+    }
+    return g;
+  }, [shown]);
+
+  const TABS = [
+    { key: "all", label: "All", count: counts.all },
+    { key: "to_print", label: "To print", count: counts.to_print },
+    { key: "draft", label: "Drafts", count: counts.draft },
+    { key: "refunded", label: "Refunded", count: counts.refunded },
+  ];
 
   async function refund(order: any) {
     if (!confirm(`Refund/cancel the ${order.carrier} label for ${order.to_name}?`)) return;
@@ -121,7 +191,6 @@ For questions about this package, please contact us or ${carrier}.`;
   }
 
   const weightText = (o: any) => `${o.weight_lb ?? 0} lb ${o.weight_oz ?? 0} oz`;
-  const dimsText = (o: any) => `${o.length}×${o.width}×${o.height}`;
   const fmt = (dt: string | null) =>
     dt
       ? new Date(dt).toLocaleString("en-US", {
@@ -132,78 +201,87 @@ For questions about this package, please contact us or ${carrier}.`;
 
   return (
     <Shell>
-      <div className="card !rounded-[2rem] !p-8">
-        <p className="eyebrow">Shipment archive</p>
-        <h1 className="mt-1 text-5xl">Orders</h1>
-        <p className="mt-2 text-sm text-ink/70">
-          View labels, drafts, tracking, customer details, and refund requests.
-        </p>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-          <input
-            className="input flex-1"
-            placeholder="Search orders, customer, tracking..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <select className="input !w-44" value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="all">All statuses</option>
-            <option value="draft">Drafts</option>
-            <option value="purchased">Purchased</option>
-            <option value="refunded">Refunded</option>
-          </select>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">Shipment archive</p>
+          <h1 className="mt-1 text-5xl">Orders</h1>
         </div>
-
-        {msg && (
-          <p className="mt-4 cursor-pointer rounded-2xl bg-cream px-4 py-3 text-sm text-taupe" onClick={() => setMsg(null)}>
-            {msg}
-          </p>
-        )}
-
-        <div className="mt-5 flex flex-col gap-4">
-          {shown.map((o) => (
+        <div className="flex flex-wrap gap-1.5 rounded-full border border-taupe/30 bg-white p-1">
+          {TABS.map((t) => (
             <button
-              key={o.id}
-              onClick={() => setSelected(o)}
-              className="rounded-[1.75rem] border border-taupe/15 bg-cream/70 p-6 text-left transition-shadow hover:shadow-[0_4px_20px_rgba(149,127,103,0.12)] dark:bg-transparent"
+              key={t.key}
+              onClick={() => setFilter(t.key)}
+              className={`rounded-full px-4 py-2 text-xs transition-colors ${
+                filter === t.key ? "bg-taupe text-cream" : "text-taupe hover:bg-taupe/10"
+              }`}
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="truncate font-heading text-3xl text-taupe">{o.to_name || "Untitled order"}</p>
-                  <p className="mt-1 text-sm text-ink/70">
-                    {o.carrier ? `${o.carrier} ${o.mail_class}` : "No label yet"}
-                  </p>
-                </div>
-                <StatusText status={o.status} />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {o.tracking_number && (
-                  <span className="rounded-full border border-taupe/25 bg-white px-4 py-1.5 font-mono text-xs dark:bg-transparent">
-                    {o.tracking_number}
-                  </span>
-                )}
-                <span className="rounded-full border border-taupe/25 bg-white px-4 py-1.5 text-xs dark:bg-transparent">
-                  {dimsText(o)}
-                </span>
-                <span className="rounded-full border border-taupe/25 bg-white px-4 py-1.5 text-xs dark:bg-transparent">
-                  {weightText(o)}
-                </span>
-              </div>
+              {t.label} · {t.count}
             </button>
           ))}
-          {!shown.length && (
-            <p className="rounded-[1.75rem] border border-taupe/15 bg-cream/70 px-6 py-12 text-center text-sm text-ink/50">
-              No orders match. Create a label to get started.
-            </p>
-          )}
         </div>
       </div>
 
-      {/* Order modal */}
+      <div className="mt-5">
+        <input
+          className="input !rounded-full"
+          placeholder="Search name, tracking, city…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+
+      {msg && (
+        <p className="mt-4 cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm text-taupe" onClick={() => setMsg(null)}>
+          {msg}
+        </p>
+      )}
+
+      {groups.map((g) => (
+        <div key={g.label}>
+          <p className="eyebrow mt-7 mb-2">{g.label}</p>
+          <div className="overflow-hidden rounded-3xl border border-taupe/25 bg-white">
+            {g.items.map((o, i) => (
+              <button
+                key={o.id}
+                onClick={() => setSelected(o)}
+                className={`flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-cream/50 ${
+                  i !== g.items.length - 1 ? "border-b border-taupe/15" : ""
+                }`}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cream text-xs text-taupe">
+                  {initials(o.to_name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium">{o.to_name || "Untitled order"}</span>
+                  <span className="block truncate text-xs text-ink/60">
+                    {o.carrier ? `${o.carrier} ${o.mail_class}` : "Draft"}
+                    {o.to_city ? ` · ${o.to_city}, ${o.to_state}` : ""}
+                  </span>
+                </span>
+                <span className="hidden font-mono text-xs text-ink/60 sm:block">
+                  {o.tracking_number ? `…${String(o.tracking_number).slice(-7)}` : "—"}
+                </span>
+                <span className="hidden text-xs text-taupe md:block">
+                  {o.postage_amount != null ? `$${Number(o.postage_amount).toFixed(2)}` : "—"}
+                </span>
+                <StatusPill status={o.status} />
+                <span className="text-taupe">›</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!groups.length && (
+        <p className="mt-7 rounded-3xl border border-taupe/25 bg-white px-6 py-12 text-center text-sm text-ink/50">
+          No orders match. Create a label to get started.
+        </p>
+      )}
+
+      {/* Order modal — unchanged */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => setSelected(null)}>
           <div
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white p-8 dark:bg-[#2e2820]"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
@@ -267,8 +345,13 @@ For questions about this package, please contact us or ${carrier}.`;
                   {busy === "print" ? "Opening…" : "Print Label"}
                 </button>
               )}
-              {selected.tracking_url && (
-                <a href={selected.tracking_url} target="_blank" rel="noreferrer" className="btn-secondary">
+              {selected.tracking_number && (
+                
+                  href={`https://track.erendirasboutique.com/?tracking=${selected.tracking_number}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-secondary"
+                >
                   Track Package
                 </a>
               )}
