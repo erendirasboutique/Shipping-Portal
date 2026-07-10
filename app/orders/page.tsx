@@ -190,14 +190,20 @@ For questions about this package, please contact us or ${carrier}.`;
     setMsg("Notification copied to clipboard.");
   }
 
-  const weightText = (o: any) => `${o.weight_lb ?? 0} lb ${o.weight_oz ?? 0} oz`;
-  const fmt = (dt: string | null) =>
-    dt
-      ? new Date(dt).toLocaleString("en-US", {
-          month: "short", day: "numeric", year: "numeric",
-          hour: "numeric", minute: "2-digit",
-        })
-      : "—";
+  function weightText(o: any) {
+    return `${o.weight_lb ?? 0} lb ${o.weight_oz ?? 0} oz`;
+  }
+
+  function fmt(dt: string | null) {
+    if (!dt) return "—";
+    return new Date(dt).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
 
   return (
     <Shell>
