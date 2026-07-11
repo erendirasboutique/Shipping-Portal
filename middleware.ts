@@ -84,10 +84,11 @@ export async function middleware(request: NextRequest) {
     (path) => pathname === path || pathname.startsWith(path + "/")
   );
 
-  const isStaticFile =
+ const isStaticFile =
     pathname.startsWith("/_next") ||
+    pathname.startsWith("/fonts") ||
     pathname === "/favicon.ico" ||
-    /\.(svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname);
+    /\.(svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|otf|pdf)$/.test(pathname);
 
   if (!user && !isPublicPath && !isStaticFile) {
     const loginUrl = request.nextUrl.clone();
