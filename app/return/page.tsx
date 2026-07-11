@@ -89,7 +89,7 @@ export default function PublicReturnPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden px-4 py-10">
+    <div className="relative min-h-screen overflow-hidden bg-[#F5F3EF] px-4 py-10">
       {/* background flowers */}
       <Flower className="pointer-events-none absolute -left-8 top-40 w-32 text-sand/30" />
       <Flower className="pointer-events-none absolute -right-6 -top-6 w-24 text-sand/25" />
