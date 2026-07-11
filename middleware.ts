@@ -41,9 +41,16 @@ export async function middleware(request: NextRequest) {
       url.pathname.startsWith("/_next") ||
       url.pathname === "/favicon.ico";
 
-    if (!isAllowedReturnsPath) {
+    if (
+      !url.pathname.startsWith("/return") &&
+      !url.pathname.startsWith("/api") &&
+      !url.pathname.startsWith("/_next") &&
+      !url.pathname.startsWith("/fonts") &&
+      !/\.(?:png|jpg|jpeg|svg|ico|pdf|woff2?)$/.test(url.pathname)
+    ) {
       url.pathname = "/return";
       return NextResponse.redirect(url);
+    }
     }
   }
 
