@@ -48,7 +48,7 @@ export default function ReturnStatusPage() {
     : "https://www.google.com/maps/search/?api=1&query=USPS";
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#F5F3EF] px-4 py-10">
+    <div className="flex min-h-screen overflow-hidden bg-[#F5F3EF] px-4 py-10">
       <div className="card w-full max-w-lg !rounded-[2rem]">
         <div className="text-center">
           <Image src="/logo2.png" alt="Erendira's Boutique" width={120} height={52} className="mx-auto h-auto w-28" />
