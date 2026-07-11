@@ -1,4 +1,7 @@
-import { createServerClient } from "@supabase/ssr";
+import {
+  createServerClient,
+  type CookieOptions,
+} from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = [
@@ -10,8 +13,13 @@ const PUBLIC_PATHS = [
   "/api/returns/lookup",
 ];
 
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: CookieOptions;
+};
+
 export async function middleware(request: NextRequest) {
-  // Handle the returns subdomain.
   const host = request.headers.get("host") || "";
 
   if (host.startsWith("returns.")) {
@@ -54,7 +62,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
 
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
@@ -86,18 +94,23 @@ export async function middleware(request: NextRequest) {
   const isStaticFile =
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
-    pathname.match(/\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/);
+    /\.(svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname);
 
   if (!user && !isPublicPath && !isStaticFile) {
     const loginUrl = request.nextUrl.clone();
+
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("redirect", pathname);
+    loginUrl.searchParams.set(
+      "redirect",
+      `${pathname}${request.nextUrl.search}`
+    );
 
     return NextResponse.redirect(loginUrl);
   }
 
   if (user && pathname === "/login") {
     const dashboardUrl = request.nextUrl.clone();
+
     dashboardUrl.pathname = "/";
     dashboardUrl.search = "";
 
