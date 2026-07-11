@@ -21,26 +21,16 @@ type CookieToSet = {
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") || "";
-
   if (host.startsWith("returns.")) {
     const url = request.nextUrl.clone();
-
     if (url.pathname === "/") {
       url.pathname = "/return";
       return NextResponse.rewrite(url);
     }
-
     if (url.pathname === "/status") {
       url.pathname = "/return/status";
       return NextResponse.rewrite(url);
     }
-
-    const isAllowedReturnsPath =
-      url.pathname.startsWith("/return") ||
-      url.pathname.startsWith("/api") ||
-      url.pathname.startsWith("/_next") ||
-      url.pathname === "/favicon.ico";
-
     if (
       !url.pathname.startsWith("/return") &&
       !url.pathname.startsWith("/api") &&
@@ -50,7 +40,6 @@ export async function middleware(request: NextRequest) {
     ) {
       url.pathname = "/return";
       return NextResponse.redirect(url);
-    }
     }
   }
 
@@ -68,18 +57,15 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-
         setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
-
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           });
-
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
@@ -95,7 +81,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   const isPublicPath = PUBLIC_PATHS.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
+    (path) => pathname === path || pathname.startsWith(path + "/")
   );
 
   const isStaticFile =
@@ -105,22 +91,18 @@ export async function middleware(request: NextRequest) {
 
   if (!user && !isPublicPath && !isStaticFile) {
     const loginUrl = request.nextUrl.clone();
-
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set(
       "redirect",
-      `${pathname}${request.nextUrl.search}`
+      pathname + request.nextUrl.search
     );
-
     return NextResponse.redirect(loginUrl);
   }
 
   if (user && pathname === "/login") {
     const dashboardUrl = request.nextUrl.clone();
-
     dashboardUrl.pathname = "/";
     dashboardUrl.search = "";
-
     return NextResponse.redirect(dashboardUrl);
   }
 
