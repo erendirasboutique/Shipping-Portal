@@ -108,6 +108,7 @@ export default function OrderDetailPage() {
   const [billing, setBilling] = useState<any | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [lifetimeShipments, setLifetimeShipments] = useState<number | null>(null);
+  const [portalToken, setPortalToken] = useState<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -162,6 +163,34 @@ export default function OrderDetailPage() {
           count = res.count;
         }
         setLifetimeShipments(count == null ? 0 : count);
+      })();
+
+      // Matching customer's portal token (email first, then name)
+      (async function () {
+        let token: string | null = null;
+        if (o.to_email) {
+          const res = await supabase
+            .from("shipping_customers")
+            .select("portal_token")
+            .ilike("email", o.to_email)
+            .or("archived.is.null,archived.eq.false")
+            .is("merged_into", null)
+            .limit(1)
+            .maybeSingle();
+          token = res.data && res.data.portal_token ? res.data.portal_token : null;
+        }
+        if (!token && o.to_name) {
+          const res = await supabase
+            .from("shipping_customers")
+            .select("portal_token")
+            .ilike("name", o.to_name)
+            .or("archived.is.null,archived.eq.false")
+            .is("merged_into", null)
+            .limit(1)
+            .maybeSingle();
+          token = res.data && res.data.portal_token ? res.data.portal_token : null;
+        }
+        setPortalToken(token);
       })();
 
       // Billing portal match
@@ -278,6 +307,13 @@ export default function OrderDetailPage() {
     setActionsOpen(false);
   }
 
+  function copyPortalLink() {
+    if (!portalToken) return;
+    navigator.clipboard.writeText("https://my.erendirasboutique.com/account?t=" + portalToken);
+    setMsg("Portal link copied to clipboard.");
+    setActionsOpen(false);
+  }
+
   if (loading) {
     return (
       <Shell>
@@ -382,6 +418,14 @@ export default function OrderDetailPage() {
                     className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
                   >
                     Copy tracking link
+                  </button>
+                )}
+                {portalToken && (
+                  <button
+                    onClick={copyPortalLink}
+                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
+                  >
+                    Copy portal link
                   </button>
                 )}
                 {payment && payment.receipt_url && (
@@ -552,6 +596,11 @@ export default function OrderDetailPage() {
                 </p>
               </div>
             </div>
+            {portalToken && (
+              <button onClick={copyPortalLink} className="btn-secondary mt-4 w-full">
+                Copy portal link
+              </button>
+            )}
           </div>
 
           <div className="rounded-3xl border border-taupe/25 bg-white p-6">
