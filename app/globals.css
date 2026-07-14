@@ -28,11 +28,11 @@
 
 /* ---- Theme palettes (RGB triplets so Tailwind opacity modifiers work) ---- */
 :root {
-  --c-cream: 245 243 239;   /* #F5F3EF — this is your background */
-  --c-taupe: 128 106 82;
-  --c-sand: 189 168 145;
-  --c-ink: ...;
-  --c-surface: ...;
+  --c-cream: 245 243 239;   /* background       #F5F3EF */
+  --c-taupe: 149 127 103;   /* text/buttons     #957f67 */
+  --c-sand: 207 189 169;    /* everything else  #cfbda9 */
+  --c-ink: 51 43 35;        /* body text        #332b23 */
+  --c-surface: 255 255 255; /* cards, inputs    white   */
   --font-laluxes: "La Luxes Serif";
   --font-recoleta: "Recoleta";
 }
