@@ -25,7 +25,7 @@ const PAGE_H = 432; // 6in
 // border (~x16), below the horizontal divider rule (~y44 top), above the
 // bottom edge/border (~y10). Keep x + w well left of ~200pt so the Data
 // Matrix on the bottom-right is never covered.
-const MASK = { x: 22, y: 12, w: 140, h: 28 };
+const MASK = { x: 22, y: 12, w: 165, h: 28 };
 
 // Logo placement inside the masked area, scaled to fit while preserving
 // aspect ratio, vertically centered within the mask.
