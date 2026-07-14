@@ -3,7 +3,6 @@ import {
   type CookieOptions,
 } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
 const PUBLIC_PATHS = [
   "/login",
   "/auth/callback",
@@ -11,14 +10,13 @@ const PUBLIC_PATHS = [
   "/return",
   "/api/returns/submit",
   "/api/returns/lookup",
+  "/api/returns/slip",
 ];
-
 type CookieToSet = {
   name: string;
   value: string;
   options?: CookieOptions;
 };
-
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") || "";
   if (host.startsWith("returns.")) {
@@ -42,13 +40,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   }
-
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -73,23 +69,18 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
-
   const isPublicPath = PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(path + "/")
   );
-
  const isStaticFile =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/fonts") ||
     pathname === "/favicon.ico" ||
     /\.(svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|otf|pdf)$/.test(pathname);
-
   if (!user && !isPublicPath && !isStaticFile) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -99,17 +90,14 @@ export async function middleware(request: NextRequest) {
     );
     return NextResponse.redirect(loginUrl);
   }
-
   if (user && pathname === "/login") {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/";
     dashboardUrl.search = "";
     return NextResponse.redirect(dashboardUrl);
   }
-
   return response;
 }
-
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
