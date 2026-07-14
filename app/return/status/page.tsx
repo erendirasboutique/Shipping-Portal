@@ -10,7 +10,6 @@ export default function ReturnStatusPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<any | null>(null);
   const [opening, setOpening] = useState(false);
-  const [openingSlip, setOpeningSlip] = useState(false);
 
   async function lookup() {
     setError(null);
@@ -31,23 +30,10 @@ export default function ReturnStatusPage() {
     setBusy(false);
   }
 
-  async function printLabel() {
-    if (!info?.label_url) return;
+  function printLabel() {
     setOpening(true);
-    try {
-      const res = await fetch(info.label_url);
-      const blob = await res.blob();
-      window.open(URL.createObjectURL(blob), "_blank");
-    } catch {
-      window.open(info.label_url, "_blank");
-    }
-    setOpening(false);
-  }
-
-  function printSlip() {
-    setOpeningSlip(true);
     window.open(`/api/returns/slip?code=${encodeURIComponent(code.trim().toUpperCase())}`, "_blank");
-    setTimeout(() => setOpeningSlip(false), 800);
+    setTimeout(() => setOpening(false), 800);
   }
 
   const uspsMapUrl = info?.zip
@@ -117,9 +103,6 @@ export default function ReturnStatusPage() {
               <button onClick={printLabel} disabled={opening} className="btn-primary mt-4 w-full !py-3">
                 {opening ? "Opening…" : "Print Return Label"}
               </button>
-              <button onClick={printSlip} disabled={openingSlip} className="btn-secondary mt-2 w-full !py-3">
-                {openingSlip ? "Opening…" : "Print Return Slip"}
-              </button>
               {info.tracking_url && (
                 <a href={info.tracking_url} target="_blank" rel="noreferrer" className="btn-secondary mt-2 w-full">
                   Track Return
@@ -127,12 +110,9 @@ export default function ReturnStatusPage() {
               )}
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <a href="/return-instructions-half.pdf" target="_blank" rel="noreferrer" className="btn-secondary w-full !text-xs">
                 Instructions
-              </a>
-              <a href="/return-instructions-full.pdf" target="_blank" rel="noreferrer" className="btn-secondary w-full !text-xs">
-                Full-Page Guide
               </a>
               <a href={uspsMapUrl} target="_blank" rel="noreferrer" className="btn-secondary w-full !text-xs">
                 Nearest USPS
@@ -140,7 +120,7 @@ export default function ReturnStatusPage() {
             </div>
 
             <p className="mt-4 text-center text-xs leading-relaxed text-ink/50">
-              Print the label and attach it to your package, place the return slip inside,
+              Print the label and attach it to your package, place the packing slip inside,
               then drop it off at any USPS location or hand it to your mail carrier.
             </p>
           </div>
