@@ -1,8 +1,6 @@
 // app/api/returns/slip/route.ts
-// GET /api/returns/slip?code=EB-XXXXXX
-// Generates a branded 2-page return packet:
-//   Page 1 — print instructions + cut-out shipping label (embedded from EasyPost label_url)
-//   Page 2 — packing slip with tracking barcode, placed inside the package
+// GET /api/returns/slip?code=EB-XXXXXX&lang=es
+// Branded 2-page return packet (instructions + label, packing slip w/ barcode). EN/ES.
 //
 // Dependencies (package.json):
 //   "pdf-lib": "^1.17.1",
@@ -22,9 +20,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ====== CONFIG ======
-const HEADING_FONT_FILE = "la-luxes-serif.ttf"; // in public/fonts/
-const BODY_FONT_FILE = "recoleta-regular.ttf";  // in public/fonts/
-const LOGO_FILE = "logo2.png";                  // in public/
+const HEADING_FONT_FILE = "la-luxes-serif.ttf";
+const BODY_FONT_FILE = "recoleta-regular.ttf";
+const LOGO_FILE = "logo2.png";
 
 const RETURN_ADDRESS = [
   "Erendira's Boutique — Returns",
@@ -32,6 +30,63 @@ const RETURN_ADDRESS = [
   "Fontana, CA 92335",
 ];
 // ====================
+
+const T = {
+  en: {
+    p1Title: (c: string) => `Print this paper & attach the ${c} label`,
+    p1Sub: "Steps to successfully return your items",
+    steps: (c: string) => [
+      "Please print this paper.",
+      "Cut out the label below.",
+      "Package & seal items into a poly bag or box.",
+      "Tape this label to the package.",
+      `Drop off the package at a ${c} location.`,
+    ],
+    slipNote: "•  Don't forget to include the packing slip (page 2) inside the package.",
+    cutHere: "CUT HERE",
+    warning: (c: string) =>
+      `This label is ONLY accepted at ${c} locations. Using this label with any other carrier will cause your return to fail.`,
+    labelFail: "Your label couldn't be embedded — use the Print Return Label button instead.",
+    p2Title: "Packing Slip",
+    p2Sub: "Please place this page inside your package.",
+    merchant: "Merchant",
+    customer: "Customer",
+    returnCode: "Return Code",
+    returnDate: "Return Date",
+    tracking: (c: string) => `${c} Tracking`,
+    reason: "Reason for Return",
+    shipTo: "SHIP YOUR RETURN TO",
+    footer: "Questions? Visit my.erendirasboutique.com",
+    locale: "en-US",
+  },
+  es: {
+    p1Title: (c: string) => `Imprime esta hoja y pega la etiqueta de ${c}`,
+    p1Sub: "Pasos para devolver tus artículos con éxito",
+    steps: (c: string) => [
+      "Imprime esta hoja.",
+      "Recorta la etiqueta de abajo.",
+      "Empaca y sella tus artículos en una bolsa o caja.",
+      "Pega esta etiqueta al paquete.",
+      `Entrega el paquete en cualquier oficina de ${c}.`,
+    ],
+    slipNote: "•  No olvides incluir la hoja de empaque (página 2) dentro del paquete.",
+    cutHere: "CORTA AQUÍ",
+    warning: (c: string) =>
+      `Esta etiqueta SOLO se acepta en oficinas de ${c}. Usarla con otra paquetería hará que tu devolución falle.`,
+    labelFail: "No se pudo incluir tu etiqueta — usa el botón Imprimir Etiqueta en su lugar.",
+    p2Title: "Hoja de Empaque",
+    p2Sub: "Coloca esta página dentro de tu paquete.",
+    merchant: "Comercio",
+    customer: "Cliente",
+    returnCode: "Código de Devolución",
+    returnDate: "Fecha de Devolución",
+    tracking: (c: string) => `Rastreo ${c}`,
+    reason: "Motivo de la Devolución",
+    shipTo: "ENVÍA TU DEVOLUCIÓN A",
+    footer: "¿Preguntas? Visita my.erendirasboutique.com",
+    locale: "es-MX",
+  },
+};
 
 const TAUPE = rgb(0x80 / 255, 0x6a / 255, 0x52 / 255);
 const SAND = rgb(0xbd / 255, 0xa8 / 255, 0x91 / 255);
@@ -91,6 +146,9 @@ function wrap(text: string, max = 88): string[] {
 
 export async function GET(req: NextRequest) {
   const code = (req.nextUrl.searchParams.get("code") || "").trim().toUpperCase();
+  const lang = req.nextUrl.searchParams.get("lang") === "es" ? "es" : "en";
+  const t = T[lang];
+
   if (!code) {
     return NextResponse.json({ error: "Missing return code" }, { status: 400 });
   }
@@ -134,7 +192,6 @@ export async function GET(req: NextRequest) {
     (await loadFont(pdf, BODY_FONT_FILE)) ??
     (await pdf.embedFont(StandardFonts.TimesRoman));
 
-  // Logo
   let logo = null;
   try {
     const logoBytes = await fs.readFile(path.join(process.cwd(), "public", LOGO_FILE));
@@ -165,7 +222,7 @@ export async function GET(req: NextRequest) {
         }
       }
     } catch {
-      // label embed failed — page 1 will show a note instead
+      // label embed failed — page 1 shows a note instead
     }
   }
 
@@ -187,22 +244,11 @@ export async function GET(req: NextRequest) {
 
   // ========== PAGE 1 — Instructions + Shipping Label ==========
   const p1 = pdf.addPage([PAGE_W, PAGE_H]);
-  drawHeader(
-    p1, heading, body, logo,
-    `Print this paper & attach the ${carrier} label`,
-    "Steps to successfully return your items"
-  );
+  drawHeader(p1, heading, body, logo, t.p1Title(carrier), t.p1Sub);
 
   let y = PAGE_H - 130 - 34;
 
-  const steps = [
-    "Please print this paper.",
-    "Cut out the label below.",
-    "Package & seal items into a poly bag or box.",
-    "Tape this label to the package.",
-    `Drop off the package at a ${carrier} location.`,
-  ];
-  steps.forEach((s, i) => {
+  t.steps(carrier).forEach((s, i) => {
     wrap(s, 82).forEach((line, j) => {
       p1.drawText(j === 0 ? `${i + 1}.  ${line}` : `     ${line}`, {
         x: M, y, size: 11.5, font: body, color: INK,
@@ -211,13 +257,13 @@ export async function GET(req: NextRequest) {
     });
     y -= 3;
   });
-  p1.drawText("•  Don't forget to include the packing slip (page 2) inside the package.", {
+  p1.drawText(t.slipNote, {
     x: M + 18, y, size: 11, font: body, color: TAUPE,
   });
   y -= 28;
 
   // CUT HERE dashed line
-  const cutLabel = "CUT HERE";
+  const cutLabel = t.cutHere;
   const cutW = body.widthOfTextAtSize(cutLabel, 9);
   p1.drawLine({
     start: { x: M, y }, end: { x: PAGE_W / 2 - cutW / 2 - 10, y },
@@ -230,16 +276,13 @@ export async function GET(req: NextRequest) {
   });
   y -= 18;
 
-  for (const line of wrap(
-    `This label is ONLY accepted at ${carrier} locations. Using this label with any other carrier will cause your return to fail.`,
-    88
-  )) {
+  for (const line of wrap(t.warning(carrier), 88)) {
     p1.drawText(line, { x: M, y, size: 9, font: body, color: TAUPE });
     y -= 13;
   }
   y -= 8;
 
-  // Label area (4x6 label => 288 x 432 pt, rotated to fit landscape like carrier sheets)
+  // Label area
   const areaTop = y;
   const areaBottom = 60;
   const areaH = areaTop - areaBottom;
@@ -271,22 +314,17 @@ export async function GET(req: NextRequest) {
       p1.drawPage(labelPdfPage!, { x, y: yPos, width: w, height: h })
     );
   } else {
-    p1.drawText("Your label couldn't be embedded — use the Print Return Label button instead.", {
+    p1.drawText(t.labelFail, {
       x: M, y: areaBottom + areaH / 2, size: 10, font: body, color: TAUPE,
     });
   }
 
   // ========== PAGE 2 — Packing Slip ==========
   const p2 = pdf.addPage([PAGE_W, PAGE_H]);
-  drawHeader(
-    p2, heading, body, logo,
-    "Packing Slip",
-    "Please place this page inside your package."
-  );
+  drawHeader(p2, heading, body, logo, t.p2Title, t.p2Sub);
 
   y = PAGE_H - 130 - 40;
 
-  // Barcode top-right
   if (barcodePng) {
     const bw = 200;
     const bh = (barcodePng.height / barcodePng.width) * bw;
@@ -305,17 +343,17 @@ export async function GET(req: NextRequest) {
     y -= 26;
   };
 
-  field("Merchant", "Erendira's Boutique");
-  field("Customer", ret.from_name || "");
-  field("Return Code", ret.return_code);
+  field(t.merchant, "Erendira's Boutique");
+  field(t.customer, ret.from_name || "");
+  field(t.returnCode, ret.return_code);
   field(
-    "Return Date",
-    new Date(ret.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    t.returnDate,
+    new Date(ret.created_at).toLocaleDateString(t.locale, { year: "numeric", month: "long", day: "numeric" })
   );
-  field(`${carrier} Tracking`, ret.tracking_number || "");
+  field(t.tracking(carrier), ret.tracking_number || "");
 
   if (ret.reason) {
-    p2.drawText("REASON FOR RETURN", { x: M, y, size: 8, font: body, color: SAND });
+    p2.drawText(t.reason.toUpperCase(), { x: M, y, size: 8, font: body, color: SAND });
     y -= 14;
     for (const line of wrap(String(ret.reason), 88).slice(0, 4)) {
       p2.drawText(line, { x: M, y, size: 11, font: body, color: INK });
@@ -324,26 +362,21 @@ export async function GET(req: NextRequest) {
     y -= 12;
   }
 
-  // Divider
   p2.drawLine({ start: { x: M, y }, end: { x: PAGE_W - M, y }, thickness: 1, color: SAND });
   y -= 28;
 
-  // Ship-to box
   p2.drawRectangle({
     x: M, y: y - 82, width: PAGE_W - M * 2, height: 100,
     color: CREAM, borderColor: SAND, borderWidth: 1,
   });
-  p2.drawText("SHIP YOUR RETURN TO", { x: M + 16, y: y - 4, size: 8, font: body, color: TAUPE });
+  p2.drawText(t.shipTo, { x: M + 16, y: y - 4, size: 8, font: body, color: TAUPE });
   let ay = y - 24;
   for (const line of RETURN_ADDRESS) {
     p2.drawText(line, { x: M + 16, y: ay, size: 12, font: body, color: INK });
     ay -= 17;
   }
 
-  // Footer
-  p2.drawText("Questions? Visit my.erendirasboutique.com", {
-    x: M, y: 48, size: 9, font: body, color: SAND,
-  });
+  p2.drawText(t.footer, { x: M, y: 48, size: 9, font: body, color: SAND });
 
   const bytes = await pdf.save();
 
