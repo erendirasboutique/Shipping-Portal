@@ -198,12 +198,12 @@ export async function GET(req: NextRequest) {
     `Drop off the package at a ${carrier} location.`,
   ];
   steps.forEach((s, i) => {
-    for (const [j, line] of wrap(s, 82).entries()) {
+    wrap(s, 82).forEach((line, j) => {
       p1.drawText(j === 0 ? `${i + 1}.  ${line}` : `     ${line}`, {
         x: M, y, size: 11.5, font: body, color: INK,
       });
       y -= 17;
-    }
+    });
     y -= 3;
   });
   p1.drawText("•  Don't forget to include the packing slip (page 2) inside the package.", {
