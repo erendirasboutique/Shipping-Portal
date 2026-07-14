@@ -35,6 +35,7 @@ const ICONS = {
   help: "M12 22a10 10 0 100-20 10 10 0 000 20z M9.5 9a2.5 2.5 0 015 .5c0 1.5-2.5 2-2.5 3.5 M12 17h.01",
   slip: "M7 3h10a2 2 0 012 2v16l-3-2-3 2-3-2-3 2V5a2 2 0 012-2z M9 8h6 M9 12h6",
   store: "M3 9l1.5-5h15L21 9 M3 9v11h18V9 M3 9c0 1.5 1.5 3 3 3s3-1.5 3-3c0 1.5 1.5 3 3 3s3-1.5 3-3c0 1.5 1.5 3 3 3s3-1.5 3-3 M9 20v-6h6v6",
+  share: "M18 8a3 3 0 100-6 3 3 0 000 6z M6 15a3 3 0 100-6 3 3 0 000 6z M18 22a3 3 0 100-6 3 3 0 000 6z M8.6 13.5l6.8 4 M15.4 6.5l-6.8 4",
 };
 
 type StepState = "done" | "current" | "todo";
@@ -103,6 +104,7 @@ export default function ReturnStatusPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<any | null>(null);
   const [opening, setOpening] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function lookup() {
     setError(null);
@@ -123,10 +125,33 @@ export default function ReturnStatusPage() {
     setBusy(false);
   }
 
+  function slipUrl() {
+    return `${window.location.origin}/api/returns/slip?code=${encodeURIComponent(code.trim().toUpperCase())}`;
+  }
+
   function printLabel() {
     setOpening(true);
-    window.open(`/api/returns/slip?code=${encodeURIComponent(code.trim().toUpperCase())}`, "_blank");
+    window.open(slipUrl(), "_blank");
     setTimeout(() => setOpening(false), 800);
+  }
+
+  async function shareLabel() {
+    const url = slipUrl();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Erendira's Boutique Return Label", url });
+        return;
+      } catch {
+        // user cancelled — fall through to copy
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
   }
 
   const uspsMapUrl = info?.zip
@@ -229,6 +254,15 @@ export default function ReturnStatusPage() {
               >
                 <Icon d={ICONS.printer} size={16} />
                 {opening ? "Opening…" : "Print Return Label"}
+              </button>
+
+              <button
+                onClick={shareLabel}
+                className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full border bg-white py-2.5 text-[13px]"
+                style={{ borderColor: "#D8CDBD", color: TAUPE }}
+              >
+                <Icon d={copied ? ICONS.check : ICONS.share} size={14} />
+                {copied ? "Link copied!" : "Share label link"}
               </button>
 
               <div className="mt-2.5 flex gap-2.5">
