@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage, LineCapStyle } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+// @ts-ignore -- bwip-js type declarations don't resolve under this moduleResolution
 import bwipjs from "bwip-js";
 import fs from "fs/promises";
 import path from "path";
