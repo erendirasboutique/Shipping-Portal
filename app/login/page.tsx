@@ -109,8 +109,11 @@ function LoginInner() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
-      <div className="mb-6 flex rounded-full border border-taupe/30 bg-white p-1">
+    <div
+      className="flex min-h-screen flex-col items-center justify-center bg-cream bg-cover bg-center bg-fixed px-4 py-10"
+      style={{ backgroundImage: "url('/brand_soft_cream.png')" }}
+    >
+      <div className="mb-6 flex rounded-full border border-taupe/30 bg-white p-1 shadow-sm">
         <button className="rounded-full bg-sand/60 px-6 py-2 text-sm font-medium text-ink">App</button>
         <button
           onClick={function () {
@@ -123,7 +126,7 @@ function LoginInner() {
       </div>
 
       <div className="grid w-full max-w-5xl items-stretch gap-8 lg:grid-cols-2">
-        <div className="card flex flex-col justify-center !rounded-[1.5rem] border-2 !border-ink/70 px-8 py-10 shadow-[6px_6px_0_rgba(60,48,36,0.85)] sm:px-12">
+        <div className="card flex flex-col justify-center !rounded-[1.5rem] border-2 !border-ink/70 bg-white px-8 py-10 shadow-[6px_6px_0_rgba(60,48,36,0.85)] sm:px-12">
           <Image
             src="/logo2.png"
             alt="Erendira&#8217;s Boutique"
@@ -221,7 +224,9 @@ function LoginInner() {
         </div>
 
         <div className="hidden items-center justify-center lg:flex">
-          <Storefront />
+          <div className="w-full rounded-[1.75rem] border-2 border-ink/60 bg-cream/80 p-10 shadow-[6px_6px_0_rgba(60,48,36,0.85)] backdrop-blur-sm">
+            <Storefront />
+          </div>
         </div>
       </div>
     </div>
@@ -235,4 +240,3 @@ export default function LoginPage() {
     </Suspense>
   );
 }
-
