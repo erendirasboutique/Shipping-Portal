@@ -3,7 +3,11 @@ import { getProvider } from "@/lib/shipping";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// Creates a USPS return label (customer -> boutique) and buys the cheapest USPS rate.
+// Buys a return label (customer -> boutique).
+// - If `rate_id` + `shipment_ref` are provided (from /api/returns/rates), buys that
+//   exact rate — USPS, FedEx Ground Economy, UPS Ground Saver, whatever was picked.
+// - If not, falls back to the original behavior: rate the shipment and buy the
+//   cheapest USPS rate.
 // With RETURNS_PROVIDER=shippo these are scan-based: you're only billed if the label is used.
 export async function POST(req: Request) {
   const supabase = supabaseServer();
@@ -11,7 +15,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { request_id, parcel } = await req.json();
+    const { request_id, parcel, rate_id, shipment_ref, carrier } = await req.json();
     const admin = supabaseAdmin();
 
     const { data: rr, error } = await admin
@@ -40,13 +44,28 @@ export async function POST(req: Request) {
       isReturn: true,
     };
 
-    const { shipmentRef, rates } = await provider.getRates(input);
-    const uspsRates = rates.filter((r) => r.carrier === "USPS");
-    if (!uspsRates.length) throw new Error("No USPS rates returned for this address");
+    let buyShipmentRef: string;
+    let buyRateId: string;
+    let buyCarrier: string;
+
+    if (rate_id && shipment_ref) {
+      // Staff picked a specific rate from the rates modal
+      buyShipmentRef = shipment_ref;
+      buyRateId = rate_id;
+      buyCarrier = carrier || "USPS";
+    } else {
+      // Legacy path: cheapest USPS
+      const { shipmentRef, rates } = await provider.getRates(input);
+      const uspsRates = rates.filter((r: any) => r.carrier === "USPS");
+      if (!uspsRates.length) throw new Error("No USPS rates returned for this address");
+      buyShipmentRef = shipmentRef;
+      buyRateId = uspsRates[0].id;
+      buyCarrier = "USPS";
+    }
 
     const bought = await provider.buy({
-      shipmentRef,
-      rateId: uspsRates[0].id,
+      shipmentRef: buyShipmentRef,
+      rateId: buyRateId,
       input,
     });
 
@@ -56,10 +75,11 @@ export async function POST(req: Request) {
       label_url: bought.label_url,
       tracking_number: bought.tracking_number,
       tracking_url: bought.tracking_url,
-      carrier: "USPS",
+      carrier: buyCarrier,
       mail_class: bought.service,
       postage_amount: bought.rate,
     };
+
     const { error: upErr } = await admin.from("return_requests").update(update).eq("id", request_id);
     if (upErr) throw new Error(upErr.message);
 
