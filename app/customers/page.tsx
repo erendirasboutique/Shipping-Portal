@@ -145,6 +145,16 @@ function importCsv(file: File) {
     if (!editing?.id) return;
     if (!confirm(`Delete ${editing.name || "this customer"}? This can't be undone. Their past orders are kept, but they'll no longer match a customer record.`)) return;
     setBusy(true);
+    // Archived duplicates merged into this customer reference it via merged_into,
+    // which blocks deletion — detach them first.
+    const { error: unlinkError } = await supabase
+      .from("shipping_customers")
+      .update({ merged_into: null })
+      .eq("merged_into", editing.id);
+    if (unlinkError) {
+      setBusy(false);
+      return setMsg(unlinkError.message);
+    }
     const { error } = await supabase.from("shipping_customers").delete().eq("id", editing.id);
     setBusy(false);
     if (error) return setMsg(error.message);
