@@ -58,6 +58,7 @@ export default function CustomersPage() {
   const [primaryId, setPrimaryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   async function load() {
     const { data } = await supabase
@@ -79,6 +80,13 @@ export default function CustomersPage() {
   });
 
   const dupes = useMemo(() => findDuplicates(customers), [customers]);
+
+  function copyPortalLink() {
+    if (!editing?.portal_token) return;
+    navigator.clipboard.writeText("https://my.erendirasboutique.com/account?t=" + editing.portal_token);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
 
   async function save() {
     if (!editing?.name?.trim()) return setMsg("Name is required.");
@@ -202,7 +210,7 @@ function importCsv(file: File) {
 
       {/* Add/Edit modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => setEditing(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => { setEditing(null); setLinkCopied(false); }}>
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-cream p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-2xl">{editing.id ? "Edit customer" : "Add customer"}</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -227,9 +235,14 @@ function importCsv(file: File) {
               <div className="sm:col-span-2"><label className="label">Notes</label>
                 <textarea className="input" rows={2} value={editing.notes || ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} /></div>
             </div>
-            <div className="mt-5 flex gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               <button onClick={save} disabled={busy} className="btn-primary">{busy ? "Saving…" : "Save customer"}</button>
-              <button onClick={() => setEditing(null)} className="btn-secondary">Cancel</button>
+              <button onClick={() => { setEditing(null); setLinkCopied(false); }} className="btn-secondary">Cancel</button>
+              {editing.id && editing.portal_token && (
+                <button onClick={copyPortalLink} className="btn-secondary ml-auto">
+                  {linkCopied ? "Copied!" : "Copy portal link"}
+                </button>
+              )}
             </div>
           </div>
         </div>
