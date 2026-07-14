@@ -59,6 +59,8 @@ export default function CustomersPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   async function load() {
     const { data } = await supabase
@@ -80,6 +82,44 @@ export default function CustomersPage() {
   });
 
   const dupes = useMemo(() => findDuplicates(customers), [customers]);
+
+  // Load this customer's orders when the edit modal opens (matched by email, then name)
+  useEffect(() => {
+    if (!editing?.id) {
+      setCustomerOrders([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setOrdersLoading(true);
+      const seen = new Set<string>();
+      const merged: any[] = [];
+      const cols = "id, order_number, created_at, status, carrier, mail_class, tracking_number, postage_amount";
+      if (editing.email) {
+        const { data } = await supabase
+          .from("shipping_orders")
+          .select(cols)
+          .ilike("to_email", editing.email)
+          .order("created_at", { ascending: false });
+        (data || []).forEach((o) => { if (!seen.has(o.id)) { seen.add(o.id); merged.push(o); } });
+      }
+      if (editing.name) {
+        const { data } = await supabase
+          .from("shipping_orders")
+          .select(cols)
+          .ilike("to_name", editing.name)
+          .order("created_at", { ascending: false });
+        (data || []).forEach((o) => { if (!seen.has(o.id)) { seen.add(o.id); merged.push(o); } });
+      }
+      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      if (!cancelled) {
+        setCustomerOrders(merged);
+        setOrdersLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id]);
 
   function copyPortalLink() {
     if (!editing?.portal_token) return;
@@ -258,6 +298,36 @@ function importCsv(file: File) {
               <div className="sm:col-span-2"><label className="label">Notes</label>
                 <textarea className="input" rows={2} value={editing.notes || ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} /></div>
             </div>
+
+            {editing.id && (
+              <div className="mt-5">
+                <p className="label">Orders{!ordersLoading && customerOrders.length ? ` (${customerOrders.length})` : ""}</p>
+                {ordersLoading && <p className="mt-1 text-sm text-ink/50">Looking up orders…</p>}
+                {!ordersLoading && !customerOrders.length && (
+                  <p className="mt-1 text-sm text-ink/50">No orders found for this customer yet.</p>
+                )}
+                {!ordersLoading && customerOrders.length > 0 && (
+                  <div className="mt-1 max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                    {customerOrders.map((o) => (
+                      <a
+                        key={o.id}
+                        href={"/orders/" + o.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-sand bg-white px-3.5 py-2.5 text-sm hover:bg-sand/20"
+                      >
+                        <span className="font-medium">
+                          {o.order_number != null ? "#EB-" + o.order_number : "#" + String(o.id).slice(0, 8).toUpperCase()}
+                        </span>
+                        <span className="text-ink/60">
+                          {new Date(o.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {o.carrier ? " · " + o.carrier : ""}
+                        </span>
+                        <span className="pill bg-sand/40 text-taupe">{o.status}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <button onClick={save} disabled={busy} className="btn-primary">{busy ? "Saving…" : "Save customer"}</button>
               <button onClick={() => { setEditing(null); setLinkCopied(false); }} className="btn-secondary">Cancel</button>
