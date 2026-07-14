@@ -1,7 +1,7 @@
 // lib/shipping/brandLabel.ts
 //
-// Appends a branded 4x6 label page to an existing pdf-lib PDFDocument.
-// The raw carrier label (PNG, JPG, or PDF) is placed at full page size,
+// Appends branded 4x6 label page(s) to an existing pdf-lib PDFDocument.
+// Each raw carrier label (PDF, PNG, or JPG) is placed at full page size,
 // then the broker watermark in the bottom-left corner is covered with a
 // white mask and the boutique logo is stamped in its place.
 //
@@ -32,47 +32,23 @@ const LOGO = { x: 16, maxW: 120, maxH: 34 };
 // ---------------------------------------------------------------------------
 
 /**
- * Loads and embeds the logo once per output document. Pass the returned
- * PDFImage to subsequent appendBrandedLabelPage calls to avoid re-embedding
- * the logo for every label in a batch.
+ * Embeds the logo once per output document. Pass the returned PDFImage to
+ * subsequent appendBrandedLabel calls so the logo isn't re-embedded for
+ * every label in a batch. Returns null if logoBytes is null (branding is
+ * then skipped and labels are appended unmodified).
  */
 export async function embedLogo(
   outDoc: PDFDocument,
-  logoBytes: Uint8Array
-): Promise<PDFImage> {
+  logoBytes: Uint8Array | null
+): Promise<PDFImage | null> {
+  if (!logoBytes) return null;
   return outDoc.embedPng(logoBytes);
 }
 
-/**
- * Appends one branded 4x6 page to outDoc.
- *
- * @param outDoc     The merged output document being built.
- * @param labelBytes Raw bytes of the carrier label (PNG, JPG, or PDF).
- * @param logo       Logo already embedded in outDoc via embedLogo().
- */
-export async function appendBrandedLabelPage(
-  outDoc: PDFDocument,
-  labelBytes: Uint8Array,
+function stampBranding(
+  page: ReturnType<PDFDocument["addPage"]>,
   logo: PDFImage
-): Promise<void> {
-  const page = outDoc.addPage([PAGE_W, PAGE_H]);
-
-  // 1. Place the raw label at full page size, detecting format by magic bytes
-  const isPdf = labelBytes[0] === 0x25 && labelBytes[1] === 0x50; // "%P"
-  const isPng = labelBytes[0] === 0x89 && labelBytes[1] === 0x50; // PNG magic
-
-  if (isPdf) {
-    const srcDoc = await PDFDocument.load(labelBytes);
-    const [embedded] = await outDoc.embedPdf(srcDoc, [0]);
-    page.drawPage(embedded, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
-  } else {
-    const image = isPng
-      ? await outDoc.embedPng(labelBytes)
-      : await outDoc.embedJpg(labelBytes);
-    page.drawImage(image, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
-  }
-
-  // 2. White-out the broker watermark in the bottom-left corner
+): void {
   page.drawRectangle({
     x: MASK.x,
     y: MASK.y,
@@ -81,7 +57,6 @@ export async function appendBrandedLabelPage(
     color: rgb(1, 1, 1),
   });
 
-  // 3. Stamp the logo, scaled to fit, aspect ratio preserved
   const scale = Math.min(LOGO.maxW / logo.width, LOGO.maxH / logo.height);
   const logoW = logo.width * scale;
   const logoH = logo.height * scale;
@@ -92,4 +67,42 @@ export async function appendBrandedLabelPage(
     width: logoW,
     height: logoH,
   });
+}
+
+/**
+ * Appends one label to outDoc as branded 4x6 page(s).
+ *
+ * - PDF labels: every page of the label PDF becomes a branded 4x6 page.
+ * - PNG/JPG labels: embedded as a single branded 4x6 page.
+ * - If logo is null, pages are appended at 4x6 without branding.
+ *
+ * @param outDoc     The merged output document being built.
+ * @param labelBytes Raw bytes of the carrier label.
+ * @param logo       Logo embedded in outDoc via embedLogo(), or null.
+ */
+export async function appendBrandedLabel(
+  outDoc: PDFDocument,
+  labelBytes: Uint8Array,
+  logo: PDFImage | null
+): Promise<void> {
+  const isPdf = labelBytes[0] === 0x25 && labelBytes[1] === 0x50; // "%P"
+  const isPng = labelBytes[0] === 0x89 && labelBytes[1] === 0x50; // PNG magic
+
+  if (isPdf) {
+    const srcDoc = await PDFDocument.load(labelBytes);
+    const indices = srcDoc.getPageIndices();
+    const embeddedPages = await outDoc.embedPdf(srcDoc, indices);
+    for (const embedded of embeddedPages) {
+      const page = outDoc.addPage([PAGE_W, PAGE_H]);
+      page.drawPage(embedded, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
+      if (logo) stampBranding(page, logo);
+    }
+  } else {
+    const image = isPng
+      ? await outDoc.embedPng(labelBytes)
+      : await outDoc.embedJpg(labelBytes);
+    const page = outDoc.addPage([PAGE_W, PAGE_H]);
+    page.drawImage(image, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
+    if (logo) stampBranding(page, logo);
+  }
 }
