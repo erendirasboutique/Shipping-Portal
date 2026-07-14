@@ -7,6 +7,71 @@ import { useState } from "react";
 const TAUPE = "#806a52";
 const SAND = "#bda891";
 
+type Lang = "en" | "es";
+
+const T = {
+  en: {
+    title: "Your Return",
+    subtitle: "Enter your return code to check status and print your label.",
+    placeholder: "EB-XXXXXX",
+    check: "Check",
+    checking: "Checking…",
+    genericError: "Something went wrong. Try again.",
+    returnCode: "Return code",
+    steps: ["Requested", "Label ready", "In transit", "Received"],
+    noRequest: "This code hasn't been used to start a return yet.",
+    startReturn: "Start your return",
+    submitted: (name?: string) =>
+      `${name ? `Thanks, ${name}! ` : ""}Your return request is in. We're preparing your prepaid USPS label — check back here soon with this same code to print it.`,
+    prepaidLabel: (carrier: string) => `Prepaid ${carrier} label`,
+    ready: "READY",
+    printLabel: "Print Return Label",
+    opening: "Opening…",
+    shareLink: "Share label link",
+    copied: "Link copied!",
+    shareTitle: "Erendira's Boutique Return Label",
+    copyPrompt: "Copy this link:",
+    trackReturn: "Track Return",
+    instructions: "Instructions",
+    tip1: "Print the label and tape it to your package",
+    tip2: "Place the packing slip inside before sealing",
+    tip3: "Drop off at any USPS location near you",
+    needHelp: "Need help with your return?",
+    nearestUsps: "Find the nearest USPS",
+    instructionsPdf: "/return-instructions-half.pdf",
+  },
+  es: {
+    title: "Tu Devolución",
+    subtitle: "Ingresa tu código de devolución para ver el estado e imprimir tu etiqueta.",
+    placeholder: "EB-XXXXXX",
+    check: "Buscar",
+    checking: "Buscando…",
+    genericError: "Algo salió mal. Inténtalo de nuevo.",
+    returnCode: "Código de devolución",
+    steps: ["Solicitada", "Etiqueta lista", "En camino", "Recibida"],
+    noRequest: "Este código aún no se ha usado para iniciar una devolución.",
+    startReturn: "Inicia tu devolución",
+    submitted: (name?: string) =>
+      `${name ? `¡Gracias, ${name}! ` : ""}Recibimos tu solicitud de devolución. Estamos preparando tu etiqueta prepagada de USPS — vuelve pronto con este mismo código para imprimirla.`,
+    prepaidLabel: (carrier: string) => `Etiqueta prepagada de ${carrier}`,
+    ready: "LISTA",
+    printLabel: "Imprimir Etiqueta",
+    opening: "Abriendo…",
+    shareLink: "Compartir enlace",
+    copied: "¡Enlace copiado!",
+    shareTitle: "Etiqueta de Devolución — Erendira's Boutique",
+    copyPrompt: "Copia este enlace:",
+    trackReturn: "Rastrear Devolución",
+    instructions: "Instrucciones",
+    tip1: "Imprime la etiqueta y pégala a tu paquete",
+    tip2: "Coloca la hoja de empaque adentro antes de cerrarlo",
+    tip3: "Entrégalo en cualquier oficina de USPS cercana",
+    needHelp: "¿Necesitas ayuda con tu devolución?",
+    nearestUsps: "Encuentra la oficina de USPS más cercana",
+    instructionsPdf: "/return-instructions-half.pdf",
+  },
+};
+
 function Icon({ d, size = 15 }: { d: string; size?: number }) {
   return (
     <svg
@@ -69,17 +134,17 @@ function Connector({ active }: { active: boolean }) {
   return <div className="mt-3.5 h-0.5 flex-1" style={{ background: active ? TAUPE : "#E2D9CC" }} />;
 }
 
-function Stepper({ stage }: { stage: "submitted" | "label_ready" }) {
+function Stepper({ stage, labels }: { stage: "submitted" | "label_ready"; labels: string[] }) {
   const labelState: StepState = stage === "label_ready" ? "current" : "todo";
   return (
     <div className="mt-7 flex items-start px-1">
-      <Step icon={ICONS.check} label="Requested" state="done" />
+      <Step icon={ICONS.check} label={labels[0]} state="done" />
       <Connector active={stage === "label_ready"} />
-      <Step icon={ICONS.tag} label="Label ready" state={labelState} />
+      <Step icon={ICONS.tag} label={labels[1]} state={labelState} />
       <Connector active={false} />
-      <Step icon={ICONS.truck} label="In transit" state="todo" />
+      <Step icon={ICONS.truck} label={labels[2]} state="todo" />
       <Connector active={false} />
-      <Step icon={ICONS.box} label="Received" state="todo" />
+      <Step icon={ICONS.box} label={labels[3]} state="todo" />
     </div>
   );
 }
@@ -99,12 +164,15 @@ function Tip({ icon, text }: { icon: string; text: string }) {
 }
 
 export default function ReturnStatusPage() {
+  const [lang, setLang] = useState<Lang>("en");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<any | null>(null);
   const [opening, setOpening] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const t = T[lang];
 
   async function lookup() {
     setError(null);
@@ -117,7 +185,7 @@ export default function ReturnStatusPage() {
         body: JSON.stringify({ code }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Something went wrong. Try again.");
+      if (!res.ok) throw new Error(data.error || t.genericError);
       setInfo(data);
     } catch (e: any) {
       setError(e.message);
@@ -126,7 +194,9 @@ export default function ReturnStatusPage() {
   }
 
   function slipUrl() {
-    return `${window.location.origin}/api/returns/slip?code=${encodeURIComponent(code.trim().toUpperCase())}`;
+    return `${window.location.origin}/api/returns/slip?code=${encodeURIComponent(
+      code.trim().toUpperCase()
+    )}&lang=${lang}`;
   }
 
   function printLabel() {
@@ -139,7 +209,7 @@ export default function ReturnStatusPage() {
     const url = slipUrl();
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Erendira's Boutique Return Label", url });
+        await navigator.share({ title: t.shareTitle, url });
         return;
       } catch {
         // user cancelled — fall through to copy
@@ -150,7 +220,7 @@ export default function ReturnStatusPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      window.prompt("Copy this link:", url);
+      window.prompt(t.copyPrompt, url);
     }
   }
 
@@ -158,30 +228,44 @@ export default function ReturnStatusPage() {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`USPS near ${info.zip}`)}`
     : "https://www.google.com/maps/search/?api=1&query=USPS";
 
-  const formatTracking = (t?: string) =>
-    t ? t.replace(/(.{4})/g, "$1 ").trim() : "";
+  const formatTracking = (tn?: string) => (tn ? tn.replace(/(.{4})/g, "$1 ").trim() : "");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F5F3EF] px-4 py-10">
-      <div className="card w-full max-w-lg !rounded-[2rem]">
+      <div className="card relative w-full max-w-lg !rounded-[2rem]">
+        <div className="absolute right-5 top-5 flex overflow-hidden rounded-full border" style={{ borderColor: "#D8CDBD" }}>
+          <button
+            onClick={() => setLang("en")}
+            className="px-3 py-1 text-[11px] tracking-wide"
+            style={lang === "en" ? { background: TAUPE, color: "#F5F3EF" } : { background: "#fff", color: TAUPE }}
+          >
+            EN
+          </button>
+          <button
+            onClick={() => setLang("es")}
+            className="px-3 py-1 text-[11px] tracking-wide"
+            style={lang === "es" ? { background: TAUPE, color: "#F5F3EF" } : { background: "#fff", color: TAUPE }}
+          >
+            ES
+          </button>
+        </div>
+
         <div className="text-center">
           <Image src="/logo2.png" alt="Erendira's Boutique" width={120} height={52} className="mx-auto h-auto w-28" />
-          <h1 className="mt-5 text-3xl">Your Return</h1>
-          <p className="mt-2 text-sm text-ink/70">
-            Enter your return code to check status and print your label.
-          </p>
+          <h1 className="mt-5 text-3xl">{t.title}</h1>
+          <p className="mt-2 text-sm text-ink/70">{t.subtitle}</p>
         </div>
 
         <div className="mt-6 flex gap-2">
           <input
             className="input text-center font-mono uppercase tracking-[0.25em]"
-            placeholder="EB-XXXXXX"
+            placeholder={t.placeholder}
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && lookup()}
           />
           <button onClick={lookup} disabled={busy || !code.trim()} className="btn-primary shrink-0">
-            {busy ? "Checking…" : "Check"}
+            {busy ? t.checking : t.check}
           </button>
         </div>
 
@@ -191,7 +275,7 @@ export default function ReturnStatusPage() {
 
         {info && (info.state === "submitted" || info.state === "label_ready") && (
           <p className="mt-4 text-center text-xs" style={{ color: "#8A7B68" }}>
-            Return code{" "}
+            {t.returnCode}{" "}
             <span className="font-mono tracking-[0.15em]" style={{ color: TAUPE }}>
               {code.trim().toUpperCase()}
             </span>
@@ -201,36 +285,31 @@ export default function ReturnStatusPage() {
 
         {info?.state === "no_request" && (
           <div className="mt-6 rounded-2xl border border-taupe/20 bg-cream/60 p-5 text-center">
-            <p className="text-sm text-ink/80">
-              This code hasn&apos;t been used to start a return yet.
-            </p>
+            <p className="text-sm text-ink/80">{t.noRequest}</p>
             <Link href="/return" className="btn-primary mt-4 inline-flex">
-              Start your return
+              {t.startReturn}
             </Link>
           </div>
         )}
 
         {info?.state === "submitted" && (
           <>
-            <Stepper stage="submitted" />
+            <Stepper stage="submitted" labels={t.steps} />
             <div className="mt-6 rounded-2xl border border-taupe/20 bg-cream/60 p-5 text-center">
-              <p className="text-sm leading-relaxed text-ink/80">
-                {info.first_name ? `Thanks, ${info.first_name}! ` : ""}Your return request is in.
-                We&apos;re preparing your prepaid USPS label — check back here soon with this same code to print it.
-              </p>
+              <p className="text-sm leading-relaxed text-ink/80">{t.submitted(info.first_name)}</p>
             </div>
           </>
         )}
 
         {info?.state === "label_ready" && (
           <>
-            <Stepper stage="label_ready" />
+            <Stepper stage="label_ready" labels={t.steps} />
 
             <div className="mt-6 rounded-[20px] border p-6" style={{ background: "#F5F3EF", borderColor: "#E5DBCC" }}>
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[15px]" style={{ color: "#3D342A" }}>
-                    Prepaid {info.carrier || "USPS"} label
+                    {t.prepaidLabel(info.carrier || "USPS")}
                   </p>
                   {info.tracking_number && (
                     <p className="mt-1 font-mono text-xs" style={{ color: "#8A7B68" }}>
@@ -242,7 +321,7 @@ export default function ReturnStatusPage() {
                   className="rounded-full px-3 py-1 text-[11px] tracking-[0.15em]"
                   style={{ background: "#EDE7DB", color: TAUPE }}
                 >
-                  READY
+                  {t.ready}
                 </span>
               </div>
 
@@ -253,7 +332,7 @@ export default function ReturnStatusPage() {
                 style={{ background: TAUPE, color: "#F5F3EF" }}
               >
                 <Icon d={ICONS.printer} size={16} />
-                {opening ? "Opening…" : "Print Return Label"}
+                {opening ? t.opening : t.printLabel}
               </button>
 
               <button
@@ -262,7 +341,7 @@ export default function ReturnStatusPage() {
                 style={{ borderColor: "#D8CDBD", color: TAUPE }}
               >
                 <Icon d={copied ? ICONS.check : ICONS.share} size={14} />
-                {copied ? "Link copied!" : "Share label link"}
+                {copied ? t.copied : t.shareLink}
               </button>
 
               <div className="mt-2.5 flex gap-2.5">
@@ -275,31 +354,31 @@ export default function ReturnStatusPage() {
                     style={{ borderColor: "#D8CDBD", color: TAUPE }}
                   >
                     <Icon d={ICONS.pin} size={14} />
-                    Track Return
+                    {t.trackReturn}
                   </a>
                 ) : null}
                 <a
-                  href="/return-instructions-half.pdf"
+                  href={t.instructionsPdf}
                   target="_blank"
                   rel="noreferrer"
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-full border bg-white py-2.5 text-[13px]"
                   style={{ borderColor: "#D8CDBD", color: TAUPE }}
                 >
                   <Icon d={ICONS.help} size={14} />
-                  Instructions
+                  {t.instructions}
                 </a>
               </div>
             </div>
 
             <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:gap-3">
-              <Tip icon={ICONS.printer} text="Print the label and tape it to your package" />
-              <Tip icon={ICONS.slip} text="Place the packing slip inside before sealing" />
-              <Tip icon={ICONS.store} text="Drop off at any USPS location near you" />
+              <Tip icon={ICONS.printer} text={t.tip1} />
+              <Tip icon={ICONS.slip} text={t.tip2} />
+              <Tip icon={ICONS.store} text={t.tip3} />
             </div>
 
             <div className="mt-6 border-t pt-4 text-center" style={{ borderColor: "#EFE9DE" }}>
               <span className="text-xs" style={{ color: "#A89A85" }}>
-                Need help with your return?{" "}
+                {t.needHelp}{" "}
               </span>
               <a
                 href={uspsMapUrl}
@@ -308,7 +387,7 @@ export default function ReturnStatusPage() {
                 className="text-xs underline"
                 style={{ color: TAUPE }}
               >
-                Find the nearest USPS
+                {t.nearestUsps}
               </a>
             </div>
           </>
