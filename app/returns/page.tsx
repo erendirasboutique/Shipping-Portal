@@ -14,6 +14,14 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`pill ${styles[status] || "bg-sand/40 text-taupe"}`}>{status.replace("_", " ")}</span>;
 }
 
+type RateOption = {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string | number;
+  days?: number;
+};
+
 export default function ReturnsPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [requests, setRequests] = useState<any[]>([]);
@@ -21,6 +29,14 @@ export default function ReturnsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [newCode, setNewCode] = useState<string | null>(null);
+
+  // Rate selection modal state
+  const [rateModal, setRateModal] = useState<{
+    request: any;
+    shipmentRef: string;
+    rates: RateOption[];
+  } | null>(null);
+  const [buyingRateId, setBuyingRateId] = useState<string | null>(null);
 
   async function load() {
     const [{ data: reqs }, { data: cds }] = await Promise.all([
@@ -45,9 +61,10 @@ export default function ReturnsPage() {
     load();
   }
 
-  async function createLabel(rr: any) {
+  // Step 1: fetch rates across all carriers, then open the picker
+  async function openRates(rr: any) {
     setBusy(rr.id);
-    const res = await fetch("/api/returns/label", {
+    const res = await fetch("/api/returns/rates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ request_id: rr.id }),
@@ -55,7 +72,28 @@ export default function ReturnsPage() {
     const data = await res.json();
     setBusy(null);
     if (!res.ok) return setMsg(data.error);
-    setMsg(`USPS return label created — ${data.tracking_number}`);
+    setRateModal({ request: rr, shipmentRef: data.shipment_ref, rates: data.rates });
+  }
+
+  // Step 2: buy the chosen rate
+  async function buyRate(rate: RateOption) {
+    if (!rateModal) return;
+    setBuyingRateId(rate.id);
+    const res = await fetch("/api/returns/label", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        request_id: rateModal.request.id,
+        rate_id: rate.id,
+        shipment_ref: rateModal.shipmentRef,
+        carrier: rate.carrier,
+      }),
+    });
+    const data = await res.json();
+    setBuyingRateId(null);
+    if (!res.ok) return setMsg(data.error);
+    setRateModal(null);
+    setMsg(`${rate.carrier} return label created — ${data.tracking_number}`);
     load();
   }
 
@@ -77,8 +115,8 @@ export default function ReturnsPage() {
     return (
       <div className={mobile ? "flex flex-wrap gap-2" : "flex flex-wrap gap-1.5"}>
         {rr.status === "submitted" && (
-          <button onClick={() => createLabel(rr)} disabled={busy !== null} className={`btn-primary ${size}`}>
-            {busy === rr.id ? "Creating…" : "Create USPS label"}
+          <button onClick={() => openRates(rr)} disabled={busy !== null} className={`btn-primary ${size}`}>
+            {busy === rr.id ? "Getting rates…" : "Create label"}
           </button>
         )}
         {rr.label_url && (
@@ -250,6 +288,63 @@ export default function ReturnsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Rate selection modal */}
+      {rateModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={() => buyingRateId === null && setRateModal(null)}
+        >
+          <div
+            className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 sm:max-w-md sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl">Choose a return rate</h3>
+                <p className="mt-1 text-sm text-ink/60">
+                  {rateModal.request.from_name || "Customer"}
+                  {rateModal.request.from_city ? ` · ${rateModal.request.from_city}, ${rateModal.request.from_state}` : ""}
+                </p>
+              </div>
+              <button
+                className="btn-secondary !px-3 !py-1.5 !text-xs"
+                onClick={() => setRateModal(null)}
+                disabled={buyingRateId !== null}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {rateModal.rates.map((rate) => (
+                <button
+                  key={rate.id}
+                  onClick={() => buyRate(rate)}
+                  disabled={buyingRateId !== null}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-sand/60 bg-white/60 px-4 py-3 text-left transition hover:border-taupe disabled:opacity-50"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {rate.carrier} <span className="text-ink/70">· {rate.service}</span>
+                    </p>
+                    {rate.days != null && (
+                      <p className="text-xs text-ink/60">~{rate.days} day{rate.days === 1 ? "" : "s"}</p>
+                    )}
+                  </div>
+                  <p className="shrink-0 font-mono text-taupe">
+                    {buyingRateId === rate.id ? "Buying…" : `$${Number(rate.rate).toFixed(2)}`}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-4 text-xs text-ink/50">
+              Tap a rate to purchase the label. Scan-based rates only bill when the label is used.
+            </p>
+          </div>
+        </div>
+      )}
     </Shell>
   );
 }
