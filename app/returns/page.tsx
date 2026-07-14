@@ -72,15 +72,36 @@ export default function ReturnsPage() {
     setBusy(null);
   }
 
+  function RequestActions({ rr, mobile = false }: { rr: any; mobile?: boolean }) {
+    const size = mobile ? "!px-4 !py-2.5 !text-sm flex-1 text-center" : "!px-3 !py-1.5 !text-xs";
+    return (
+      <div className={mobile ? "flex flex-wrap gap-2" : "flex flex-wrap gap-1.5"}>
+        {rr.status === "submitted" && (
+          <button onClick={() => createLabel(rr)} disabled={busy !== null} className={`btn-primary ${size}`}>
+            {busy === rr.id ? "Creating…" : "Create USPS label"}
+          </button>
+        )}
+        {rr.label_url && (
+          <button onClick={() => printLabel(rr)} disabled={busy !== null} className={`btn-secondary ${size}`}>
+            {busy === `print-${rr.id}` ? "Opening…" : "Print label"}
+          </button>
+        )}
+        {rr.tracking_url && (
+          <a href={rr.tracking_url} target="_blank" rel="noreferrer" className={`btn-secondary ${size}`}>Track</a>
+        )}
+      </div>
+    );
+  }
+
   return (
     <Shell>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl">Returns</h1>
-        <div className="flex flex-wrap gap-2">
-          <a href="/return-instructions-half.pdf" target="_blank" rel="noreferrer" className="btn-secondary">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <h1 className="text-2xl sm:text-3xl">Returns</h1>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <a href="/return-instructions-half.pdf" target="_blank" rel="noreferrer" className="btn-secondary text-center">
             Instructions · Half Page
           </a>
-          <a href="/return-instructions-full.pdf" target="_blank" rel="noreferrer" className="btn-secondary">
+          <a href="/return-instructions-full.pdf" target="_blank" rel="noreferrer" className="btn-secondary text-center">
             Instructions · Full Page
           </a>
           <button onClick={generateCode} disabled={busy === "code"} className="btn-primary">
@@ -92,10 +113,10 @@ export default function ReturnsPage() {
       {msg && <p className="mt-4 cursor-pointer rounded-xl bg-sand/30 px-4 py-3 text-sm text-taupe" onClick={() => setMsg(null)}>{msg}</p>}
 
       {newCode && (
-        <div className="card mt-4 flex items-center justify-between">
+        <div className="card mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="label">New return access code</p>
-            <p className="font-mono text-2xl tracking-widest text-taupe">{newCode}</p>
+            <p className="break-all font-mono text-xl tracking-widest text-taupe sm:text-2xl">{newCode}</p>
           </div>
           <button className="btn-secondary" onClick={() => { navigator.clipboard.writeText(newCode); setMsg("Code copied."); }}>
             Copy code
@@ -104,7 +125,44 @@ export default function ReturnsPage() {
       )}
 
       <h2 className="mt-8 text-xl">Return requests</h2>
-      <div className="card mt-3 overflow-x-auto !p-0">
+
+      {/* Mobile: stacked cards */}
+      <div className="mt-3 space-y-3 md:hidden">
+        {requests.map((rr) => (
+          <div key={rr.id} className="card space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium">{rr.from_name || "—"}</p>
+                <p className="text-xs text-ink/60">{[rr.from_city, rr.from_state].filter(Boolean).join(", ")}</p>
+              </div>
+              <StatusPill status={rr.status} />
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+              <div>
+                <p className="label">Code</p>
+                <p className="font-mono text-xs">{rr.return_code || "—"}</p>
+              </div>
+              <div>
+                <p className="label">Tracking</p>
+                <p className="break-all font-mono text-xs">{rr.tracking_number || "—"}</p>
+              </div>
+              {rr.reason && (
+                <div className="col-span-2">
+                  <p className="label">Reason</p>
+                  <p className="text-sm">{rr.reason}</p>
+                </div>
+              )}
+            </div>
+            {(rr.status === "submitted" || rr.label_url || rr.tracking_url) && <RequestActions rr={rr} mobile />}
+          </div>
+        ))}
+        {!requests.length && (
+          <div className="card py-10 text-center text-ink/50">No return requests yet.</div>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="card mt-3 hidden overflow-x-auto !p-0 md:block">
         <table className="w-full min-w-[760px]">
           <thead className="border-b border-sand/60">
             <tr>
@@ -128,21 +186,7 @@ export default function ReturnsPage() {
                 <td className="table-td"><StatusPill status={rr.status} /></td>
                 <td className="table-td font-mono text-xs">{rr.tracking_number || "—"}</td>
                 <td className="table-td">
-                  <div className="flex flex-wrap gap-1.5">
-                    {rr.status === "submitted" && (
-                      <button onClick={() => createLabel(rr)} disabled={busy !== null} className="btn-primary !px-3 !py-1.5 !text-xs">
-                        {busy === rr.id ? "Creating…" : "Create USPS label"}
-                      </button>
-                    )}
-                    {rr.label_url && (
-                      <button onClick={() => printLabel(rr)} disabled={busy !== null} className="btn-secondary !px-3 !py-1.5 !text-xs">
-                        {busy === `print-${rr.id}` ? "Opening…" : "Print label"}
-                      </button>
-                    )}
-                    {rr.tracking_url && (
-                      <a href={rr.tracking_url} target="_blank" rel="noreferrer" className="btn-secondary !px-3 !py-1.5 !text-xs">Track</a>
-                    )}
-                  </div>
+                  <RequestActions rr={rr} />
                 </td>
               </tr>
             ))}
@@ -154,7 +198,30 @@ export default function ReturnsPage() {
       </div>
 
       <h2 className="mt-8 text-xl">Recent access codes</h2>
-      <div className="card mt-3 overflow-x-auto !p-0">
+
+      {/* Mobile: stacked cards */}
+      <div className="mt-3 space-y-3 md:hidden">
+        {codes.map((c) => (
+          <div key={c.id} className="card flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="break-all font-mono">{c.code}</p>
+              <p className="mt-1 text-xs text-ink/60">
+                {new Date(c.created_at).toLocaleDateString()}
+                {c.created_by ? ` · ${c.created_by}` : ""}
+              </p>
+            </div>
+            <span className={`pill shrink-0 ${c.used ? "bg-sand/40 text-taupe" : "bg-emerald-100 text-emerald-800"}`}>
+              {c.used ? "used" : "active"}
+            </span>
+          </div>
+        ))}
+        {!codes.length && (
+          <div className="card py-8 text-center text-ink/50">No codes generated yet.</div>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="card mt-3 hidden overflow-x-auto !p-0 md:block">
         <table className="w-full min-w-[520px]">
           <thead className="border-b border-sand/60">
             <tr>
