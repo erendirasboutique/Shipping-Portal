@@ -13,7 +13,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage, LineCapStyle } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-// @ts-ignore -- bwip-js type declarations don't resolve under this moduleResolution
 import bwipjs from "bwip-js";
 import fs from "fs/promises";
 import path from "path";
@@ -180,15 +179,36 @@ export async function GET(req: NextRequest) {
     barcodePng = null;
   }
 
-  // ========== PAGE 1 — Shipping Label ==========
+  // ========== PAGE 1 — Instructions + Shipping Label ==========
   const p1 = pdf.addPage([PAGE_W, PAGE_H]);
   drawHeader(
     p1, heading, body, logo,
-    `Your ${carrier} Return Label`,
-    `Cut out the label below and tape it to the outside of your package. ${carrier} only.`
+    `Print this paper & attach the ${carrier} label`,
+    "Steps to successfully return your items"
   );
 
-  let y = PAGE_H - 130 - 40;
+  let y = PAGE_H - 130 - 34;
+
+  const steps = [
+    "Please print this paper.",
+    "Cut out the label below.",
+    "Package & seal items into a poly bag or box.",
+    "Tape this label to the package.",
+    `Drop off the package at a ${carrier} location.`,
+  ];
+  steps.forEach((s, i) => {
+    for (const [j, line] of wrap(s, 82).entries()) {
+      p1.drawText(j === 0 ? `${i + 1}.  ${line}` : `     ${line}`, {
+        x: M, y, size: 11.5, font: body, color: INK,
+      });
+      y -= 17;
+    }
+    y -= 3;
+  });
+  p1.drawText("•  Don't forget to include the packing slip (page 2) inside the package.", {
+    x: M + 18, y, size: 11, font: body, color: TAUPE,
+  });
+  y -= 28;
 
   // CUT HERE dashed line
   const cutLabel = "CUT HERE";
@@ -202,7 +222,16 @@ export async function GET(req: NextRequest) {
     start: { x: PAGE_W / 2 + cutW / 2 + 10, y }, end: { x: PAGE_W - M, y },
     thickness: 1, color: SAND, dashArray: [4, 4], lineCap: LineCapStyle.Round,
   });
-  y -= 24;
+  y -= 18;
+
+  for (const line of wrap(
+    `This label is ONLY accepted at ${carrier} locations. Using this label with any other carrier will cause your return to fail.`,
+    88
+  )) {
+    p1.drawText(line, { x: M, y, size: 9, font: body, color: TAUPE });
+    y -= 13;
+  }
+  y -= 8;
 
   // Label area (4x6 label => 288 x 432 pt, rotated to fit landscape like carrier sheets)
   const areaTop = y;
