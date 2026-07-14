@@ -141,6 +141,19 @@ function importCsv(file: File) {
     });
   }
 
+  async function deleteCustomer() {
+    if (!editing?.id) return;
+    if (!confirm(`Delete ${editing.name || "this customer"}? This can't be undone. Their past orders are kept, but they'll no longer match a customer record.`)) return;
+    setBusy(true);
+    const { error } = await supabase.from("shipping_customers").delete().eq("id", editing.id);
+    setBusy(false);
+    if (error) return setMsg(error.message);
+    setEditing(null);
+    setLinkCopied(false);
+    setMsg("Customer deleted.");
+    load();
+  }
+
   async function merge() {
     if (!mergeGroup || !primaryId) return;
     setBusy(true);
@@ -241,6 +254,11 @@ function importCsv(file: File) {
               {editing.id && editing.portal_token && (
                 <button onClick={copyPortalLink} className="btn-secondary ml-auto">
                   {linkCopied ? "Copied!" : "Copy portal link"}
+                </button>
+              )}
+              {editing.id && (
+                <button onClick={deleteCustomer} disabled={busy} className={`btn-secondary border-red-400/50 text-red-700 hover:bg-red-50 ${editing.portal_token ? "" : "ml-auto"}`}>
+                  {busy ? "…" : "Delete"}
                 </button>
               )}
             </div>
