@@ -28,12 +28,11 @@
 
 /* ---- Theme palettes (RGB triplets so Tailwind opacity modifiers work) ---- */
 :root {
-  /* Default: darker cream, white cards */
-  --c-cream: 233 227 217;   /* page backdrop   #e9e3d9 */
-  --c-surface: 255 255 255; /* cards, inputs   white   */
-  --c-ink: 51 43 35;        /* body text       #332b23 */
-  --c-taupe: 128 106 82;    /* headings/accent #806a52 */
-  --c-sand: 189 168 145;    /* soft borders    #bda891 */
+  --c-cream: 245 243 239;   /* #F5F3EF — this is your background */
+  --c-taupe: 128 106 82;
+  --c-sand: 189 168 145;
+  --c-ink: ...;
+  --c-surface: ...;
   --font-laluxes: "La Luxes Serif";
   --font-recoleta: "Recoleta";
 }
