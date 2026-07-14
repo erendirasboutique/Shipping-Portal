@@ -67,7 +67,12 @@ function drawHeader(
     page.drawImage(logo, { x: M, y: PAGE_H - 38 - h, width: w, height: h });
     textX = M + w + 20;
   }
-  page.drawText(title, { x: textX, y: PAGE_H - 66, size: 22, font: heading, color: TAUPE });
+  const maxW = PAGE_W - M - textX;
+  let size = 22;
+  while (size > 12 && heading.widthOfTextAtSize(title, size) > maxW) {
+    size -= 0.5;
+  }
+  page.drawText(title, { x: textX, y: PAGE_H - 66, size, font: heading, color: TAUPE });
   page.drawText(subtitle, { x: textX, y: PAGE_H - 90, size: 10.5, font: body, color: INK });
 }
 
