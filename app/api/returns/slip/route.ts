@@ -18,8 +18,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ====== CONFIG ======
-const HEADING_FONT_FILE = "LaLuxesSerif.otf"; // exact filename in public/fonts/
-const BODY_FONT_FILE = "Recoleta.otf";        // exact filename in public/fonts/
+const HEADING_FONT_FILE = "la-luxes-serif.woff2";
+const BODY_FONT_FILE = "recoleta-regular.woff2";
 
 const RETURN_ADDRESS = [
   "Erendira's Boutique — Returns",
