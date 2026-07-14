@@ -27,7 +27,7 @@ const MASK = { x: 10, y: 6, w: 165, h: 42 };
 
 // Logo placement inside the masked area, scaled to fit while preserving
 // aspect ratio, vertically centered within the mask.
-const LOGO = { x: 16, maxW: 120, maxH: 34 };
+const LOGO = { x: 16, maxW: 90, maxH: 26 };
 
 // ---------------------------------------------------------------------------
 
