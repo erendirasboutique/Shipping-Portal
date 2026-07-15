@@ -87,7 +87,7 @@ export default function BatchPrintPage() {
   return (
     <Shell>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl">Batch Print</h1>
+        <h1 className="text-3xl">Batch Print 🖨️</h1>
         <div className="flex rounded-full border border-sand bg-white p-1">
           <button onClick={() => setTab("queue")} className={`rounded-full px-4 py-1.5 text-sm ${tab === "queue" ? "bg-taupe text-cream" : "text-taupe"}`}>
             To print ({queue.length})
