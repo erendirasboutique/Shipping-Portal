@@ -28,8 +28,8 @@ const emptyForm = {
   length: 14,
   width: 17,
   height: 1,
-  weight_lb: 0,
-  weight_oz: 0,
+  weight_lb: "",
+  weight_oz: "",
   signature_confirmation: false,
   notes: "",
   customer_id: null as string | null,
@@ -488,17 +488,17 @@ function CreateLabelInner() {
 
         {/* Column 3: additional options */}
         <div className="card h-fit !rounded-[2rem]">
-          <h2 className="text-2xl">Additional options</h2>
+          <h2 className="text-2xl">Additional Options</h2>
 
           <div className="mt-5">
-            <label className="label">Shipping provider</label>
+            <label className="label">Shipping Provider</label>
             <select
               className="input"
               value={provider}
               onChange={(e) => { setProvider(e.target.value as any); setRates([]); setSelectedRate(null); }}
             >
-              <option value="easypost">EasyPost</option>
               <option value="shippo">Shippo</option>
+              <option value="easypost">EasyPost</option>
               <option value="easyship">EasyShip</option>
               <option value="shipstation">ShipStation</option>
             </select>
@@ -511,11 +511,11 @@ function CreateLabelInner() {
               checked={form.signature_confirmation}
               onChange={(e) => set("signature_confirmation", e.target.checked)}
             />
-            Require Signature
+            Require Signature ✍️
           </label>
 
           <div className="mt-5">
-            <label className="label">Order notes</label>
+            <label className="label">Order Notes 📝 </label>
             <textarea
               className="input"
               rows={3}
