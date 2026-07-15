@@ -134,7 +134,7 @@ export default function ReturnsPage() {
   return (
     <Shell>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <h1 className="text-2xl sm:text-3xl">Returns</h1>
+        <h1 className="text-2xl sm:text-3xl">Returns ↩️</h1>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <a href="/return-instructions-half.pdf" target="_blank" rel="noreferrer" className="btn-secondary text-center">
             Instructions · Half Page
