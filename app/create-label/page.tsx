@@ -64,7 +64,7 @@ function CreateLabelInner() {
   const [manual, setManual] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
-  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation"| "easyship">("easypost");
+  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation"| "easyship">("shippo");
   const [rates, setRates] = useState<Rate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
