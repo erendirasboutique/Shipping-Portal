@@ -270,11 +270,11 @@ function CreateLabelInner() {
         {/* Column 1: address + packaging */}
         <div className="space-y-5">
           <div className="card !rounded-[2rem]">
-            <h2 className="text-center text-2xl">1. Address Information</h2>
+            <h2 className="text-center text-2xl">1. 📍 Address Information</h2>
             <div className="relative mt-5">
               <input
                 className="input"
-                placeholder="Search Existing Customers"
+                placeholder="Search Existing Customers 👤"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -348,7 +348,7 @@ function CreateLabelInner() {
           <div className="card !rounded-[2rem]">
             <h2 className="text-center text-2xl">2. Choose Packaging</h2>
             <div className="mt-5 rounded-2xl border-2 border-taupe/60 bg-cream/50 px-5 py-4 text-center font-medium">
-              Box / My Packaging
+             📦 Box / My Packaging
             </div>
             <div className="mt-5 flex items-center gap-3">
               <span className="w-24 shrink-0 text-sm font-medium">Dimensions</span>
