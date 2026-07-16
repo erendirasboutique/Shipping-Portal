@@ -38,7 +38,7 @@ const T = {
     tip3: "Drop off at any USPS location near you",
     needHelp: "Need help with your return?",
     nearestUsps: "Find the nearest USPS",
-    instructionsPdf: "/return-instructions-half.pdf",
+    instructionsPdf: "/return-instructions.pdf",
   },
   es: {
     title: "Tu Devolución",
@@ -68,7 +68,7 @@ const T = {
     tip3: "Entrégalo en cualquier oficina de USPS cercana",
     needHelp: "¿Necesitas ayuda con tu devolución?",
     nearestUsps: "Encuentra la oficina de USPS más cercana",
-    instructionsPdf: "/return-instructions-half.pdf",
+    instructionsPdf: "/return-instructions.pdf",
   },
 };
 
