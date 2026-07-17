@@ -49,7 +49,14 @@ const copy = {
     howToPay: 'How to pay',
     dueBy: 'Please pay by',
     payCard: 'Pay by card',
-    noInstructions: 'We sent you a message with the payment options.',
+    noInstructions: 'Zelle: 909.401.7221
+Cash App: $ErendirasBoutique
+Venmo: @ErendirasBoutique 
+PayPal: PayPal@erndrsbtq.com
+Apple Cash/Pay: 909.401.7221
+Meta Pay 
+Quieres pagar con Klarna, Affirm, Zip, o Afterpay? Solicita un enlace de pago.
+',
     empty: 'Nothing here yet.',
     each: 'each',
     tracking: 'Tracking',
@@ -70,7 +77,14 @@ const copy = {
     howToPay: 'Cómo pagar',
     dueBy: 'Por favor paga antes del',
     payCard: 'Pagar con tarjeta',
-    noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
+    noInstructions: 'Zelle: 909.401.7221
+Cash App: $ErendirasBoutique
+Venmo: @ErendirasBoutique 
+PayPal: PayPal@erndrsbtq.com
+Apple Cash/Pay: 909.401.7221
+Meta Pay 
+Quieres pagar con Klarna, Affirm, Zip, o Afterpay? Solicita un enlace de pago.
+',
     empty: 'Nada por aquí todavía.',
     each: 'c/u',
     tracking: 'Rastreo',
