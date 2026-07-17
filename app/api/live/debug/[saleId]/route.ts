@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { liveDb } from '@/lib/live/supabase';
+import { getBasketDetail, getBasketTotals } from '@/lib/live/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,29 @@ export async function GET(_req: Request, { params }: Ctx) {
   // 6. Sales — this one demonstrably works, so it's the control.
   const sales = await db.from('live_sales').select('id').limit(5);
   out.live_sales = { count: sales.data?.length ?? 0, error: sales.error?.message ?? null };
+
+  // 7. The real functions the route uses. Steps 2-4 above are hand-rolled
+  //    copies of the same queries and they all pass — so if these fail,
+  //    the bug is in my code, not the database.
+  try {
+    const totalsFn = await getBasketTotals(saleId);
+    out.getBasketTotals = { count: totalsFn.length, first: totalsFn[0] ?? null };
+
+    if (totalsFn[0]) {
+      const detail = await getBasketDetail(totalsFn[0].basket_id);
+      out.getBasketDetail = detail
+        ? {
+            returned: 'a basket',
+            basket_number: detail.basket_number,
+            item_count: detail.item_count,
+            total_cents: detail.total_cents,
+          }
+        : 'NULL — this is the bug';
+    }
+  } catch (err: any) {
+    // The live route swallows this into an empty array. Here it's the answer.
+    out.function_error = { message: err?.message ?? String(err), stack: err?.stack ?? null };
+  }
 
   return NextResponse.json(out);
 }

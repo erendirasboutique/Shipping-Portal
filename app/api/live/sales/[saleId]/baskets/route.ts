@@ -24,9 +24,20 @@ export async function GET(req: Request, { params }: Ctx) {
     }
 
     const full = await Promise.all(totals.map((row) => getBasketDetail(row.basket_id)));
+    const baskets = full.filter((b): b is BasketDetail => b !== null);
+
+    // If the view found baskets and detail found none, something is wrong
+    // and an empty array is a lie. Say so instead — an empty wall that
+    // reports why beats an empty wall that shrugs.
+    const dropped = totals.length - baskets.length;
 
     return NextResponse.json({
-      baskets: full.filter((b): b is BasketDetail => b !== null),
+      baskets,
+      ...(dropped > 0
+        ? {
+            warning: `${dropped} of ${totals.length} baskets could not be read in full.`,
+          }
+        : {}),
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
