@@ -1033,3 +1033,10 @@
   margin-top: 30px; font-size: 0.8125rem; color: var(--taupe);
   opacity: 0.8; line-height: 1.5;
 }
+.drawer__error {
+  margin: 0; padding: 12px 22px;
+  background: rgba(140, 59, 46, 0.1);
+  border-bottom: 1px solid rgba(140, 59, 46, 0.28);
+  color: var(--alert);
+  font-size: 0.8125rem; line-height: 1.45;
+}

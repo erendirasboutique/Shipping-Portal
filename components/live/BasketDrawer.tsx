@@ -22,6 +22,7 @@ export default function BasketDrawer({
   basketNumber,
   sale,
   busy,
+  error,
   onClose,
   onPatch,
   onFinalize,
@@ -31,6 +32,12 @@ export default function BasketDrawer({
   basketNumber: number;
   sale: LiveSale;
   busy: boolean;
+  /**
+   * Errors are shown in here, not on the board behind it. The board's
+   * banner sits under the drawer's scrim — a failure could report itself
+   * perfectly and you'd never see a word of it.
+   */
+  error?: string | null;
   onClose: () => void;
   onPatch: (body: Record<string, unknown>) => void;
   onFinalize: () => void;
@@ -98,6 +105,12 @@ export default function BasketDrawer({
             </button>
           </div>
         </header>
+
+        {error && (
+          <p className="drawer__error" role="alert">
+            {error}
+          </p>
+        )}
 
         {!basket ? (
           <div className="drawer__body">

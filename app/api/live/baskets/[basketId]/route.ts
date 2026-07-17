@@ -83,8 +83,26 @@ export async function PATCH(req: Request, { params }: Ctx) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
     }
 
-    const { error } = await liveDb().from('baskets').update(patch).eq('id', basketId);
+    // .select() so we can see what actually changed. Without it, an update
+    // that matches zero rows returns no error and looks like success —
+    // which is exactly how "it doesn't save" produces no error message.
+    const { data: updated, error } = await liveDb()
+      .from('baskets')
+      .update(patch)
+      .eq('id', basketId)
+      .select('*');
+
     if (error) throw new Error(error.message);
+
+    if (!updated || updated.length === 0) {
+      return NextResponse.json(
+        {
+          error: `Nothing was updated. Basket ${basketId} did not match any row.`,
+          debug: { basketId, fields: Object.keys(patch) },
+        },
+        { status: 404 }
+      );
+    }
 
     // A paid basket becomes a draft order so Saturday's labels are
     // already queued. Idempotent — clicking twice won't make two orders.
@@ -97,8 +115,28 @@ export async function PATCH(req: Request, { params }: Ctx) {
       }
     }
 
+    const detail = await getBasketDetail(basketId);
+
+    // The update landed but the read-back came up empty — worth saying so
+    // rather than handing the UI a null and letting it look like a no-op.
+    if (!detail) {
+      return NextResponse.json(
+        { error: 'Saved, but the basket could not be read back.', saved: updated[0] },
+        { status: 500 }
+      );
+    }
+
+    // If customer_id was set and the joined customer is missing, the id
+    // doesn't exist in shipping_customers — a merged or deleted row.
+    if (patch.customer_id && !detail.customer) {
+      return NextResponse.json({
+        basket: detail,
+        warning: 'Saved, but that customer record could not be found. It may have been merged.',
+      });
+    }
+
     return NextResponse.json({
-      basket: await getBasketDetail(basketId),
+      basket: detail,
       ...(warning ? { warning } : {}),
     });
   } catch (err: any) {

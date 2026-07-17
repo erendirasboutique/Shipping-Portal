@@ -199,7 +199,11 @@ export default function BasketBoard({
           basketNumber={openNumber}
           sale={sale}
           busy={busy}
-          onClose={() => setOpenNumber(null)}
+          error={error}
+          onClose={() => {
+            setOpenNumber(null);
+            setError(null);
+          }}
           onPatch={(body) => selected && patch(selected.id, body)}
           onFinalize={() => selected && finalize(selected)}
           onMarkPaid={(method, note) =>
