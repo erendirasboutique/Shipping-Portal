@@ -46,7 +46,9 @@ export async function GET(req: Request) {
       .from(CUSTOMERS_TABLE)
       .select('id, name')
       .ilike('name', `%${safe}%`)
-      .eq('archived', false)
+      // NULL archived means "never archived". An .eq(false) filter would
+      // silently drop those rows — see the note in customers/search.
+      .not('archived', 'is', true)
       .is('merged_into', null)
       .limit(25);
 

@@ -30,7 +30,11 @@ export async function GET(req: Request) {
       .from(CUSTOMERS_TABLE)
       .select(CUSTOMER_SEARCH_SELECT)
       .or(filter)
-      .eq(CUSTOMER_COLS.archived, false)
+      // `.not(archived, 'is', true)` rather than `.eq(archived, false)`.
+      // Older customer rows have archived = NULL, and in SQL `NULL = false`
+      // is NULL, not true — so an equality filter drops every one of them.
+      // This keeps both false and null, and only excludes a real true.
+      .not(CUSTOMER_COLS.archived, 'is', true)
       .is(CUSTOMER_COLS.mergedInto, null)
       .limit(8);
 
