@@ -1,7 +1,6 @@
 import { listSales, getBasketTotals } from '@/lib/live/queries';
 import LiveShell from '@/components/live/LiveShell';
-import NewSaleForm from '@/components/live/NewSaleForm';
-import SalesList from '@/components/live/SalesList';
+import SalesBoard from '@/components/live/SalesBoard';
 import '@/styles/live.css';
 
 export const dynamic = 'force-dynamic';
@@ -25,10 +24,7 @@ export default async function LiveSalesPage() {
 
   return (
     <LiveShell>
-      <div className="page">
-        <NewSaleForm />
-        <SalesList summaries={summaries} />
-      </div>
+      <SalesBoard initialSummaries={summaries} />
     </LiveShell>
   );
 }

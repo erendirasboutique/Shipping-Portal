@@ -37,9 +37,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
       'payment_method',
       'payment_note',
       'stripe_payment_link_url',
+      'photo_url',
     ]) {
       if (key in body) patch[key] = body[key];
     }
+
+    const by = typeof body.by === 'string' && body.by.trim() ? body.by.trim() : null;
 
     // Marking paid requires knowing how. The database enforces this too,
     // but a clear message beats a constraint violation.
@@ -53,9 +56,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
         );
       }
       patch.paid_at = new Date().toISOString();
+      patch.paid_by = by;
     }
 
-    if (body.status === 'released') patch.released_at = new Date().toISOString();
+    if (body.status === 'released') {
+      patch.released_at = new Date().toISOString();
+      patch.released_by = by;
+    }
 
     // Reopening clears the payment record — otherwise a basket can sit in
     // 'open' still claiming it was paid by Zelle.
@@ -63,8 +70,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
       patch.finalized_at = null;
       patch.released_at = null;
       patch.paid_at = null;
+      patch.paid_by = null;
       patch.payment_method = null;
       patch.payment_note = null;
+      patch.finalized_by = null;
+      patch.released_by = null;
     }
 
     if (!Object.keys(patch).length) {

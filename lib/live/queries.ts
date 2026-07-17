@@ -90,7 +90,8 @@ export async function getBasketTotals(saleId: string): Promise<BasketTotals[]> {
  */
 export async function ensureBasket(
   saleId: string,
-  basketNumber: number
+  basketNumber: number,
+  createdBy: string | null = null
 ): Promise<Basket> {
   const db = liveDb();
 
@@ -112,6 +113,7 @@ export async function ensureBasket(
       live_sale_id: saleId,
       basket_number: basketNumber,
       shipping_cents: sale?.default_shipping_cents ?? 0,
+      created_by: createdBy,
     })
     .select('*')
     .single();

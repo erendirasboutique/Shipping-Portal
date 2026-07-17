@@ -5,6 +5,7 @@ import type { BasketDetail, LiveSale } from '@/types/live';
 import { centsToDisplay } from '@/lib/live/money';
 import { PAYMENT_METHODS } from '@/lib/live/schema';
 import { useLocale } from '@/lib/live/i18n';
+import { withOperator, getOperator } from '@/lib/live/operator';
 import BasketGrid from '@/components/live/BasketGrid';
 import BasketDrawer from '@/components/live/BasketDrawer';
 
@@ -80,7 +81,7 @@ export default function BasketBoard({
       const res = await fetch(`/api/live/baskets/${basketId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(withOperator(body)),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -100,7 +101,11 @@ export default function BasketBoard({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/live/baskets/${basket.id}/finalize`, { method: 'POST' });
+      const res = await fetch(`/api/live/baskets/${basket.id}/finalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ by: getOperator() }),
+      });
       const json = await res.json();
       if (!res.ok) {
         setError(json.error ?? `${t.basket} ${basket.basket_number}: ${t.matchFirst}`);

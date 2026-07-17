@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LiveItemWithStock, RecentClaim } from '@/types/live';
 import { centsToDisplay, normalizeCode } from '@/lib/live/money';
 import { useLocale } from '@/lib/live/i18n';
+import { withOperator, getOperator } from '@/lib/live/operator';
 
 type Flash = { kind: 'ok' | 'err'; text: string } | null;
 
@@ -66,7 +67,7 @@ export default function ClaimEntry({
       const res = await fetch(`/api/live/sales/${saleId}/claims`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ basket_number: n, code: normalizeCode(code) }),
+        body: JSON.stringify(withOperator({ basket_number: n, code: normalizeCode(code) })),
       });
       const json = await res.json();
 
@@ -119,7 +120,10 @@ export default function ClaimEntry({
   }, [basketNumber, code, saleId]);
 
   async function undo(claimId: string) {
-    const res = await fetch(`/api/live/claims/${claimId}`, { method: 'DELETE' });
+    const res = await fetch(
+      `/api/live/claims/${claimId}?by=${encodeURIComponent(getOperator())}`,
+      { method: 'DELETE' }
+    );
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
       setFlash({ kind: 'err', text: json.error ?? 'Could not undo that.' });

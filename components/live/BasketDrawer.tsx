@@ -7,6 +7,8 @@ import { PAYMENT_METHODS, paymentMethodLabel } from '@/lib/live/schema';
 import { basketMessage, dueLabel, portalUrl } from '@/lib/live/messages';
 import { useLocale } from '@/lib/live/i18n';
 import CustomerPicker from '@/components/live/CustomerPicker';
+import PhotoDrop from '@/components/live/PhotoDrop';
+import SendMenu from '@/components/live/SendMenu';
 
 /**
  * Everything about one basket, in a panel.
@@ -107,6 +109,18 @@ export default function BasketDrawer({
               />
             </section>
 
+            {/* photo of their actual basket */}
+            <section className="drawer__sec">
+              <p className="live__label">{t.basketPhoto}</p>
+              <div className="drawer__photo">
+                <PhotoDrop
+                  value={basket.photo_url}
+                  saleId={sale.id}
+                  onChange={(url) => onPatch({ photo_url: url })}
+                />
+              </div>
+            </section>
+
             {/* items */}
             <section className="drawer__sec">
               <p className="live__label">
@@ -199,25 +213,19 @@ export default function BasketDrawer({
 
               {token && (
                 <>
-                  <button
-                    className="live__btn live__btn--ghost"
-                    onClick={() =>
-                      copy(
-                        basketMessage({
-                          locale,
-                          customerName: basket.customer?.name ?? null,
-                          basketNumber: basket.basket_number,
-                          itemCount: basket.item_count,
-                          totalCents: basket.total_cents,
-                          portalToken: token,
-                          dueLabel: dueLabel(sale.payment_due_at, locale),
-                        }),
-                        'msg'
-                      )
-                    }
-                  >
-                    {copied === 'msg' ? t.copied : t.copyMessage}
-                  </button>
+                  <SendMenu
+                    text={basketMessage({
+                      locale,
+                      customerName: basket.customer?.name ?? null,
+                      basketNumber: basket.basket_number,
+                      itemCount: basket.item_count,
+                      totalCents: basket.total_cents,
+                      portalToken: token,
+                      dueLabel: dueLabel(sale.payment_due_at, locale),
+                    })}
+                    photoUrl={basket.photo_url}
+                    disabled={busy}
+                  />
 
                   <button
                     className="live__btn live__btn--ghost"
@@ -300,6 +308,27 @@ export default function BasketDrawer({
                     {t.cancel}
                   </button>
                 </div>
+              </section>
+            )}
+
+            {/* who did what */}
+            {(basket.created_by || basket.finalized_by || basket.paid_by) && (
+              <section className="drawer__sec drawer__who">
+                {basket.created_by && (
+                  <span>
+                    {t.created} {t.by} <b>{basket.created_by}</b>
+                  </span>
+                )}
+                {basket.finalized_by && (
+                  <span>
+                    {t.finalized} {t.by} <b>{basket.finalized_by}</b>
+                  </span>
+                )}
+                {basket.paid_by && (
+                  <span>
+                    {t.paidBy} {t.by} <b>{basket.paid_by}</b>
+                  </span>
+                )}
               </section>
             )}
 

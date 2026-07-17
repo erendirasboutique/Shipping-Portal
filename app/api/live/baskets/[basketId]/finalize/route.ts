@@ -17,9 +17,11 @@ type Ctx = { params: { basketId: string } };
  * If a particular customer wants a card link, generate one for that
  * basket with the "Stripe link" button — it's per-basket and optional.
  */
-export async function POST(_req: Request, { params }: Ctx) {
+export async function POST(req: Request, { params }: Ctx) {
   try {
     const { basketId } = params;
+    const body = await req.json().catch(() => ({}));
+    const by = typeof body.by === 'string' && body.by.trim() ? body.by.trim() : null;
 
     const basket = await getBasketDetail(basketId);
     if (!basket) {
@@ -42,7 +44,11 @@ export async function POST(_req: Request, { params }: Ctx) {
 
     const { error } = await liveDb()
       .from('baskets')
-      .update({ status: 'finalized', finalized_at: new Date().toISOString() })
+      .update({
+        status: 'finalized',
+        finalized_at: new Date().toISOString(),
+        finalized_by: by,
+      })
       .eq('id', basketId);
 
     if (error) throw new Error(error.message);

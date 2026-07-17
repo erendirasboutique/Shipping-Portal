@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import type { LiveSale } from '@/types/live';
 import { formatSaleDate } from '@/lib/live/money';
 import { LocaleProvider, useLocale } from '@/lib/live/i18n';
+import Logo from '@/components/live/Logo';
+import OperatorBadge from '@/components/live/OperatorBadge';
 
 /**
  * Wraps every admin page: locale context, header, nav, and a forced
@@ -64,6 +66,7 @@ function Shell({
       <div className="live__shell">
         <header className="hdr">
           <div className="hdr__id">
+            <Logo />
             {sale ? (
               <>
                 <p className="live__eyebrow">
@@ -107,6 +110,8 @@ function Shell({
             >
               {locale === 'en' ? 'ES' : 'EN'}
             </button>
+
+            <OperatorBadge />
           </div>
         </header>
 

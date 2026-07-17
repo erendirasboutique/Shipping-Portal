@@ -15,75 +15,46 @@ export type MessageLocale = 'en' | 'es';
  */
 export function portalUrl(token: string): string {
   const base = (
-    process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://ship.erendirasboutique.com'
+    process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://order.erendirasboutique.com'
   ).replace(/\/+$/, '');
 
-  const path = (process.env.NEXT_PUBLIC_PORTAL_PATH ?? '/portal')
-    .replace(/^\/*/, '/')
-    .replace(/\/+$/, '');
+  // '' means the token sits at the root of the domain, which is what the
+  // rewrite in next.config.js gives you: order.erendirasboutique.com/{token}
+  const raw = process.env.NEXT_PUBLIC_PORTAL_PATH ?? '/order';
+  const path = raw.trim() === '' || raw.trim() === '/'
+    ? ''
+    : raw.replace(/^\/*/, '/').replace(/\/+$/, '');
 
   return `${base}${path}/${token}`;
 }
 
 /**
- * The Thursday-night Messenger text. No total math, no item list — the
- * portal carries all of it, and it stays correct if anything changes.
+ * The Thursday-night message.
+ *
+ * Short on purpose. No item list, no math shown — the portal carries all
+ * of that and stays correct if anything changes afterwards. Every extra
+ * line is one more thing to get wrong, 150 times over.
+ *
+ * The Spanish wording is Erendira's, verbatim. Don't "improve" it.
  */
 export function basketMessage(opts: {
   locale: MessageLocale;
   customerName?: string | null;
-  basketNumber: number;
-  itemCount: number;
+  basketNumber?: number;
+  itemCount?: number;
   totalCents: number;
   portalToken: string;
   dueLabel?: string | null;
 }): string {
-  const {
-    locale,
-    customerName,
-    basketNumber,
-    itemCount,
-    totalCents,
-    portalToken,
-    dueLabel,
-  } = opts;
-
+  const { locale, totalCents, portalToken } = opts;
   const link = portalUrl(portalToken);
   const total = centsToDisplay(totalCents, locale);
-  const firstName = customerName?.trim().split(/\s+/)[0] ?? '';
 
   if (locale === 'es') {
-    return [
-      firstName ? `¡Hola ${firstName}!` : '¡Hola!',
-      '',
-      `Tu canasta #${basketNumber} tiene ${itemCount} ${
-        itemCount === 1 ? 'artículo' : 'artículos'
-      } — total ${total}.`,
-      '',
-      `Mira tus fotos y cómo pagar aquí: ${link}`,
-      dueLabel ? `Puedes pagar hasta el ${dueLabel}.` : '',
-      '',
-      'Enviamos el sábado. ¡Gracias! 🤍',
-    ]
-      .filter((line) => line !== '')
-      .join('\n')
-      .replace(/\n(?=[^\n])/g, '\n');
+    return `Hola Chula Serian ${total}\nVer tu pedido: ${link}`;
   }
 
-  return [
-    firstName ? `Hi ${firstName}!` : 'Hi!',
-    '',
-    `Your basket #${basketNumber} has ${itemCount} ${
-      itemCount === 1 ? 'item' : 'items'
-    } — total ${total}.`,
-    '',
-    `See your photos and pay here: ${link}`,
-    dueLabel ? `You have until ${dueLabel} to pay.` : '',
-    '',
-    'We ship Saturday. Thank you! 🤍',
-  ]
-    .filter((line) => line !== '')
-    .join('\n');
+  return `Hi Chula, it comes to ${total}\nSee your order: ${link}`;
 }
 
 /** Friday reminder for anything still unpaid. */

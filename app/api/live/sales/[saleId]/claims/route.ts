@@ -60,7 +60,8 @@ export async function POST(req: Request, { params }: Ctx) {
       );
     }
 
-    const basket = await ensureBasket(saleId, basketNumber);
+    const by = typeof body.by === 'string' && body.by.trim() ? body.by.trim() : null;
+    const basket = await ensureBasket(saleId, basketNumber, by);
 
     if (basket.status !== 'open') {
       return NextResponse.json(
@@ -81,6 +82,7 @@ export async function POST(req: Request, { params }: Ctx) {
         photo_url: item.data.photo_url,
         quantity,
         unit_price_cents: item.data.price_cents,
+        created_by: by,
       })
       .select('*')
       .single();

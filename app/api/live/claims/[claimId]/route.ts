@@ -10,14 +10,16 @@ type Ctx = { params: { claimId: string } };
  * chaotic live is still traceable on Thursday when someone disputes
  * their total.
  */
-export async function DELETE(_req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, { params }: Ctx) {
   try {
     const { claimId } = params;
     const db = liveDb();
 
+    const by = new URL(req.url).searchParams.get('by');
+
     const { data, error } = await db
       .from('basket_items')
-      .update({ voided_at: new Date().toISOString() })
+      .update({ voided_at: new Date().toISOString(), voided_by: by || null })
       .eq('id', claimId)
       .is('voided_at', null)
       .select('basket_id')

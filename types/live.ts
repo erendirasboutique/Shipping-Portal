@@ -78,6 +78,13 @@ export interface Basket {
   shipping_cents: number;
   discount_cents: number;
   notes: string | null;
+  /** Photo of the physical basket, sent with their total. */
+  photo_url: string | null;
+  /** Operator names — free text, set from the header, not from auth. */
+  created_by: string | null;
+  finalized_by: string | null;
+  paid_by: string | null;
+  released_by: string | null;
   /** How they paid. Set by staff, never automatically. */
   payment_method: string | null;
   /** Free text — Zelle confirmation number, "paid at the shop", etc. */
@@ -105,6 +112,8 @@ export interface BasketItem {
   quantity: number;
   unit_price_cents: number;
   voided_at: string | null;
+  created_by: string | null;
+  voided_by: string | null;
   created_at: string;
 }
 

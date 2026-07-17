@@ -21,7 +21,7 @@ function defaultDueDate(saleDate: string): string {
 
 const PAY_PLACEHOLDER = 'Zelle: pay@erendirasboutique.com\nCash App: $erendiras\nVenmo: @erendiras-boutique';
 
-export default function NewSaleForm() {
+export default function NewSaleForm({ onCreated }: { onCreated?: () => void }) {
   const { t } = useLocale();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
@@ -71,6 +71,10 @@ export default function NewSaleForm() {
         return;
       }
 
+      // Refresh the list first, so the sale is visibly there even if the
+      // navigation is slow or the person hits back.
+      onCreated?.();
+      setOpen(false);
       router.push(`/admin/live/${json.sale.id}/catalog`);
     } catch {
       setError('Network trouble — the sale was not created. Try again.');

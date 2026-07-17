@@ -1,12 +1,35 @@
 import { NextResponse } from 'next/server';
 import { liveDb } from '@/lib/live/supabase';
-import { listSales } from '@/lib/live/queries';
+import { getBasketTotals, listSales } from '@/lib/live/queries';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+/**
+ * ?summary=1 adds basket counts and gross per sale — what the index page
+ * shows. Without it you get the bare sale rows.
+ */
+export async function GET(req: Request) {
   try {
-    return NextResponse.json({ sales: await listSales() });
+    const sales = await listSales();
+    const wantSummary = new URL(req.url).searchParams.get('summary') === '1';
+
+    if (!wantSummary) return NextResponse.json({ sales });
+
+    const summaries = await Promise.all(
+      sales.slice(0, 12).map(async (sale) => {
+        const baskets = await getBasketTotals(sale.id);
+        return {
+          sale,
+          basketCount: baskets.length,
+          paidCount: baskets.filter((b) => b.status === 'paid' || b.status === 'shipped').length,
+          gross: baskets
+            .filter((b) => b.status !== 'released' && b.status !== 'void')
+            .reduce((sum, b) => sum + b.total_cents, 0),
+        };
+      })
+    );
+
+    return NextResponse.json({ sales, summaries });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
