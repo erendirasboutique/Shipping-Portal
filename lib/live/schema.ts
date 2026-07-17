@@ -23,6 +23,25 @@ export const CUSTOMER_COLS = {
   mergedInto: 'merged_into',
 } as const;
 
+/** Address columns copied onto an order when a basket is paid. */
+export const CUSTOMER_ADDRESS_COLS = {
+  street1: 'street1',
+  street2: 'street2',
+  city: 'city',
+  state: 'state',
+  zip: 'zip',
+  country: 'country',
+} as const;
+
+/** Everything needed to build a shipping_orders row from a customer. */
+export const CUSTOMER_ADDRESS_SELECT = [
+  CUSTOMER_COLS.id,
+  CUSTOMER_COLS.name,
+  CUSTOMER_COLS.email,
+  CUSTOMER_COLS.phone,
+  ...Object.values(CUSTOMER_ADDRESS_COLS),
+].join(', ');
+
 /** What we select when we need a customer for a basket. */
 export const CUSTOMER_SELECT = `${CUSTOMER_COLS.id}, ${CUSTOMER_COLS.name}, ${CUSTOMER_COLS.email}, ${CUSTOMER_COLS.portalToken}`;
 
@@ -35,6 +54,22 @@ export const CUSTOMER_SEARCH_COLS = [
   CUSTOMER_COLS.email,
   CUSTOMER_COLS.phone,
 ];
+
+/**
+ * Status stamped on an order the webhook creates.
+ *
+ * Your vocabulary is purchased / refunded / draft. An order that exists
+ * but has no postage yet is a draft — that's what Saturday turns into
+ * purchased. Change this if that ever stops being true.
+ */
+export const NEW_ORDER_STATUS = 'draft';
+
+/**
+ * order_number is fed by shipping_order_number_seq. Never set it on
+ * insert — let the sequence hand out the next one, or two orders created
+ * in the same second will collide.
+ */
+export const ORDER_NUMBER_COL = 'order_number';
 
 /**
  * portal_token is a uuid column, not text. Postgres throws 22P02 on a
