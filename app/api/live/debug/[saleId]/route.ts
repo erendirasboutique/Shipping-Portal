@@ -20,7 +20,8 @@ type Ctx = { params: { saleId: string } };
 export async function GET(_req: Request, { params }: Ctx) {
   const { saleId } = params;
   const db = liveDb();
-  const out: Record<string, unknown> = {};
+  // Bump on every re-upload so we can both tell if the deploy took.
+  const out: Record<string, unknown> = { build: 'debug-2' };
 
   // 1. Which key is this really? A service_role key bypasses RLS; an anon
   //    key doesn't. Views run as their owner and bypass RLS regardless,
