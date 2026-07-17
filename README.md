@@ -112,6 +112,8 @@ Confirmed against your project:
 |---|---|
 | Customers table | `shipping_customers` |
 | Orders table | `shipping_orders` |
+| New order status | `draft` (your vocabulary: purchased / refunded / draft) |
+| `order_number` | never written by this module — `shipping_order_number_seq` owns it |
 | Customer columns | `id`, `name`, `email`, `phone`, `portal_token` — all present |
 | `portal_token` type | **uuid**, not text |
 
@@ -138,7 +140,9 @@ Baskets screen. Match each basket to a customer (typeahead), then **Finalize eve
 Nothing. Stripe webhook marks baskets paid as they come in. Watch the Collected number climb.
 
 **Saturday — ship**
-Paid baskets are ready for your existing label flow.
+Every paid basket already has a **draft order** in `shipping_orders`, address copied from the customer record, `order_number` assigned by your sequence. Open the orders page, filter to drafts, buy labels. Your EasyPost webhook email sequence takes it from there.
+
+Baskets whose customer record had no street address still become drafts, flagged `ADDRESS NEEDED` in the order notes. They paid — better a draft you have to finish than a silent no-op.
 
 ---
 
@@ -147,7 +151,6 @@ Paid baskets are ready for your existing label flow.
 - **Auto-sending the Messenger message.** Needs a Business Page. Right now it's Copy → paste.
 - **Comment capture.** Same reason.
 - **Auto-release + Friday reminders.** These want a cron (Vercel Cron), and I'd rather you run one live with the manual version first and see what the real timing should be. `reminderMessage()` in `lib/live/messages.ts` is already written for when you want it.
-- **EB-XXX order creation on payment.** `baskets.order_id` exists and stays null. I can see `shipping_orders.order_number` is an integer and the address columns are `to_name` / `to_street1` / …, so the mapping from a paid basket to an order row is clear — the one thing I don't know is how `order_number` gets its next value today (a Postgres sequence? `max(order_number) + 1` in app code?). Tell me and I'll wire it into the webhook.
 
 ---
 
