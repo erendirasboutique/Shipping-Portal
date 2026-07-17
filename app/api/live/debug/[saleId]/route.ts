@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const { saleId } = params;
   const db = liveDb();
   // Bump on every re-upload so we can both tell if the deploy took.
-  const out: Record<string, unknown> = { build: 'debug-3' };
+  const out: Record<string, unknown> = { build: 'debug-4' };
 
   // 1. Which key is this really? A service_role key bypasses RLS; an anon
   //    key doesn't. Views run as their owner and bypass RLS regardless,
@@ -41,9 +41,23 @@ export async function GET(_req: Request, { params }: Ctx) {
   const totals = await db.from('basket_totals').select('*').eq('live_sale_id', saleId);
   out.basket_totals = { count: totals.data?.length ?? 0, error: totals.error?.message ?? null };
 
-  // 3. The table underneath it.
+  // 3. The table underneath it — including customer_id, so it can be
+  //    compared against what the wall gets IN THE SAME REQUEST. Comparing
+  //    across two separate requests is how we ended up with a
+  //    contradiction that can't be true.
   const baskets = await db.from('baskets').select('*').eq('live_sale_id', saleId);
-  out.baskets_table = { count: baskets.data?.length ?? 0, error: baskets.error?.message ?? null };
+  out.baskets_table = {
+    count: baskets.data?.length ?? 0,
+    error: baskets.error?.message ?? null,
+    rows: ((baskets.data ?? []) as any[])
+      .map((b) => ({
+        basket: b.basket_number,
+        id: b.id,
+        customer_id: b.customer_id,
+        updated_at: b.updated_at,
+      }))
+      .sort((a, b) => a.basket - b.basket),
+  };
 
   // 4. The exact call the route makes per basket — the suspect.
   const firstId = (totals.data as any[])?.[0]?.basket_id;
