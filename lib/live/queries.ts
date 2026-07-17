@@ -141,6 +141,17 @@ export async function getBasketsForSale(saleId: string): Promise<BasketDetail[]>
 
   if (itemsRes.error) throw new Error(itemsRes.error.message);
 
+  // Check this one too. It was the only query here whose error wasn't
+  // inspected — so a failure produced `customer: null` on every basket,
+  // the wall said "Unmatched", and the assignment looked like it hadn't
+  // saved when customer_id was sitting in the row the whole time.
+  if (customersRes.error) {
+    throw new Error(`Could not read customers: ${customersRes.error.message}`);
+  }
+  if (ordersRes.error) {
+    throw new Error(`Could not read orders: ${ordersRes.error.message}`);
+  }
+
   const items = (itemsRes.data ?? []) as BasketItem[];
 
   const itemsByBasket = new Map<string, BasketItem[]>();
@@ -184,7 +195,18 @@ export async function getBasketsForSale(saleId: string): Promise<BasketDetail[]>
         item_count: itemCount,
         total_cents: total,
         items: mine,
-        customer: b.customer_id ? customersById.get(b.customer_id) ?? null : null,
+        // A basket with a customer_id whose row we couldn't find is a
+        // different thing from a basket with no customer. Surface it as a
+        // placeholder rather than silently showing "Unmatched" — that sent
+        // us chasing a save bug that didn't exist.
+        customer: b.customer_id
+          ? customersById.get(b.customer_id) ?? {
+              id: b.customer_id,
+              name: '(customer record not found)',
+              email: null,
+              portal_token: null,
+            }
+          : null,
         order: b.order_id ? ordersById.get(b.order_id) ?? null : null,
       } as BasketDetail;
     })
