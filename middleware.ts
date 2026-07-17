@@ -71,6 +71,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.rewrite(url);
     }
 
+    // order.erendirasboutique.com/buscar -> /order/buscar
+    // "¿qué canasta soy?" — a short URL people can be told out loud
+    // mid-live, which is the whole point.
+    if (url.pathname === "/buscar" || url.pathname === "/buscar/") {
+      url.pathname = "/order/buscar";
+      return NextResponse.rewrite(url);
+    }
+
     // Already the full path — let it through without an auth check.
     if (url.pathname.startsWith("/order")) {
       return NextResponse.next();
