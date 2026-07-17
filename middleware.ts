@@ -101,6 +101,41 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ------------------------------------------------------------------
+  // live.erendirasboutique.com — the staff live sale tools.
+  //
+  // Only rewrites the shortcuts. Everything else falls through to the
+  // Supabase auth check below, which is the point: this host gets no
+  // special treatment, so /admin/live is as protected here as it is on
+  // ship. A redirect (not a rewrite) so the destination goes through
+  // middleware again and gets checked properly.
+  // ------------------------------------------------------------------
+  if (host.startsWith("live.")) {
+    const url = request.nextUrl.clone();
+
+    if (
+      url.pathname === "/" ||
+      url.pathname === "/admin" ||
+      url.pathname === "/admin/"
+    ) {
+      url.pathname = "/admin/live";
+      return NextResponse.redirect(url);
+    }
+
+    // The customer pages belong on order., not here. Keeping the two
+    // domains honest means a link can't quietly work on the wrong one.
+    if (
+      url.pathname.startsWith("/order") ||
+      url.pathname === "/buscar" ||
+      UUID_PATH.test(url.pathname)
+    ) {
+      const customer = new URL(request.url);
+      customer.host = "order.erendirasboutique.com";
+      customer.protocol = "https:";
+      return NextResponse.redirect(customer);
+    }
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
