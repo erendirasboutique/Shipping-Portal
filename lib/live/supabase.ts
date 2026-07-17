@@ -4,32 +4,14 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  * Service-role client for the live sale module.
  *
  * Self-contained on purpose — it doesn't import your existing supabase
- * files, so this add-on can't break them. If you'd rather reuse your
- * existing admin client, delete this file and point the imports in
- * app/api/live/** at yours instead.
+ * files, so this add-on can't break them.
  *
  * Server-only. Never import this from a 'use client' file.
- *
- * ── Why the return type is `any` ──────────────────────────────────────
- * supabase-js parses .select() strings at the TYPE level, which only
- * works when the string is a literal. This module builds its select
- * strings from the constants in schema.ts (so a column rename is a
- * one-line edit), which makes them plain `string` — and the parser then
- * hands back `GenericStringError` instead of your row type.
- *
- * Rather than sprinkle `as unknown as X` at every call site, the client
- * is untyped here and results are cast to the real types from
- * types/live.ts immediately after. Those types are what the rest of the
- * module actually checks against.
- *
- * You lose supabase's column-name autocomplete inside this module. You'd
- * have lost it anyway — it needs a generated Database generic, which
- * this project doesn't have.
  */
 
 let cached: SupabaseClient | null = null;
 
-export function liveDb(): any {
+export function liveDb(): SupabaseClient {
   if (cached) return cached;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,6 +26,33 @@ export function liveDb(): any {
 
   cached = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      /**
+       * THIS LINE IS LEAD, NOT GOLD PLATING. Don't remove it.
+       *
+       * Next 14's App Router patches global fetch and caches GET requests
+       * by default. supabase-js runs every query through fetch — so every
+       * read from this client was being served out of Next's Data Cache,
+       * indefinitely, keyed by URL.
+       *
+       * What that looked like in practice: a sale created and the list
+       * still saying "No sales yet". An item added and gone three seconds
+       * later. A customer assigned, saved to the row, and absent on
+       * refresh. And the strangest one — `.order('basket_number')`
+       * returning zero rows with no error, while the identical query
+       * without .order() returned three. Different query string, different
+       * cache key: that one had been cached when the sale had no baskets,
+       * and it stayed empty forever.
+       *
+       * `export const dynamic = 'force-dynamic'` does NOT cover this. That
+       * governs route rendering, not the fetch cache underneath it.
+       *
+       * A live sale screen must never show a cached number. It's the whole
+       * point of the screen.
+       */
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: 'no-store' }),
+    },
   });
 
   return cached;
@@ -59,9 +68,6 @@ export function liveDb(): any {
  * take `unknown`, so they compile no matter what supabase infers, and
  * they keep the cast in one file instead of scattering `as unknown as`
  * through the query layer.
- *
- * Only needed for selects built from constants. A literal select string
- * like .select('*') types itself correctly and shouldn't use these.
  */
 export function asRow<T>(data: unknown): T | null {
   return (data ?? null) as T | null;
