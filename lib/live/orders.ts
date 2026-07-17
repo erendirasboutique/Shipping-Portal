@@ -1,4 +1,5 @@
-import { liveDb } from './supabase';
+import { asRow, liveDb } from './supabase';
+import type { CustomerAddressRow } from '@/types/live';
 import {
   CUSTOMERS_TABLE,
   CUSTOMER_ADDRESS_SELECT,
@@ -47,7 +48,9 @@ export async function createOrderForBasket(basketId: string): Promise<string | n
     .maybeSingle();
 
   if (customer.error) throw new Error(customer.error.message);
-  if (!customer.data) {
+
+  const c = asRow<CustomerAddressRow>(customer.data);
+  if (!c) {
     console.warn('[live] customer missing, skipping order', basket.data.customer_id);
     return null;
   }
@@ -61,8 +64,6 @@ export async function createOrderForBasket(basketId: string): Promise<string | n
   const saleLabel = sale.data
     ? sale.data.title || formatSaleDate(sale.data.sale_date)
     : 'Live sale';
-
-  const c = customer.data as Record<string, string | null>;
 
   // A blank address still becomes a draft — staff fill it in on Saturday
   // the same way they do for any other order. Silently dropping the order

@@ -49,6 +49,25 @@ export type LiveItemWithStock = LiveItem & {
   quantity_remaining: number;
 };
 
+/** A customer row as selected by CUSTOMER_SELECT in lib/live/schema.ts. */
+export interface CustomerRow {
+  id: string;
+  name: string | null;
+  email: string | null;
+  portal_token: string | null;
+}
+
+/** A customer row as selected by CUSTOMER_ADDRESS_SELECT — used to build an order. */
+export interface CustomerAddressRow extends CustomerRow {
+  phone: string | null;
+  street1: string | null;
+  street2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+}
+
 export interface Basket {
   id: string;
   live_sale_id: string;
@@ -108,12 +127,7 @@ export interface BasketDetail extends Basket {
   total_cents: number;
   item_count: number;
   items: BasketItem[];
-  customer?: {
-    id: string;
-    name: string | null;
-    email: string | null;
-    portal_token: string | null;
-  } | null;
+  customer?: CustomerRow | null;
 }
 
 /** One entry in the undo rail on the claims screen. */

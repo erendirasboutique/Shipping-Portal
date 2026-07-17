@@ -1,4 +1,4 @@
-import { liveDb } from './supabase';
+import { asRow, liveDb } from './supabase';
 import {
   CUSTOMERS_TABLE,
   CUSTOMER_COLS,
@@ -7,6 +7,7 @@ import {
 } from './schema';
 import type {
   Basket,
+  CustomerRow,
   BasketDetail,
   BasketItem,
   BasketTotals,
@@ -192,7 +193,8 @@ export async function getBasketDetail(
       .select(CUSTOMER_SELECT)
       .eq(CUSTOMER_COLS.id, basket.data.customer_id)
       .maybeSingle();
-    if (!c.error && c.data) detail.customer = c.data as BasketDetail['customer'];
+
+    if (!c.error) detail.customer = asRow<CustomerRow>(c.data);
   }
 
   return detail;
@@ -208,18 +210,21 @@ export async function getBasketsForPortalToken(
 
   const db = liveDb();
 
-  const customer = await db
+  const found = await db
     .from(CUSTOMERS_TABLE)
     .select(CUSTOMER_SELECT)
     .eq(CUSTOMER_COLS.portalToken, token)
     .maybeSingle();
 
-  if (customer.error || !customer.data) return [];
+  if (found.error) return [];
+
+  const customer = asRow<CustomerRow>(found.data);
+  if (!customer) return [];
 
   const baskets = await db
     .from('baskets')
     .select('*')
-    .eq('customer_id', customer.data.id)
+    .eq('customer_id', customer.id)
     .not('status', 'in', '("void")')
     .order('created_at', { ascending: false })
     .limit(10);
