@@ -8,6 +8,7 @@ import {
 import type {
   Basket,
   CustomerRow,
+  LiveItem,
   BasketDetail,
   BasketItem,
   BasketTotals,
@@ -58,7 +59,10 @@ export async function getCatalog(saleId: string): Promise<LiveItemWithStock[]> {
     (stock.data ?? []).map((s: any) => [s.live_item_id as string, s])
   );
 
-  return (items.data ?? []).map((item) => {
+  // `item` is annotated because the supabase client here is untyped, so
+  // items.data is `any` — and calling .map on `any` gives the callback an
+  // implicit any, which strict mode rejects.
+  return (items.data ?? []).map((item: LiveItem) => {
     const s = stockByItem.get(item.id);
     return {
       ...item,
@@ -232,7 +236,7 @@ export async function getBasketsForPortalToken(
   if (baskets.error || !baskets.data?.length) return [];
 
   const details = await Promise.all(
-    baskets.data.map((b) => getBasketDetail(b.id))
+    baskets.data.map((b: Basket) => getBasketDetail(b.id))
   );
 
   return details.filter((d): d is BasketDetail => d !== null);
