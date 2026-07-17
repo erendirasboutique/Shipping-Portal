@@ -35,7 +35,11 @@ export default function BasketBoard({
         cache: 'no-store',
       });
       const json = await res.json();
-      if (res.ok && Array.isArray(json.baskets)) setBaskets(json.baskets);
+      if (!res.ok) {
+        setError(json.error ?? 'Could not load the baskets.');
+        return;
+      }
+      if (Array.isArray(json.baskets)) setBaskets(json.baskets);
     } catch {
       // keep what's on screen
     }
