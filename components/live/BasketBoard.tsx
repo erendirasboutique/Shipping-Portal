@@ -101,6 +101,42 @@ export default function BasketBoard({
     }
   }
 
+  /**
+   * Take an item out of a basket.
+   *
+   * Reuses the same soft-void the claims screen's Undo uses — the row
+   * stays with voided_at and voided_by set. That matters more here than
+   * there: on Thursday, when someone says "I never claimed that jacket",
+   * you want to know it was there and who took it off.
+   */
+  async function removeItem(basketId: string, claimId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/live/claims/${claimId}?by=${encodeURIComponent(getOperator())}`,
+        { method: 'DELETE' }
+      );
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error ?? t.removeFailed);
+        return;
+      }
+
+      // Re-read the basket rather than splicing it out of local state —
+      // the totals are computed in the database, and guessing at them here
+      // is how the number on screen stops matching the number they owe.
+      const fresh = await fetch(`/api/live/baskets/${basketId}`, { cache: 'no-store' });
+      const json = await fresh.json();
+      if (fresh.ok && json.basket) replace(json.basket);
+    } catch {
+      setError(t.removeFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function finalize(basket: BasketDetail) {
     setBusy(true);
     setError(null);
@@ -206,6 +242,7 @@ export default function BasketBoard({
           }}
           onPatch={(body) => selected && patch(selected.id, body)}
           onFinalize={() => selected && finalize(selected)}
+          onRemoveItem={(claimId) => selected && removeItem(selected.id, claimId)}
           onMarkPaid={(method, note) =>
             selected &&
             patch(selected.id, {

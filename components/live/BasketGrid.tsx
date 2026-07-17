@@ -84,6 +84,15 @@ export default function BasketGrid({
                 <span className="tile__count">
                   {basket.item_count} {t.items.toLowerCase()}
                 </span>
+
+                {/* A note you can't see from the wall is a note you'll miss.
+                    First line only — enough to spot "Pickup" across 80
+                    tiles without turning each one into a paragraph. */}
+                {basket.notes && (
+                  <span className="tile__note" title={basket.notes}>
+                    {basket.notes.split('\n')[0]}
+                  </span>
+                )}
               </>
             ) : (
               <span className="tile__empty">{t.empty}</span>

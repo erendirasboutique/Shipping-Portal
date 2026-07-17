@@ -27,6 +27,7 @@ export default function BasketDrawer({
   onPatch,
   onFinalize,
   onMarkPaid,
+  onRemoveItem,
 }: {
   basket: BasketDetail | null;
   basketNumber: number;
@@ -42,12 +43,14 @@ export default function BasketDrawer({
   onPatch: (body: Record<string, unknown>) => void;
   onFinalize: () => void;
   onMarkPaid: (method: string, note: string) => void;
+  onRemoveItem: (claimId: string) => void;
 }) {
   const { t, locale } = useLocale();
   const [payOpen, setPayOpen] = useState(false);
   const [method, setMethod] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [cardUrl, setCardUrl] = useState(basket?.stripe_payment_link_url ?? '');
+  const [notes, setNotes] = useState(basket?.notes ?? '');
   const [tracking, setTracking] = useState(basket?.tracking_number ?? '');
   const [carrier, setCarrier] = useState(basket?.carrier ?? '');
   const [copied, setCopied] = useState<string | null>(null);
@@ -57,6 +60,7 @@ export default function BasketDrawer({
     setMethod(null);
     setNote('');
     setCardUrl(basket?.stripe_payment_link_url ?? '');
+    setNotes(basket?.notes ?? '');
     setTracking(basket?.tracking_number ?? '');
     setCarrier(basket?.carrier ?? '');
   }, [basket?.id, basket?.stripe_payment_link_url, basket?.tracking_number, basket?.carrier]);
@@ -171,6 +175,20 @@ export default function BasketDrawer({
                       <span className="live__mono">
                         {centsToDisplay(i.unit_price_cents * i.quantity)}
                       </span>
+                      <button
+                        className="drawer__rm"
+                        title={t.removeItem}
+                        aria-label={`${t.removeItem} ${i.description}`}
+                        disabled={busy}
+                        onClick={() => {
+                          // A confirm, because this is destructive and the
+                          // drawer is a fast surface — it's easy to hit the
+                          // wrong row when you're moving.
+                          if (window.confirm(t.removeItemConfirm)) onRemoveItem(i.id);
+                        }}
+                      >
+                        ×
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -218,6 +236,52 @@ export default function BasketDrawer({
                   </span>
                 </div>
               )}
+            </section>
+
+            {/* notes — staff only */}
+            <section className="drawer__sec">
+              <p className="live__label">{t.notes}</p>
+              <p className="live__muted drawer__hint">{t.notesHint}</p>
+
+              <div className="drawer__tags">
+                {[t.tagPickup, t.tagMerge, t.tagHold, t.tagPaidPartial].map((tag) => {
+                  const on = notes.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      className={`chip chip--sm${on ? ' chip--on' : ''}`}
+                      disabled={busy}
+                      onClick={() => {
+                        // Toggle the tag in and out of the text rather than
+                        // keeping a separate tags column. One field, and
+                        // anything you type by hand sits alongside it.
+                        const next = on
+                          ? notes
+                              .split('\n')
+                              .filter((l) => l.trim() !== tag)
+                              .join('\n')
+                              .trim()
+                          : [tag, notes].filter(Boolean).join('\n');
+                        setNotes(next);
+                        onPatch({ notes: next || null });
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <textarea
+                className="live__textarea"
+                rows={3}
+                placeholder={t.notesPlaceholder}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => {
+                  if ((basket.notes ?? '') !== notes) onPatch({ notes: notes.trim() || null });
+                }}
+              />
             </section>
 
             {/* actions */}
