@@ -4,7 +4,7 @@ import { getBasketDetail } from '@/lib/live/queries';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ basketId: string }> };
+type Ctx = { params: { basketId: string } };
 
 /**
  * Locks a basket's total. That's all it does.
@@ -19,7 +19,7 @@ type Ctx = { params: Promise<{ basketId: string }> };
  */
 export async function POST(_req: Request, { params }: Ctx) {
   try {
-    const { basketId } = await params;
+    const { basketId } = params;
 
     const basket = await getBasketDetail(basketId);
     if (!basket) {

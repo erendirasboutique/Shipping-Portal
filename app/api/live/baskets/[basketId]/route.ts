@@ -6,11 +6,11 @@ import { PAYMENT_METHODS } from '@/lib/live/schema';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ basketId: string }> };
+type Ctx = { params: { basketId: string } };
 
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const { basketId } = await params;
+    const { basketId } = params;
     const basket = await getBasketDetail(basketId);
     if (!basket) {
       return NextResponse.json({ error: 'Basket not found' }, { status: 404 });
@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
-    const { basketId } = await params;
+    const { basketId } = params;
     const body = await req.json();
 
     const patch: Record<string, unknown> = {};
@@ -36,6 +36,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       'status',
       'payment_method',
       'payment_note',
+      'stripe_payment_link_url',
     ]) {
       if (key in body) patch[key] = body[key];
     }

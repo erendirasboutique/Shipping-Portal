@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic';
 export default async function CatalogPage({
   params,
 }: {
-  params: Promise<{ saleId: string }>;
+  params: { saleId: string };
 }) {
-  const { saleId } = await params;
+  const { saleId } = params;
 
   const sale = await getSale(saleId);
   if (!sale) notFound();

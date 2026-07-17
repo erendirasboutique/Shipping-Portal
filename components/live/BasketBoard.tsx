@@ -8,6 +8,7 @@ import { basketMessage, dueLabel, type MessageLocale } from '@/lib/live/messages
 import { PAYMENT_METHODS, paymentMethodLabel } from '@/lib/live/schema';
 import CustomerPicker from '@/components/live/CustomerPicker';
 import MarkPaidMenu from '@/components/live/MarkPaidMenu';
+import CardLinkMenu from '@/components/live/CardLinkMenu';
 
 export default function BasketBoard({
   sale,
@@ -121,41 +122,6 @@ export default function BasketBoard({
       setTimeout(() => setCopiedId(null), 1800);
     } catch {
       setError('The browser blocked the clipboard. Select the text manually instead.');
-    }
-  }
-
-  /**
-   * Optional and per basket — only for the customers who ask to pay by
-   * card. Nothing about this marks the basket paid; you still do that by
-   * hand once the money shows up in Stripe.
-   */
-  async function makeCardLink(basket: BasketDetail) {
-    setBusyId(basket.id);
-    setError(null);
-    try {
-      if (basket.stripe_payment_link_url) {
-        await navigator.clipboard.writeText(basket.stripe_payment_link_url);
-        setCopiedId(basket.id);
-        setTimeout(() => setCopiedId(null), 1800);
-        return;
-      }
-
-      const res = await fetch(`/api/live/baskets/${basket.id}/payment-link`, { method: 'POST' });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error ?? 'Could not create a card link.');
-        return;
-      }
-
-      await navigator.clipboard.writeText(json.url).catch(() => {});
-      replace({ ...basket, stripe_payment_link_url: json.url });
-      setCopiedId(basket.id);
-      setTimeout(() => setCopiedId(null), 1800);
-      router.refresh();
-    } catch {
-      setError('Network trouble — no link was created.');
-    } finally {
-      setBusyId(null);
     }
   }
 
@@ -356,14 +322,14 @@ export default function BasketBoard({
                               })
                             }
                           />
-                          <button
-                            className="live__undo"
-                            onClick={() => makeCardLink(basket)}
+                          <CardLinkMenu
+                            basketNumber={basket.basket_number}
+                            currentUrl={basket.stripe_payment_link_url}
                             disabled={busyId === basket.id}
-                            title="Only for customers who want to pay by card"
-                          >
-                            {basket.stripe_payment_link_url ? 'Copy card link' : 'Card link'}
-                          </button>
+                            onSave={(url) =>
+                              patch(basket.id, { stripe_payment_link_url: url })
+                            }
+                          />
                           <button
                             className="live__undo"
                             onClick={() => patch(basket.id, { status: 'released' })}

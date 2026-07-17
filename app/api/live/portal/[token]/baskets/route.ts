@@ -5,7 +5,7 @@ import { isUuid } from '@/lib/live/schema';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ token: string }> };
+type Ctx = { params: { token: string } };
 
 /**
  * Customer-facing. The portal_token is the credential, same as the rest
@@ -14,7 +14,7 @@ type Ctx = { params: Promise<{ token: string }> };
  */
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const { token } = await params;
+    const { token } = params;
     // portal_token is a uuid column, so anything else is a bad link.
     if (!isUuid(token)) {
       return NextResponse.json({ error: 'Invalid link' }, { status: 400 });

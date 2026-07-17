@@ -4,11 +4,11 @@ import { normalizeCode } from '@/lib/live/money';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ itemId: string }> };
+type Ctx = { params: { itemId: string } };
 
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
-    const { itemId } = await params;
+    const { itemId } = params;
     const body = await req.json();
 
     const patch: Record<string, unknown> = {};
@@ -44,7 +44,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
-    const { itemId } = await params;
+    const { itemId } = params;
     const db = liveDb();
 
     // Claimed items stay put — deleting one would quietly change a total

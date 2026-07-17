@@ -25,8 +25,6 @@ export async function POST(req: Request) {
         payment_instructions: body.payment_instructions ?? null,
         payment_instructions_es: body.payment_instructions_es ?? null,
         default_shipping_cents: body.default_shipping_cents ?? 0,
-        payment_instructions: body.payment_instructions ?? null,
-        payment_instructions_es: body.payment_instructions_es ?? null,
       })
       .select('*')
       .single();

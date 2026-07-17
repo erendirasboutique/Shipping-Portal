@@ -4,11 +4,11 @@ import { getSale } from '@/lib/live/queries';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ saleId: string }> };
+type Ctx = { params: { saleId: string } };
 
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const { saleId } = await params;
+    const { saleId } = params;
     const sale = await getSale(saleId);
     if (!sale) {
       return NextResponse.json({ error: 'Sale not found' }, { status: 404 });
@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
-    const { saleId } = await params;
+    const { saleId } = params;
     const body = await req.json();
 
     const patch: Record<string, unknown> = {};
@@ -59,7 +59,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
-    const { saleId } = await params;
+    const { saleId } = params;
     const { error } = await liveDb().from('live_sales').delete().eq('id', saleId);
     if (error) throw new Error(error.message);
     return NextResponse.json({ ok: true });

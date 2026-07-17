@@ -3,7 +3,7 @@ import { liveDb } from '@/lib/live/supabase';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ claimId: string }> };
+type Ctx = { params: { claimId: string } };
 
 /**
  * Undo. Soft-voids rather than hard-deletes, so a misclick during a
@@ -12,7 +12,7 @@ type Ctx = { params: Promise<{ claimId: string }> };
  */
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
-    const { claimId } = await params;
+    const { claimId } = params;
     const db = liveDb();
 
     const { data, error } = await db
@@ -46,7 +46,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
 /** Change quantity on a claim without leaving the claims screen. */
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
-    const { claimId } = await params;
+    const { claimId } = params;
     const body = await req.json();
 
     if (!Number.isInteger(body.quantity) || body.quantity < 1) {

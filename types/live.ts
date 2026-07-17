@@ -16,8 +16,6 @@ export interface LiveSale {
   payment_due_at: string | null;
   payment_instructions: string | null;
   payment_instructions_es: string | null;
-  payment_instructions: string | null;
-  payment_instructions_es: string | null;
   default_shipping_cents: number;
   created_at: string;
   updated_at: string;

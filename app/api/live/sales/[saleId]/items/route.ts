@@ -5,11 +5,11 @@ import { normalizeCode } from '@/lib/live/money';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ saleId: string }> };
+type Ctx = { params: { saleId: string } };
 
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const { saleId } = await params;
+    const { saleId } = params;
     return NextResponse.json({ items: await getCatalog(saleId) });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: Ctx) {
  */
 export async function POST(req: Request, { params }: Ctx) {
   try {
-    const { saleId } = await params;
+    const { saleId } = params;
     const body = await req.json();
     const incoming = Array.isArray(body.items) ? body.items : [body];
 

@@ -24,7 +24,7 @@ If you later want live-sale numbers visible from the billing admin, the clean ve
 
 ---
 
-## Install — 6 steps, all browser
+## Install — 5 steps, all browser
 
 ### 1. Supabase
 
@@ -51,13 +51,11 @@ app/api/live/**                (9 routes)
 
 **Don't** upload `app/portal-basket-example/` — that's a reference file, see step 5.
 
-### 3. Check the dependency
+### 3. Dependencies
 
-`package.json` needs `stripe`. You already have it if the billing portal is in this repo; if not:
+None. This module imports nothing you don't already have — `@supabase/supabase-js` and Next itself.
 
-```
-npm install stripe
-```
+It deliberately does **not** import `stripe`. That package isn't in this repo (it lives in the billing portal), and payments are manual anyway.
 
 ### 4. Environment variables
 
@@ -67,7 +65,6 @@ Vercel → the **shipping portal** project → Settings → Environment Variable
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | existing |
 | `SUPABASE_SERVICE_ROLE_KEY` | existing |
-| `STRIPE_SECRET_KEY` | existing — only used by the optional Card link button |
 | `NEXT_PUBLIC_PORTAL_URL` | **new** — `https://ship.erendirasboutique.com` |
 
 One new variable. Redeploy after adding it.
@@ -135,7 +132,7 @@ Two things happen the moment you mark it:
 - The basket becomes a **draft order** in `shipping_orders`, address already filled in
 - The method gets counted in the running totals at the top of the screen, so you can see at a glance what came in by Zelle vs Venmo vs cash
 
-**Card link (optional, per basket).** If a customer would rather pay by card, hit **Card link** on their row. It mints a Stripe payment link for exactly their total and copies it to your clipboard. It still doesn't auto-mark — when the money shows up in Stripe, you mark it paid like anything else, method `Card (Stripe)`. Ignore the button entirely if you never use it.
+**Card link (optional, per basket).** For the rare customer who wants to pay by card: make the link in the billing portal with the generator you already have, then hit **Card link** on their row and paste it. Their portal grows a "Pay by card" button. This module never talks to Stripe itself — no new dependency, no second generator to maintain. Pasting a link doesn't mark anything paid; you mark it when the money lands.
 
 **Saturday — ship**
 Every paid basket already has a **draft order** in `shipping_orders`, address copied from the customer record, `order_number` assigned by your sequence. Open the orders page, filter to drafts, buy labels. Your EasyPost webhook email sequence takes it from there.
@@ -158,4 +155,4 @@ Baskets whose customer record had no street address still become drafts, flagged
 - **Prices are snapshotted** onto `basket_items` at claim time. Editing the catalog later never silently rewrites a total a customer already saw.
 - **Undo is a soft void**, not a delete. When someone disputes a total on Thursday, the history is still there.
 - **Basket numbers reset every sale.** `(live_sale_id, basket_number)` is unique, not `basket_number` alone — that's what stops next Wednesday from colliding with this one.
-- **`params` is typed as a Promise** (Next 15 style). On Next 14 the `await` is a no-op and it still works.
+- **Built for Next.js 14.2** — `params` is a plain object, not a Promise. If you upgrade to Next 15, wrap the param types in `Promise<>` and await them.

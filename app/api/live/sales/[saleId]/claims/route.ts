@@ -5,12 +5,12 @@ import { normalizeCode } from '@/lib/live/money';
 
 export const dynamic = 'force-dynamic';
 
-type Ctx = { params: Promise<{ saleId: string }> };
+type Ctx = { params: { saleId: string } };
 
 /** Recent claims, for the undo rail. */
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const { saleId } = await params;
+    const { saleId } = params;
     return NextResponse.json({ claims: await getRecentClaims(saleId) });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -26,7 +26,7 @@ export async function GET(_req: Request, { params }: Ctx) {
  */
 export async function POST(req: Request, { params }: Ctx) {
   try {
-    const { saleId } = await params;
+    const { saleId } = params;
     const body = await req.json();
 
     const basketNumber = Number(body.basket_number);

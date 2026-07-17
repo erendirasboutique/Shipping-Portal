@@ -33,6 +33,12 @@ export const CUSTOMER_ADDRESS_COLS = {
   country: 'country',
 } as const;
 
+/** What we select when we need a customer for a basket. */
+export const CUSTOMER_SELECT = `${CUSTOMER_COLS.id}, ${CUSTOMER_COLS.name}, ${CUSTOMER_COLS.email}, ${CUSTOMER_COLS.portalToken}`;
+
+/** What the typeahead shows. */
+export const CUSTOMER_SEARCH_SELECT = `${CUSTOMER_SELECT}, ${CUSTOMER_COLS.phone}`;
+
 /** Everything needed to build a shipping_orders row from a customer. */
 export const CUSTOMER_ADDRESS_SELECT = [
   CUSTOMER_COLS.id,
@@ -42,12 +48,6 @@ export const CUSTOMER_ADDRESS_SELECT = [
   ...Object.values(CUSTOMER_ADDRESS_COLS),
 ].join(', ');
 
-/** What we select when we need a customer for a basket. */
-export const CUSTOMER_SELECT = `${CUSTOMER_COLS.id}, ${CUSTOMER_COLS.name}, ${CUSTOMER_COLS.email}, ${CUSTOMER_COLS.portalToken}`;
-
-/** What the typeahead shows. */
-export const CUSTOMER_SEARCH_SELECT = `${CUSTOMER_SELECT}, ${CUSTOMER_COLS.phone}`;
-
 /** Columns the typeahead searches across. */
 export const CUSTOMER_SEARCH_COLS = [
   CUSTOMER_COLS.name,
@@ -56,32 +56,7 @@ export const CUSTOMER_SEARCH_COLS = [
 ];
 
 /**
- * How a customer paid. Staff pick one when marking a basket paid —
- * nothing here is ever set automatically.
- *
- * Order matters: this is the order they appear in the picker, so the
- * ones you actually use should come first.
- */
-export const PAYMENT_METHODS = [
-  { value: 'zelle', label: 'Zelle', label_es: 'Zelle' },
-  { value: 'cashapp', label: 'Cash App', label_es: 'Cash App' },
-  { value: 'venmo', label: 'Venmo', label_es: 'Venmo' },
-  { value: 'paypal', label: 'PayPal', label_es: 'PayPal' },
-  { value: 'cash', label: 'Cash', label_es: 'Efectivo' },
-  { value: 'applepay', label: 'Apple Pay', label_es: 'Apple Pay' },
-  { value: 'stripe', label: 'Card (Stripe)', label_es: 'Tarjeta (Stripe)' },
-  { value: 'other', label: 'Other', label_es: 'Otro' },
-] as const;
-
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number]['value'];
-
-export function paymentMethodLabel(value: string | null): string {
-  if (!value) return '—';
-  return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? value;
-}
-
-/**
- * Status stamped on an order that gets created when a basket is paid.
+ * Status stamped on an order created when a basket is marked paid.
  *
  * Your vocabulary is purchased / refunded / draft. An order that exists
  * but has no postage yet is a draft — that's what Saturday turns into
@@ -90,28 +65,24 @@ export function paymentMethodLabel(value: string | null): string {
 export const NEW_ORDER_STATUS = 'draft';
 
 /**
- * order_number is fed by shipping_order_number_seq. Never set it on
- * insert — let the sequence hand out the next one, or two orders created
- * in the same second will collide.
- */
-export const ORDER_NUMBER_COL = 'order_number';
-
-/**
- * How a basket was paid. Recorded by hand — most customers don't use
- * Stripe, so there's nothing to sync from.
+ * How a customer paid. Staff pick one when marking a basket paid —
+ * nothing here is ever set automatically.
  *
- * No database check constraint backs this list on purpose: adding a
- * method should be a one-line edit here, not a migration.
+ * These values MUST match the check constraint in
+ * 20260716000200_manual_payments.sql. Adding a method means editing both.
+ *
+ * Order matters: this is the order they appear in the picker, so the
+ * ones you actually use come first.
  */
 export const PAYMENT_METHODS = [
-  { value: 'zelle', label: 'Zelle' },
-  { value: 'cash_app', label: 'Cash App' },
-  { value: 'venmo', label: 'Venmo' },
-  { value: 'paypal', label: 'PayPal' },
-  { value: 'apple_pay', label: 'Apple Pay' },
-  { value: 'stripe', label: 'Stripe' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'other', label: 'Other' },
+  { value: 'zelle', label: 'Zelle', label_es: 'Zelle' },
+  { value: 'cashapp', label: 'Cash App', label_es: 'Cash App' },
+  { value: 'venmo', label: 'Venmo', label_es: 'Venmo' },
+  { value: 'paypal', label: 'PayPal', label_es: 'PayPal' },
+  { value: 'cash', label: 'Cash', label_es: 'Efectivo' },
+  { value: 'applepay', label: 'Apple Pay', label_es: 'Apple Pay' },
+  { value: 'stripe', label: 'Card', label_es: 'Tarjeta' },
+  { value: 'other', label: 'Other', label_es: 'Otro' },
 ] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]['value'];
@@ -123,7 +94,8 @@ export function isPaymentMethod(value: unknown): value is PaymentMethod {
 }
 
 export function paymentMethodLabel(value: string | null): string {
-  return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? '—';
+  if (!value) return '—';
+  return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? value;
 }
 
 /**
