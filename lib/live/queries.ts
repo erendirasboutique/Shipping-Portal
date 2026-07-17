@@ -84,6 +84,7 @@ export async function getBasketTotals(saleId: string): Promise<BasketTotals[]> {
   if (error) throw new Error(error.message);
   return (data ?? []) as BasketTotals[];
 }
+
 /**
  * Finds basket N in this sale, creating it if the number hasn't been
  * used yet. Race-safe: two fast claims for the same new basket won't

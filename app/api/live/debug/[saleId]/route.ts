@@ -65,6 +65,32 @@ export async function GET(_req: Request, { params }: Ctx) {
   const sales = await db.from('live_sales').select('id').limit(5);
   out.live_sales = { count: sales.data?.length ?? 0, error: sales.error?.message ?? null };
 
+  // 6b. Isolate the difference. Step 2 (no .order()) returns 3;
+  //     getBasketTotals (with .order()) returns 0. Nothing else differs,
+  //     so either .order() is doing it, or the deployed queries.ts isn't
+  //     the file I think it is.
+  const v1 = await db.from('basket_totals').select('*').eq('live_sale_id', saleId);
+  const v2 = await db
+    .from('basket_totals')
+    .select('*')
+    .eq('live_sale_id', saleId)
+    .order('basket_number');
+  const v3 = await db
+    .from('basket_totals')
+    .select('*')
+    .eq('live_sale_id', saleId)
+    .order('basket_number', { ascending: true });
+
+  out.variants = {
+    eq_only: { count: v1.data?.length ?? 0, error: v1.error?.message ?? null },
+    eq_plus_order: { count: v2.data?.length ?? 0, error: v2.error?.message ?? null },
+    eq_plus_order_asc: { count: v3.data?.length ?? 0, error: v3.error?.message ?? null },
+  };
+
+  // What columns does the view actually expose to PostgREST? If
+  // basket_number isn't among them, .order() on it is the bug.
+  out.view_columns = v1.data?.[0] ? Object.keys(v1.data[0] as object) : 'no rows to inspect';
+
   // 7. The real functions the route uses. Steps 2-4 above are hand-rolled
   //    copies of the same queries and they all pass — so if these fail,
   //    the bug is in my code, not the database.
