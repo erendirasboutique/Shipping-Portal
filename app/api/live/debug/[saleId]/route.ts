@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { liveDb } from '@/lib/live/supabase';
-import { getBasketDetail, getBasketTotals } from '@/lib/live/queries';
+import { getBasketDetail, getBasketTotals, getBasketsForSale } from '@/lib/live/queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const { saleId } = params;
   const db = liveDb();
   // Bump on every re-upload so we can both tell if the deploy took.
-  const out: Record<string, unknown> = { build: 'debug-2' };
+  const out: Record<string, unknown> = { build: 'debug-3' };
 
   // 1. Which key is this really? A service_role key bypasses RLS; an anon
   //    key doesn't. Views run as their owner and bypass RLS regardless,
@@ -113,6 +113,26 @@ export async function GET(_req: Request, { params }: Ctx) {
   } catch (err: any) {
     // The live route swallows this into an empty array. Here it's the answer.
     out.function_error = { message: err?.message ?? String(err), stack: err?.stack ?? null };
+  }
+
+  // 8. THE QUESTION: the wall says "Unmatched" while the row has a
+  //    customer_id. This is the exact function the wall renders from —
+  //    so this row is either the bug or the proof it's elsewhere.
+  try {
+    const wall = await getBasketsForSale(saleId);
+    out.what_the_wall_gets = wall.map((b) => ({
+      basket: b.basket_number,
+      customer_id_in_row: b.customer_id,
+      customer_object: b.customer,
+      customer_name: b.customer?.name ?? null,
+      diagnosis: !b.customer_id
+        ? 'no customer assigned — "Unmatched" is correct'
+        : b.customer
+          ? 'customer loaded — the wall should show this name'
+          : 'HAS customer_id but customer came back null — THIS IS THE BUG',
+    }));
+  } catch (err: any) {
+    out.wall_error = { message: err?.message ?? String(err) };
   }
 
   return NextResponse.json(out);
