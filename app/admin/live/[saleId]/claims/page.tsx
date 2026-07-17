@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getCatalog, getRecentClaims, getSale } from '@/lib/live/queries';
 import SaleHeader from '@/components/live/SaleHeader';
 import ClaimEntry from '@/components/live/ClaimEntry';
+import FreshOnMount from '@/components/live/FreshOnMount';
 import '@/styles/live.css';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export default async function ClaimsPage({
   return (
     <div className="live">
       <div className="live__shell">
+        <FreshOnMount />
         <SaleHeader sale={sale} active="claims" />
         <ClaimEntry saleId={saleId} catalog={catalog} initialClaims={claims} />
       </div>

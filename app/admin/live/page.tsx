@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { listSales, getBasketTotals } from '@/lib/live/queries';
 import { centsToDisplay, formatSaleDate } from '@/lib/live/money';
 import NewSaleForm from '@/components/live/NewSaleForm';
+import FreshOnMount from '@/components/live/FreshOnMount';
 import '@/styles/live.css';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,7 @@ export default async function LiveSalesPage() {
   return (
     <div className="live">
       <div className="live__shell">
+        <FreshOnMount />
         <header className="live__head">
           <div>
             <p className="live__eyebrow">Erendira&rsquo;s Boutique</p>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import type { BasketDetail, LiveSale } from '@/types/live';
 import { centsToDisplay, parsePriceToCents } from '@/lib/live/money';
 import { basketMessage, dueLabel, type MessageLocale } from '@/lib/live/messages';
@@ -17,7 +16,6 @@ export default function BasketBoard({
   sale: LiveSale;
   initialBaskets: BasketDetail[];
 }) {
-  const router = useRouter();
   const [baskets, setBaskets] = useState(initialBaskets);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,8 +63,10 @@ export default function BasketBoard({
         return;
       }
       if (json.warning) setError(json.warning);
+      // No router.refresh() — the response already carries the updated
+      // basket, and refreshing only invites a stale RSC payload to
+      // overwrite it.
       replace(json.basket);
-      router.refresh();
     } catch {
       setError('Network trouble — that change did not save.');
     } finally {
@@ -85,7 +85,6 @@ export default function BasketBoard({
         return;
       }
       replace(json.basket);
-      router.refresh();
     } catch {
       setError('Network trouble — nothing was finalized.');
     } finally {

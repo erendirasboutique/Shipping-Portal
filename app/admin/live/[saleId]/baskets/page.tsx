@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getBasketDetail, getBasketTotals, getSale } from '@/lib/live/queries';
 import SaleHeader from '@/components/live/SaleHeader';
 import BasketBoard from '@/components/live/BasketBoard';
+import FreshOnMount from '@/components/live/FreshOnMount';
 import '@/styles/live.css';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export default async function BasketsPage({
   return (
     <div className="live">
       <div className="live__shell">
+        <FreshOnMount />
         <SaleHeader sale={sale} active="baskets" />
         <BasketBoard sale={sale} initialBaskets={baskets} />
       </div>

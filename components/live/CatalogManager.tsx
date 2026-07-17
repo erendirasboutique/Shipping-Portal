@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import type { LiveItemWithStock } from '@/types/live';
 import { centsToDisplay, normalizeCode, parsePriceToCents } from '@/lib/live/money';
 
@@ -12,7 +11,6 @@ export default function CatalogManager({
   saleId: string;
   initialItems: LiveItemWithStock[];
 }) {
-  const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [mode, setMode] = useState<'one' | 'paste'>('one');
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +24,25 @@ export default function CatalogManager({
   const [quantity, setQuantity] = useState('1');
   const [photoUrl, setPhotoUrl] = useState('');
   const [paste, setPaste] = useState('');
+
+  /**
+   * Re-read the rack from the API rather than router.refresh().
+   *
+   * router.refresh() re-runs the server component, but the fresh props it
+   * returns can't overwrite useState — and worse, the Router Cache may
+   * hand back a stale payload. That's what made items appear and then
+   * disappear a few seconds later. Reading the API directly with
+   * no-store is the only version that's always true.
+   */
+  async function reload() {
+    try {
+      const res = await fetch(`/api/live/sales/${saleId}/items`, { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok) setItems(json.items ?? []);
+    } catch {
+      // Keep what's on screen — it came from a successful write.
+    }
+  }
 
   const total = useMemo(
     () => items.reduce((sum, i) => sum + i.price_cents * i.quantity, 0),
@@ -50,7 +67,7 @@ export default function CatalogManager({
         ...prev,
         ...json.items.map((i: any) => ({ ...i, quantity_claimed: 0, quantity_remaining: i.quantity })),
       ]);
-      router.refresh();
+      await reload();
       return true;
     } catch {
       setError('Network trouble — nothing was added.');
@@ -128,7 +145,7 @@ export default function CatalogManager({
       return;
     }
     setItems((prev) => prev.filter((i) => i.id !== id));
-    router.refresh();
+    await reload();
   }
 
   return (
