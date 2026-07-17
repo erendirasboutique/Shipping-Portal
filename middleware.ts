@@ -102,7 +102,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // ------------------------------------------------------------------
-  // live.erendirasboutique.com — the staff live sale tools.
+  // live.erendirasboutique.com — the staff live sale tools. i changed to app.
   //
   // Only rewrites the shortcuts. Everything else falls through to the
   // Supabase auth check below, which is the point: this host gets no
@@ -110,7 +110,7 @@ export async function middleware(request: NextRequest) {
   // ship. A redirect (not a rewrite) so the destination goes through
   // middleware again and gets checked properly.
   // ------------------------------------------------------------------
-  if (host.startsWith("live.")) {
+  if (host.startsWith("app.")) {
     const url = request.nextUrl.clone();
 
     if (
