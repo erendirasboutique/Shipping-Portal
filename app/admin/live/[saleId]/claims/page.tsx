@@ -14,7 +14,7 @@ export default async function ClaimsPage({
   const { saleId } = params;
 
   const sale = await getSale(saleId);
-  if (!sale) notFound();
+  if (!sale) return notFound();
 
   const [catalog, claims] = await Promise.all([
     getCatalog(saleId),

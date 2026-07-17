@@ -53,8 +53,8 @@ export async function getCatalog(saleId: string): Promise<LiveItemWithStock[]> {
   if (items.error) throw new Error(items.error.message);
   if (stock.error) throw new Error(stock.error.message);
 
-  const stockByItem = new Map(
-    (stock.data ?? []).map((s) => [s.live_item_id as string, s])
+  const stockByItem = new Map<string, any>(
+    (stock.data ?? []).map((s: any) => [s.live_item_id as string, s])
   );
 
   return (items.data ?? []).map((item) => {

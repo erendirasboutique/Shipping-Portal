@@ -14,7 +14,7 @@ export default async function CatalogPage({
   const { saleId } = params;
 
   const sale = await getSale(saleId);
-  if (!sale) notFound();
+  if (!sale) return notFound();
 
   const items = await getCatalog(saleId);
 

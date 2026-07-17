@@ -14,7 +14,7 @@ export default async function BasketsPage({
   const { saleId } = params;
 
   const sale = await getSale(saleId);
-  if (!sale) notFound();
+  if (!sale) return notFound();
 
   const totals = await getBasketTotals(saleId);
   const baskets = (

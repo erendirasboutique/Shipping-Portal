@@ -24,13 +24,18 @@ export async function GET(_req: Request, { params }: Ctx) {
     if (!baskets.length) return NextResponse.json({ baskets: [] });
 
     // How-to-pay text lives on the sale, so it can change any week.
-    const saleIds = [...new Set(baskets.map((b) => b.live_sale_id))];
+    // Plain filter rather than [...new Set()] — this project targets ES5,
+    // where spreading a Set needs downlevelIteration. Ten baskets max, so
+    // the O(n²) is free.
+    const saleIds = baskets
+      .map((b) => b.live_sale_id)
+      .filter((id, i, all) => all.indexOf(id) === i);
     const sales = await liveDb()
       .from('live_sales')
       .select('id, payment_due_at, payment_instructions, payment_instructions_es')
       .in('id', saleIds);
 
-    const saleById = new Map((sales.data ?? []).map((s) => [s.id, s]));
+    const saleById = new Map<string, any>((sales.data ?? []).map((s: any) => [s.id, s]));
 
     return NextResponse.json({
       baskets: baskets.map((b) => {

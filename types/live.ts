@@ -59,7 +59,16 @@ export interface Basket {
   shipping_cents: number;
   discount_cents: number;
   notes: string | null;
+  /** How they paid. Set by staff, never automatically. */
   payment_method: string | null;
+  /** Free text — Zelle confirmation number, "paid at the shop", etc. */
+  payment_note: string | null;
+  /**
+   * A Stripe link pasted in from the billing portal's generator, for the
+   * occasional card payer. This module never creates one itself.
+   */
+  stripe_payment_link_id: string | null;
+  stripe_payment_link_url: string | null;
   finalized_at: string | null;
   paid_at: string | null;
   released_at: string | null;
