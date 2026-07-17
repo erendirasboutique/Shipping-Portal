@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       .filter((id, i, all) => all.indexOf(id) === i);
     const sales = await liveDb()
       .from('live_sales')
-      .select('id, payment_due_at, payment_instructions, payment_instructions_es')
+      .select('id, sale_date, title, payment_due_at, payment_instructions, payment_instructions_es')
       .in('id', saleIds);
 
     const saleById = new Map<string, any>((sales.data ?? []).map((s: any) => [s.id, s]));
@@ -44,6 +44,13 @@ export async function GET(_req: Request, { params }: Ctx) {
           id: b.id,
           basket_number: b.basket_number,
           status: b.status,
+          // Which live this came from — customers shop several weeks and
+          // otherwise can't tell two baskets apart.
+          sale_date: sale?.sale_date ?? null,
+          sale_title: sale?.title ?? null,
+          photo_url: b.photo_url,
+          tracking_number: b.tracking_number,
+          carrier: b.carrier,
           subtotal_cents: b.subtotal_cents,
           shipping_cents: b.shipping_cents,
           discount_cents: b.discount_cents,

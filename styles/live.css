@@ -925,3 +925,61 @@
 @media (max-width: 480px) {
   .order__shell { padding: 24px 14px 48px; }
 }
+
+/* ---------- customer order card ---------- */
+.ob { padding: 0 !important; overflow: hidden; }
+/* Their basket photo runs edge to edge and leads. It's the thing they
+   recognise — they watched these pieces get called an hour ago. Item
+   photos are the boutique's inventory shots; this one is theirs. */
+.ob__hero {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--sand-soft);
+  border-bottom: 1px solid var(--line);
+}
+.ob__head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; padding: 20px 20px 14px;
+}
+.ob__title { font-size: 1.375rem; }
+.ob__from {
+  margin: 4px 0 0; font-size: 0.8125rem;
+  color: var(--taupe); font-family: var(--serif);
+}
+.ob__items {
+  list-style: none; margin: 0; padding: 0 20px;
+  display: grid; gap: 9px;
+}
+.ob__items li {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 0.9375rem; line-height: 1.35;
+}
+.ob__totals {
+  margin: 16px 20px 0; padding: 14px 0 0;
+  border-top: 1px solid var(--line);
+  display: grid; gap: 6px;
+}
+.ob__row { display: flex; justify-content: space-between; font-size: 0.9375rem; }
+.ob__row--total {
+  border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px;
+  font-size: 1.25rem;
+}
+.ob__pay {
+  margin: 18px 0 0; padding: 18px 20px;
+  background: linear-gradient(180deg, rgba(189,168,145,0.22), rgba(189,168,145,0.1));
+  border-top: 1px solid var(--line);
+}
+.ob__inst { margin: 0; font-size: 0.9375rem; white-space: pre-line; line-height: 1.6; }
+.ob__due { margin: 10px 0 0; font-size: 0.8125rem; color: var(--taupe); }
+.ob__card { display: block; text-align: center; text-decoration: none; margin-top: 14px; }
+.ob__track {
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+  background: rgba(74, 101, 71, 0.06);
+}
+.ob__num { margin: 0; font-size: 1rem; letter-spacing: 0.02em; }
+.ob__trackBtn { display: block; text-align: center; text-decoration: none; margin-top: 12px; }
+
+.drawer__track { display: flex; gap: 6px; }

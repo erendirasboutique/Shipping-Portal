@@ -80,6 +80,9 @@ export interface Basket {
   notes: string | null;
   /** Photo of the physical basket, sent with their total. */
   photo_url: string | null;
+  /** Shown on the customer's order page once you ship. */
+  tracking_number: string | null;
+  carrier: string | null;
   /** Operator names — free text, set from the header, not from auth. */
   created_by: string | null;
   finalized_by: string | null;

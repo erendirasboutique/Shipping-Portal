@@ -151,6 +151,10 @@ const DICT = {
     created: 'created',
     finalized: 'finalized',
     paidBy: 'marked paid',
+    tracking: 'Tracking',
+    trackingNumber: 'Tracking number',
+    carrier: 'Carrier',
+    trackingHint: 'Shows on their order page as soon as you save it',
   },
   es: {
     brand: "Erendira's Boutique",
@@ -285,6 +289,10 @@ const DICT = {
     created: 'creada',
     finalized: 'cerrada',
     paidBy: 'marcada pagada',
+    tracking: 'Rastreo',
+    trackingNumber: 'Número de rastreo',
+    carrier: 'Paquetería',
+    trackingHint: 'Aparece en su página en cuanto lo guardes',
   },
 } as const;
 

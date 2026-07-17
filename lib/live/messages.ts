@@ -29,16 +29,17 @@ export function portalUrl(token: string): string {
 }
 
 /**
- * The Thursday-night message.
+ * The Thursday-night message. Always Spanish.
  *
- * Short on purpose. No item list, no math shown — the portal carries all
- * of that and stays correct if anything changes afterwards. Every extra
- * line is one more thing to get wrong, 150 times over.
+ * Not locale-dependent, on purpose: this goes to your customers, and your
+ * customers read Spanish. The EN/ES toggle in the admin is for the person
+ * running the sale — it shouldn't change what a customer receives. One
+ * wrong toggle shouldn't send 150 people the wrong language.
  *
- * The Spanish wording is Erendira's, verbatim. Don't "improve" it.
+ * The wording is Erendira's, verbatim. Don't "improve" it.
  */
 export function basketMessage(opts: {
-  locale: MessageLocale;
+  locale?: MessageLocale;
   customerName?: string | null;
   basketNumber?: number;
   itemCount?: number;
@@ -46,15 +47,10 @@ export function basketMessage(opts: {
   portalToken: string;
   dueLabel?: string | null;
 }): string {
-  const { locale, totalCents, portalToken } = opts;
-  const link = portalUrl(portalToken);
-  const total = centsToDisplay(totalCents, locale);
+  const link = portalUrl(opts.portalToken);
+  const total = centsToDisplay(opts.totalCents, 'es');
 
-  if (locale === 'es') {
-    return `Hola Chula Serian ${total}\nVer tu pedido: ${link}`;
-  }
-
-  return `Hi Chula, it comes to ${total}\nSee your order: ${link}`;
+  return `Hola Chula Serian ${total}\nVer tu pedido: ${link}`;
 }
 
 /** Friday reminder for anything still unpaid. */

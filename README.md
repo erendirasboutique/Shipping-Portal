@@ -26,16 +26,17 @@ If you later want live-sale numbers visible from the billing admin, the clean ve
 
 ## Install — 5 steps, all browser
 
-### 1. Supabase — two migrations left
+### 1. Supabase — three migrations left
 
 Already run: `20260716000000_live_sales.sql`, `20260716000100_live_sales_fks.sql`.
 
-Run these two:
+Run these, in order:
 
-1. **`20260716000200_manual_payments.sql`** — `payment_method` + `payment_note` on baskets, `payment_instructions` (EN/ES) on sales.
-2. **`20260716000300_photo_storage.sql`** — creates the `live-items` storage bucket that drag-and-drop photos land in. Without it, uploads fail with a message telling you to run this.
+1. **`20260716000200_manual_payments.sql`** — payment method + note on baskets, payment instructions on sales.
+2. **`20260716000300_photo_storage.sql`** — the `live-items` storage bucket for photos.
+3. **`20260716000400_basket_photo_and_who.sql`** — basket photo, and who-did-what columns.
 
-Both end with a verify query. Both are safe to re-run.
+Each ends with a verify query. All are safe to re-run.
 
 ### 2. Drop the files in
 
@@ -64,16 +65,15 @@ It deliberately does **not** import `stripe`. That package isn't in this repo (i
 
 ### 4. Environment variables
 
-Vercel → the **shipping portal** project → Settings → Environment Variables.
+Vercel → **shipping portal** project → Settings → Environment Variables.
 
 | Variable | Notes |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | existing |
 | `SUPABASE_SERVICE_ROLE_KEY` | existing |
 | `NEXT_PUBLIC_PORTAL_URL` | **new** — `https://ship.erendirasboutique.com` |
-| `NEXT_PUBLIC_PORTAL_PATH` | **only if** your customer portal isn't at `/portal/{token}` — e.g. `/p` |
-
-Redeploy after adding them.
+| `NEXT_PUBLIC_PORTAL_PATH` | **only if** your portal isn't at `/portal/{token}` — e.g. `/p` |
+| `NEXT_PUBLIC_BRAND_LOGO_URL` | optional — defaults to `/logo.png`, falls back to a wordmark |
 
 ### 5. Wire the customer portal
 

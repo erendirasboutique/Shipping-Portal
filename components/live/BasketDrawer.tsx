@@ -41,6 +41,8 @@ export default function BasketDrawer({
   const [method, setMethod] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [cardUrl, setCardUrl] = useState(basket?.stripe_payment_link_url ?? '');
+  const [tracking, setTracking] = useState(basket?.tracking_number ?? '');
+  const [carrier, setCarrier] = useState(basket?.carrier ?? '');
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,7 +50,9 @@ export default function BasketDrawer({
     setMethod(null);
     setNote('');
     setCardUrl(basket?.stripe_payment_link_url ?? '');
-  }, [basket?.id, basket?.stripe_payment_link_url]);
+    setTracking(basket?.tracking_number ?? '');
+    setCarrier(basket?.carrier ?? '');
+  }, [basket?.id, basket?.stripe_payment_link_url, basket?.tracking_number, basket?.carrier]);
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -306,6 +310,49 @@ export default function BasketDrawer({
                   </button>
                   <button className="live__btn live__btn--ghost" onClick={() => setPayOpen(false)}>
                     {t.cancel}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* tracking — appears on their page the moment it saves */}
+            {(basket.status === 'paid' || basket.status === 'shipped' || basket.tracking_number) && (
+              <section className="drawer__sec">
+                <p className="live__label">{t.tracking}</p>
+                <p className="live__muted drawer__hint">{t.trackingHint}</p>
+                <div className="drawer__track">
+                  <input
+                    className="live__input"
+                    style={{ flex: '0 0 96px' }}
+                    placeholder={t.carrier}
+                    value={carrier}
+                    onChange={(e) => setCarrier(e.target.value)}
+                  />
+                  <input
+                    className="live__input live__mono"
+                    placeholder={t.trackingNumber}
+                    value={tracking}
+                    onChange={(e) => setTracking(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        onPatch({
+                          tracking_number: tracking.trim() || null,
+                          carrier: carrier.trim() || null,
+                        });
+                      }
+                    }}
+                  />
+                  <button
+                    className="live__btn live__btn--ghost"
+                    disabled={busy}
+                    onClick={() =>
+                      onPatch({
+                        tracking_number: tracking.trim() || null,
+                        carrier: carrier.trim() || null,
+                      })
+                    }
+                  >
+                    {t.save}
                   </button>
                 </div>
               </section>

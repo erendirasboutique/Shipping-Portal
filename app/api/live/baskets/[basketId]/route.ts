@@ -38,6 +38,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
       'payment_note',
       'stripe_payment_link_url',
       'photo_url',
+      'tracking_number',
+      'carrier',
     ]) {
       if (key in body) patch[key] = body[key];
     }

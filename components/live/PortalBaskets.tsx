@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { centsToDisplay } from '@/lib/live/money';
+import { useCallback, useEffect, useState } from 'react';
+import { centsToDisplay, formatSaleDate } from '@/lib/live/money';
 
 type PortalItem = {
   id: string;
   description: string;
   description_es: string | null;
-  photo_url: string | null;
   quantity: number;
   unit_price_cents: number;
 };
@@ -16,6 +15,11 @@ type PortalBasket = {
   id: string;
   basket_number: number;
   status: string;
+  sale_date: string | null;
+  sale_title: string | null;
+  photo_url: string | null;
+  tracking_number: string | null;
+  carrier: string | null;
   subtotal_cents: number;
   shipping_cents: number;
   discount_cents: number;
@@ -32,10 +36,12 @@ type PortalBasket = {
 const copy = {
   en: {
     heading: 'Your basket',
-    forming: 'Still adding items',
+    from: 'From the live on',
+    forming: 'Still adding',
     ready: 'Ready to pay',
     paid: 'Paid — shipping Saturday',
-    released: 'Released — the items went back to the rack',
+    released: 'Released',
+    shipped: 'Shipped',
     subtotal: 'Subtotal',
     shipping: 'Shipping',
     discount: 'Discount',
@@ -44,15 +50,19 @@ const copy = {
     dueBy: 'Please pay by',
     payCard: 'Pay by card',
     noInstructions: 'We sent you a message with the payment options.',
-    empty: 'Nothing here yet. Your basket shows up once you claim something on the live.',
+    empty: 'Nothing here yet.',
     each: 'each',
+    tracking: 'Tracking',
+    track: 'Track your package',
   },
   es: {
     heading: 'Tu canasta',
-    forming: 'Todavía agregando artículos',
+    from: 'Del live del',
+    forming: 'Todavía agregando',
     ready: 'Lista para pagar',
     paid: 'Pagada — se envía el sábado',
-    released: 'Liberada — los artículos volvieron al perchero',
+    released: 'Liberada',
+    shipped: 'Enviada',
     subtotal: 'Subtotal',
     shipping: 'Envío',
     discount: 'Descuento',
@@ -61,79 +71,112 @@ const copy = {
     dueBy: 'Por favor paga antes del',
     payCard: 'Pagar con tarjeta',
     noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
-    empty: 'Nada por aquí todavía. Tu canasta aparece cuando apartas algo en el live.',
+    empty: 'Nada por aquí todavía.',
     each: 'c/u',
+    tracking: 'Rastreo',
+    track: 'Rastrea tu paquete',
   },
 } as const;
+
+function trackUrl(num: string) {
+  const base = process.env.NEXT_PUBLIC_TRACK_URL ?? 'https://track.erendirasboutique.com';
+  return `${base.replace(/\/+$/, '')}/?tracking=${encodeURIComponent(num)}`;
+}
 
 export default function PortalBaskets({
   token,
   locale: forced,
 }: {
   token: string;
-  /** Omit to auto-detect from the browser, matching the rest of the portal. */
   locale?: 'en' | 'es';
 }) {
-  const [locale, setLocale] = useState<'en' | 'es'>(forced ?? 'en');
+  const [locale, setLocale] = useState<'en' | 'es'>(forced ?? 'es');
   const [baskets, setBaskets] = useState<PortalBasket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (forced) return;
     const lang = navigator.language?.toLowerCase() ?? '';
-    if (lang.startsWith('es')) setLocale('es');
+    setLocale(lang.startsWith('en') ? 'en' : 'es');
   }, [forced]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await fetch(`/api/live/portal/${token}/baskets`);
-        const json = await res.json();
-        if (cancelled) return;
-        if (!res.ok) {
-          setError(json.error ?? 'We could not load your basket.');
-          return;
-        }
-        setBaskets(json.baskets ?? []);
-      } catch {
-        if (!cancelled) setError('We could not load your basket. Refresh to try again.');
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/live/portal/${token}/baskets`, { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error ?? 'We could not load your basket.');
+        return;
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+      setBaskets(json.baskets ?? []);
+      setError(null);
+    } catch {
+      // Offline or a dropped connection. Keep whatever's on screen —
+      // a stale total beats an error message they can't act on.
+    }
   }, [token]);
 
+  /**
+   * Keep it current.
+   *
+   * The basket changes under them: you add an item, fix a price, finalize,
+   * mark it paid, add tracking. A page fetched once and left open all
+   * evening quietly lies — and then they message you asking why the total
+   * is wrong.
+   *
+   * Polls every 20s while the tab is visible, stops when it isn't (nobody
+   * needs a phone in a pocket hitting the API all night), and refetches the
+   * moment they come back.
+   */
+  useEffect(() => {
+    load();
+
+    let timer: number | undefined;
+
+    function start() {
+      stop();
+      timer = window.setInterval(load, 20000);
+    }
+    function stop() {
+      if (timer) window.clearInterval(timer);
+      timer = undefined;
+    }
+    function onVisible() {
+      if (document.visibilityState === 'visible') {
+        load();
+        start();
+      } else {
+        stop();
+      }
+    }
+
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', load);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', load);
+    };
+  }, [load]);
+
   const t = copy[locale];
-  const wrap = { background: 'transparent', minHeight: 0 } as const;
 
   if (error) {
-    return (
-      <div className="live" style={wrap}>
-        <p style={{ color: 'var(--alert)' }}>{error}</p>
-      </div>
-    );
+    return <p style={{ color: 'var(--alert)' }}>{error}</p>;
   }
 
   if (baskets === null) {
-    return (
-      <div className="live" style={wrap}>
-        <p className="live__muted">…</p>
-      </div>
-    );
+    return <p className="live__muted">…</p>;
   }
 
   if (baskets.length === 0) {
     return (
-      <div className="live" style={wrap}>
-        <div className="live__empty">
-          <p className="live__muted" style={{ margin: 0 }}>
-            {t.empty}
-          </p>
-        </div>
+      <div className="live__empty">
+        <p className="live__muted" style={{ margin: 0 }}>
+          {t.empty}
+        </p>
       </div>
     );
   }
@@ -142,188 +185,125 @@ export default function PortalBaskets({
     if (status === 'open') return t.forming;
     if (status === 'finalized') return t.ready;
     if (status === 'released') return t.released;
+    if (status === 'shipped') return t.shipped;
     return t.paid;
   }
 
   return (
-    <div className="live" style={wrap}>
-      <div style={{ display: 'grid', gap: 24 }}>
-        {baskets.map((basket) => {
-          const instructions =
-            locale === 'es' && basket.payment_instructions_es
-              ? basket.payment_instructions_es
-              : basket.payment_instructions;
+    <div style={{ display: 'grid', gap: 22 }}>
+      {baskets.map((b) => {
+        const instructions =
+          locale === 'es' && b.payment_instructions_es
+            ? b.payment_instructions_es
+            : b.payment_instructions;
 
-          return (
-            <section key={basket.id} className="live__card">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  gap: 12,
-                  marginBottom: 16,
-                }}
-              >
-                <h2>
-                  {t.heading}{' '}
-                  <span className="live__mono live__muted">#{basket.basket_number}</span>
+        return (
+          <section key={b.id} className="live__card ob">
+            {/* Their actual basket, first. It's what they recognise —
+                they picked these things out on a live an hour ago. */}
+            {b.photo_url && (
+              <img className="ob__hero" src={b.photo_url} alt="" />
+            )}
+
+            <div className="ob__head">
+              <div>
+                <h2 className="ob__title">
+                  {t.heading} <span className="live__mono live__muted">#{b.basket_number}</span>
                 </h2>
-                <span className={`live__pill live__pill--${basket.status}`}>
-                  {statusLabel(basket.status)}
-                </span>
+                {b.sale_date && (
+                  <p className="ob__from">
+                    {t.from} {b.sale_title || formatSaleDate(b.sale_date, locale)}
+                  </p>
+                )}
               </div>
+              <span className={`live__pill live__pill--${b.status}`}>
+                {statusLabel(b.status)}
+              </span>
+            </div>
 
-              <div style={{ display: 'grid', gap: 12 }}>
-                {basket.items.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '64px 1fr auto',
-                      gap: 12,
-                      alignItems: 'center',
-                    }}
-                  >
-                    {item.photo_url ? (
-                      <img
-                        src={item.photo_url}
-                        alt=""
-                        loading="lazy"
-                        style={{
-                          width: 64,
-                          height: 80,
-                          objectFit: 'cover',
-                          borderRadius: 2,
-                          background: 'rgba(189,168,145,0.2)',
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 64,
-                          height: 80,
-                          borderRadius: 2,
-                          background: 'rgba(189,168,145,0.2)',
-                        }}
-                      />
+            <ul className="ob__items">
+              {b.items.map((i) => (
+                <li key={i.id}>
+                  <span>
+                    {locale === 'es' && i.description_es ? i.description_es : i.description}
+                    {i.quantity > 1 && (
+                      <span className="live__muted live__mono">
+                        {' '}
+                        ×{i.quantity} · {centsToDisplay(i.unit_price_cents, locale)} {t.each}
+                      </span>
                     )}
+                  </span>
+                  <span className="live__mono">
+                    {centsToDisplay(i.unit_price_cents * i.quantity, locale)}
+                  </span>
+                </li>
+              ))}
+            </ul>
 
-                    <div>
-                      <p style={{ margin: 0, fontSize: '0.9375rem' }}>
-                        {locale === 'es' && item.description_es
-                          ? item.description_es
-                          : item.description}
-                      </p>
-                      {item.quantity > 1 && (
-                        <p
-                          className="live__muted live__mono"
-                          style={{ margin: 0, fontSize: '0.75rem' }}
-                        >
-                          ×{item.quantity} · {centsToDisplay(item.unit_price_cents, locale)}{' '}
-                          {t.each}
-                        </p>
-                      )}
-                    </div>
-
-                    <span className="live__mono">
-                      {centsToDisplay(item.unit_price_cents * item.quantity, locale)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{
-                  marginTop: 20,
-                  paddingTop: 16,
-                  borderTop: '1px solid var(--line)',
-                  display: 'grid',
-                  gap: 6,
-                }}
-              >
-                <Row label={t.subtotal} value={centsToDisplay(basket.subtotal_cents, locale)} />
-                {basket.shipping_cents > 0 && (
-                  <Row label={t.shipping} value={centsToDisplay(basket.shipping_cents, locale)} />
-                )}
-                {basket.discount_cents > 0 && (
-                  <Row
-                    label={t.discount}
-                    value={`−${centsToDisplay(basket.discount_cents, locale)}`}
-                  />
-                )}
-                <Row label={t.total} value={centsToDisplay(basket.total_cents, locale)} strong />
-              </div>
-
-              {basket.status === 'finalized' && (
-                <div
-                  style={{
-                    marginTop: 20,
-                    padding: 16,
-                    background: 'rgba(189, 168, 145, 0.16)',
-                    borderRadius: 2,
-                  }}
-                >
-                  <p className="live__eyebrow" style={{ marginBottom: 8 }}>
-                    {t.howToPay}
-                  </p>
-
-                  <p
-                    className={instructions ? undefined : 'live__muted'}
-                    style={{ margin: 0, fontSize: '0.9375rem', whiteSpace: 'pre-line' }}
-                  >
-                    {instructions || t.noInstructions}
-                  </p>
-
-                  {basket.due_at && (
-                    <p
-                      className="live__muted"
-                      style={{ margin: '10px 0 0', fontSize: '0.8125rem' }}
-                    >
-                      {t.dueBy}{' '}
-                      {new Date(basket.due_at).toLocaleString(
-                        locale === 'es' ? 'es-US' : 'en-US',
-                        { weekday: 'long', hour: 'numeric', minute: '2-digit' }
-                      )}
-                    </p>
-                  )}
-
-                  {basket.pay_url && (
-                    <a
-                      className="live__btn"
-                      href={basket.pay_url}
-                      style={{
-                        display: 'block',
-                        textAlign: 'center',
-                        textDecoration: 'none',
-                        marginTop: 14,
-                      }}
-                    >
-                      {t.payCard}
-                    </a>
-                  )}
-                </div>
+            <div className="ob__totals">
+              <Row label={t.subtotal} value={centsToDisplay(b.subtotal_cents, locale)} />
+              {b.shipping_cents > 0 && (
+                <Row label={t.shipping} value={centsToDisplay(b.shipping_cents, locale)} />
               )}
-            </section>
-          );
-        })}
-      </div>
+              {b.discount_cents > 0 && (
+                <Row label={t.discount} value={`−${centsToDisplay(b.discount_cents, locale)}`} />
+              )}
+              <Row label={t.total} value={centsToDisplay(b.total_cents, locale)} strong />
+            </div>
+
+            {b.status === 'finalized' && (
+              <div className="ob__pay">
+                <p className="live__eyebrow">{t.howToPay}</p>
+                <p className={instructions ? 'ob__inst' : 'ob__inst live__muted'}>
+                  {instructions || t.noInstructions}
+                </p>
+                {b.due_at && (
+                  <p className="ob__due">
+                    {t.dueBy}{' '}
+                    {new Date(b.due_at).toLocaleString(locale === 'es' ? 'es-US' : 'en-US', {
+                      weekday: 'long',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                )}
+                {b.pay_url && (
+                  <a className="live__btn ob__card" href={b.pay_url}>
+                    {t.payCard}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {b.tracking_number && (
+              <div className="ob__track">
+                <p className="live__eyebrow">{t.tracking}</p>
+                <p className="ob__num live__mono">
+                  {b.carrier ? `${b.carrier} · ` : ''}
+                  {b.tracking_number}
+                </p>
+                <a
+                  className="live__btn live__btn--ghost ob__trackBtn"
+                  href={trackUrl(b.tracking_number)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t.track}
+                </a>
+              </div>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      <span className={strong ? undefined : 'live__muted'} style={{ fontSize: '0.9375rem' }}>
-        {label}
-      </span>
-      <span
-        className="live__mono"
-        style={{ fontSize: strong ? '1.125rem' : '0.9375rem', fontWeight: strong ? 600 : 400 }}
-      >
-        {value}
-      </span>
+    <div className={`ob__row${strong ? ' ob__row--total' : ''}`}>
+      <span className={strong ? undefined : 'live__muted'}>{label}</span>
+      <span className="live__mono">{value}</span>
     </div>
   );
 }
