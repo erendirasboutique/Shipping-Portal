@@ -1,4 +1,10 @@
 import { liveDb } from './supabase';
+import {
+  CUSTOMERS_TABLE,
+  CUSTOMER_COLS,
+  CUSTOMER_SELECT,
+  isUuid,
+} from './schema';
 import type {
   Basket,
   BasketDetail,
@@ -8,9 +14,6 @@ import type {
   LiveSale,
   RecentClaim,
 } from '@/types/live';
-
-/** Set this to whatever your customers table is actually called. */
-const CUSTOMERS_TABLE = 'customers';
 
 export async function listSales(): Promise<LiveSale[]> {
   const { data, error } = await liveDb()
@@ -186,8 +189,8 @@ export async function getBasketDetail(
   if (basket.data.customer_id) {
     const c = await db
       .from(CUSTOMERS_TABLE)
-      .select('id, name, email, portal_token')
-      .eq('id', basket.data.customer_id)
+      .select(CUSTOMER_SELECT)
+      .eq(CUSTOMER_COLS.id, basket.data.customer_id)
       .maybeSingle();
     if (!c.error && c.data) detail.customer = c.data as BasketDetail['customer'];
   }
@@ -199,12 +202,16 @@ export async function getBasketDetail(
 export async function getBasketsForPortalToken(
   token: string
 ): Promise<BasketDetail[]> {
+  // portal_token is a uuid column — a malformed token would make
+  // Postgres throw rather than return nothing.
+  if (!isUuid(token)) return [];
+
   const db = liveDb();
 
   const customer = await db
     .from(CUSTOMERS_TABLE)
-    .select('id, name, email, portal_token')
-    .eq('portal_token', token)
+    .select(CUSTOMER_SELECT)
+    .eq(CUSTOMER_COLS.portalToken, token)
     .maybeSingle();
 
   if (customer.error || !customer.data) return [];

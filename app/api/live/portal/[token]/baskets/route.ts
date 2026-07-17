@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getBasketsForPortalToken } from '@/lib/live/queries';
+import { isUuid } from '@/lib/live/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,8 @@ type Ctx = { params: Promise<{ token: string }> };
 export async function GET(_req: Request, { params }: Ctx) {
   try {
     const { token } = await params;
-    if (!token || token.length < 20) {
+    // portal_token is a uuid column, so anything else is a bad link.
+    if (!isUuid(token)) {
       return NextResponse.json({ error: 'Invalid link' }, { status: 400 });
     }
 

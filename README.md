@@ -26,19 +26,11 @@ If you later want live-sale numbers visible from the billing admin, the clean ve
 
 ## Install — 6 steps, all browser
 
-### 1. Run the migration — in the SHIPPING portal's Supabase project
+### 1. Supabase — mostly done already
 
-Open the Supabase project that has your `customers` table (the shipping one). Confirm you're in the right place:
+You've already run `20260716000000_live_sales.sql` in the shipping project. `live_sales`, `live_items`, `baskets`, `basket_items`, `basket_totals` and `live_item_stock` are all in place.
 
-```sql
-select count(*) from public.customers where portal_token is not null;
-```
-
-If that errors, you're in the billing project — switch, then continue.
-
-Then: **SQL Editor** → paste `supabase/migrations/20260716000000_live_sales.sql` → Run.
-
-Safe to re-run. Creates `live_sales`, `live_items`, `baskets`, `basket_items`, two views, RLS locked to service role.
+One thing left: **run `supabase/migrations/20260716000100_live_sales_fks.sql`**. The first migration shipped with the foreign keys commented out because I didn't know your table names yet. Now confirmed — `shipping_customers.id` and `shipping_orders.id` are both uuid — so they can go in. It ends with a verify query that should return two rows.
 
 ### 2. Drop the files in
 
@@ -110,41 +102,24 @@ Then delete `app/api/live/stripe-webhook/route.ts`… except for that exported f
 
 ---
 
-## Two things to check against your schema
+## How this module talks to your existing tables
 
-Run this in the shipping project before you upload anything:
+Everything it assumes about tables you already own lives in **`lib/live/schema.ts`**. Rename something in Supabase later and that one file is the only edit.
 
-```sql
-select column_name, data_type
-from information_schema.columns
-where table_schema = 'public' and table_name = 'customers'
-order by ordinal_position;
-```
+Confirmed against your project:
 
-1. **Columns.** The module expects `id`, `name`, `email`, `phone`, `portal_token`. If yours differ (`first_name`/`last_name`, say), change `SELECT_COLS` and `SEARCH_COLS` in `app/api/live/customers/search/route.ts`, and the two `.select('id, name, email, portal_token')` calls in `lib/live/queries.ts`. That's every place it's assumed.
+| What | Yours |
+|---|---|
+| Customers table | `shipping_customers` |
+| Orders table | `shipping_orders` |
+| Customer columns | `id`, `name`, `email`, `phone`, `portal_token` — all present |
+| `portal_token` type | **uuid**, not text |
 
-2. **ID types.** If `customers.id` and `orders.id` both came back `uuid`, uncomment the two `alter table` statements at the bottom of the migration and run them:
+Three things that came out of that:
 
-```sql
-alter table public.baskets
-  add constraint baskets_customer_fk
-  foreign key (customer_id) references public.customers(id) on delete set null;
-alter table public.baskets
-  add constraint baskets_order_fk
-  foreign key (order_id) references public.orders(id) on delete set null;
-```
-
-If either isn't uuid, leave them commented — everything works without the FKs, you just lose database-level protection against a basket pointing at a deleted customer.
-
-### Verify
-
-```sql
-select count(*) from public.live_sales;
-```
-
-`0` is the right answer — the table exists and the SQL Editor (service role, same as your API routes) can see it.
-
----
+- **`portal_token` is a uuid column.** Postgres throws `22P02` on a malformed uuid rather than returning no rows, so both the portal API route and `getBasketsForPortalToken` validate the shape before querying. A junk link now gets a clean "Invalid link" instead of a 500.
+- **Archived and merged customers are excluded from the typeahead.** You have `archived` and `merged_into` on `shipping_customers` from the duplicate-merging work. Matching a basket to a merged-away row would send the total to a portal token nobody checks, so the search filters both out.
+- **The foreign keys are real now**, not commented out. See step 1.
 
 ## Your week, after this
 
@@ -172,7 +147,7 @@ Paid baskets are ready for your existing label flow.
 - **Auto-sending the Messenger message.** Needs a Business Page. Right now it's Copy → paste.
 - **Comment capture.** Same reason.
 - **Auto-release + Friday reminders.** These want a cron (Vercel Cron), and I'd rather you run one live with the manual version first and see what the real timing should be. `reminderMessage()` in `lib/live/messages.ts` is already written for when you want it.
-- **EB-XXX order creation on payment.** `baskets.order_id` is there and empty. Tell me how your order rows get created today and I'll wire the webhook to mint one.
+- **EB-XXX order creation on payment.** `baskets.order_id` exists and stays null. I can see `shipping_orders.order_number` is an integer and the address columns are `to_name` / `to_street1` / …, so the mapping from a paid basket to an order row is clear — the one thing I don't know is how `order_number` gets its next value today (a Postgres sequence? `max(order_number) + 1` in app code?). Tell me and I'll wire it into the webhook.
 
 ---
 
