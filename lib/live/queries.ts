@@ -3,11 +3,13 @@ import {
   CUSTOMERS_TABLE,
   CUSTOMER_COLS,
   CUSTOMER_SELECT,
+  ORDERS_TABLE,
   isUuid,
 } from './schema';
 import type {
   Basket,
   CustomerRow,
+  LinkedOrder,
   LiveItem,
   BasketDetail,
   BasketItem,
@@ -201,6 +203,19 @@ export async function getBasketDetail(
       .maybeSingle();
 
     if (!c.error) detail.customer = asRow<CustomerRow>(c.data);
+  }
+
+  // The linked order carries the real tracking number — EasyPost writes it
+  // there when you buy the label on Saturday. Reading it here means nobody
+  // retypes a tracking number, and it can't be typo'd on basket 83.
+  if (basket.data.order_id) {
+    const o = await db
+      .from(ORDERS_TABLE)
+      .select('id, order_number, status, tracking_number, tracking_url, carrier')
+      .eq('id', basket.data.order_id)
+      .maybeSingle();
+
+    if (!o.error) detail.order = asRow<LinkedOrder>(o.data);
   }
 
   return detail;

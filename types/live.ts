@@ -49,6 +49,16 @@ export type LiveItemWithStock = LiveItem & {
   quantity_remaining: number;
 };
 
+/** The shipping_orders row a paid basket turns into. */
+export interface LinkedOrder {
+  id: string;
+  order_number: number | null;
+  status: string | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  carrier: string | null;
+}
+
 /** A customer row as selected by CUSTOMER_SELECT in lib/live/schema.ts. */
 export interface CustomerRow {
   id: string;
@@ -140,6 +150,8 @@ export interface BasketDetail extends Basket {
   item_count: number;
   items: BasketItem[];
   customer?: CustomerRow | null;
+  /** Present once the basket has been paid and an order minted. */
+  order?: LinkedOrder | null;
 }
 
 /** One entry in the undo rail on the claims screen. */

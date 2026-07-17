@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { BasketDetail, CustomerRow, LiveSale } from '@/types/live';
 import { centsToDisplay, parsePriceToCents } from '@/lib/live/money';
-import { PAYMENT_METHODS, paymentMethodLabel } from '@/lib/live/schema';
+import { PAYMENT_METHODS, formatOrderNumber, paymentMethodLabel } from '@/lib/live/schema';
 import { basketMessage, dueLabel, portalUrl } from '@/lib/live/messages';
 import { useLocale } from '@/lib/live/i18n';
 import CustomerPicker from '@/components/live/CustomerPicker';
@@ -85,6 +85,11 @@ export default function BasketDrawer({
             <h2 className="drawer__no">{basketNumber}</h2>
           </div>
           <div className="drawer__headRight">
+            {basket?.order?.order_number && (
+              <span className="drawer__eb live__mono">
+                {formatOrderNumber(basket.order.order_number)}
+              </span>
+            )}
             {basket && (
               <span className={`live__pill live__pill--${basket.status}`}>{basket.status}</span>
             )}
@@ -319,7 +324,16 @@ export default function BasketDrawer({
             {(basket.status === 'paid' || basket.status === 'shipped' || basket.tracking_number) && (
               <section className="drawer__sec">
                 <p className="live__label">{t.tracking}</p>
-                <p className="live__muted drawer__hint">{t.trackingHint}</p>
+                <p className="live__muted drawer__hint">
+                  {basket.order?.tracking_number ? t.trackingFromLabel : t.trackingHint}
+                </p>
+
+                {basket.order?.tracking_number && (
+                  <p className="drawer__fromLabel live__mono">
+                    {basket.order.carrier ? `${basket.order.carrier} · ` : ''}
+                    {basket.order.tracking_number}
+                  </p>
+                )}
                 <div className="drawer__track">
                   <input
                     className="live__input"

@@ -65,6 +65,16 @@ export const CUSTOMER_SEARCH_COLS = [
 export const NEW_ORDER_STATUS = 'draft';
 
 /**
+ * Your order numbers read EB-283. The integer lives in
+ * shipping_orders.order_number; this is only how it's displayed.
+ */
+export const ORDER_PREFIX = 'EB-';
+
+export function formatOrderNumber(n: number | null | undefined): string | null {
+  return typeof n === 'number' ? `${ORDER_PREFIX}${n}` : null;
+}
+
+/**
  * How a customer paid. Staff pick one when marking a basket paid —
  * nothing here is ever set automatically.
  *

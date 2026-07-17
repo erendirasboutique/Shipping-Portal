@@ -155,6 +155,8 @@ const DICT = {
     trackingNumber: 'Tracking number',
     carrier: 'Carrier',
     trackingHint: 'Shows on their order page as soon as you save it',
+    trackingFromLabel: 'Already pulled from the label — nothing to type. The field below is only for packages shipped outside the portal.',
+    noOrderYet: 'No order yet',
   },
   es: {
     brand: "Erendira's Boutique",
@@ -293,6 +295,8 @@ const DICT = {
     trackingNumber: 'Número de rastreo',
     carrier: 'Paquetería',
     trackingHint: 'Aparece en su página en cuanto lo guardes',
+    trackingFromLabel: 'Ya viene de la etiqueta — no hay que escribir nada. El campo de abajo es solo para paquetes enviados fuera del portal.',
+    noOrderYet: 'Todavía sin orden',
   },
 } as const;
 

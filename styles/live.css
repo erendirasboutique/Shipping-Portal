@@ -983,3 +983,53 @@
 .ob__trackBtn { display: block; text-align: center; text-decoration: none; margin-top: 12px; }
 
 .drawer__track { display: flex; gap: 6px; }
+.ob__order {
+  margin: 3px 0 0; font-size: 0.75rem; letter-spacing: 0.08em;
+  color: var(--taupe); opacity: 0.8;
+}
+.drawer__eb {
+  font-size: 0.6875rem; letter-spacing: 0.08em;
+  color: var(--taupe); border: 1px solid var(--line-firm);
+  border-radius: 999px; padding: 4px 9px;
+}
+.drawer__fromLabel {
+  margin: 0 0 8px; font-size: 0.875rem;
+  background: rgba(74, 101, 71, 0.1); color: var(--good);
+  border-radius: var(--r); padding: 8px 10px;
+}
+
+/* ---------- customer basket lookup ---------- */
+.lk { text-align: center; }
+.lk__title { font-size: 1.75rem; margin-bottom: 6px; }
+.lk__sub { color: var(--taupe); font-size: 0.9375rem; margin: 0 0 22px; line-height: 1.5; }
+.lk__input {
+  font-size: 1.125rem; text-align: center; padding: 14px;
+  max-width: 340px; margin: 0 auto;
+}
+.lk__note { color: var(--taupe); font-size: 0.8125rem; margin: 14px 0 0; }
+.lk__list { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 8px; }
+.lk__hit {
+  display: grid; grid-template-columns: 64px 1fr; gap: 14px; align-items: center;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 14px 16px; text-align: left;
+}
+.lk__no {
+  font-size: 1.75rem; line-height: 1; text-align: center;
+  color: var(--ink);
+}
+.lk__name { font-size: 1rem; display: grid; gap: 2px; }
+.lk__state {
+  font-style: normal; font-family: var(--mono);
+  font-size: 0.625rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--taupe);
+}
+.lk__none {
+  margin-top: 22px; padding: 22px;
+  border: 1px dashed var(--line-firm); border-radius: var(--r);
+}
+.lk__none p { margin: 0; font-size: 0.9375rem; }
+.lk__hint { color: var(--taupe); font-size: 0.8125rem !important; margin-top: 8px !important; line-height: 1.5; }
+.lk__foot {
+  margin-top: 30px; font-size: 0.8125rem; color: var(--taupe);
+  opacity: 0.8; line-height: 1.5;
+}

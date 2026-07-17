@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getBasketsForPortalToken } from '@/lib/live/queries';
 import { liveDb } from '@/lib/live/supabase';
-import { isUuid } from '@/lib/live/schema';
+import { formatOrderNumber, isUuid } from '@/lib/live/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,8 +49,14 @@ export async function GET(_req: Request, { params }: Ctx) {
           sale_date: sale?.sale_date ?? null,
           sale_title: sale?.title ?? null,
           photo_url: b.photo_url,
-          tracking_number: b.tracking_number,
-          carrier: b.carrier,
+          // The order number they'll quote back at you if they message.
+          order_number: formatOrderNumber(b.order?.order_number),
+          // Tracking comes from the label if there is one — EasyPost wrote
+          // it there when you bought postage. The field on the basket is
+          // the manual fallback for anything shipped outside the portal.
+          tracking_number: b.order?.tracking_number ?? b.tracking_number,
+          carrier: b.order?.carrier ?? b.carrier,
+          tracking_url: b.order?.tracking_url ?? null,
           subtotal_cents: b.subtotal_cents,
           shipping_cents: b.shipping_cents,
           discount_cents: b.discount_cents,

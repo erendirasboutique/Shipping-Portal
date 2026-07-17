@@ -18,7 +18,9 @@ type PortalBasket = {
   sale_date: string | null;
   sale_title: string | null;
   photo_url: string | null;
+  order_number: string | null;
   tracking_number: string | null;
+  tracking_url: string | null;
   carrier: string | null;
   subtotal_cents: number;
   shipping_cents: number;
@@ -49,14 +51,7 @@ const copy = {
     howToPay: 'How to pay',
     dueBy: 'Please pay by',
     payCard: 'Pay by card',
-    noInstructions: 'Zelle: 909.401.7221
-Cash App: $ErendirasBoutique
-Venmo: @ErendirasBoutique 
-PayPal: PayPal@erndrsbtq.com
-Apple Cash/Pay: 909.401.7221
-Meta Pay 
-Quieres pagar con Klarna, Affirm, Zip, o Afterpay? Solicita un enlace de pago.
-',
+    noInstructions: 'We sent you a message with the payment options.',
     empty: 'Nothing here yet.',
     each: 'each',
     tracking: 'Tracking',
@@ -77,14 +72,7 @@ Quieres pagar con Klarna, Affirm, Zip, o Afterpay? Solicita un enlace de pago.
     howToPay: 'Cómo pagar',
     dueBy: 'Por favor paga antes del',
     payCard: 'Pagar con tarjeta',
-    noInstructions: 'Zelle: 909.401.7221
-Cash App: $ErendirasBoutique
-Venmo: @ErendirasBoutique 
-PayPal: PayPal@erndrsbtq.com
-Apple Cash/Pay: 909.401.7221
-Meta Pay 
-Quieres pagar con Klarna, Affirm, Zip, o Afterpay? Solicita un enlace de pago.
-',
+    noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
     empty: 'Nada por aquí todavía.',
     each: 'c/u',
     tracking: 'Rastreo',
@@ -229,6 +217,9 @@ export default function PortalBaskets({
                     {t.from} {b.sale_title || formatSaleDate(b.sale_date, locale)}
                   </p>
                 )}
+                {b.order_number && (
+                  <p className="ob__order live__mono">{b.order_number}</p>
+                )}
               </div>
               <span className={`live__pill live__pill--${b.status}`}>
                 {statusLabel(b.status)}
@@ -298,7 +289,7 @@ export default function PortalBaskets({
                 </p>
                 <a
                   className="live__btn live__btn--ghost ob__trackBtn"
-                  href={trackUrl(b.tracking_number)}
+                  href={b.tracking_url || trackUrl(b.tracking_number)}
                   target="_blank"
                   rel="noreferrer"
                 >
