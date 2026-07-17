@@ -1,26 +1,59 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { CustomerRow } from '@/types/live';
+import { useLocale } from '@/lib/live/i18n';
 
-type Customer = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  portal_token?: string | null;
-};
-
+/**
+ * Customer typeahead.
+ *
+ * The dropdown is position:fixed and measured off the input's rect rather
+ * than absolutely positioned inside it. An absolute dropdown gets clipped
+ * by any ancestor that scrolls or hides overflow — which is exactly what
+ * happened when this lived in a wide table: you had to scroll sideways to
+ * read your own search results.
+ */
 export default function CustomerPicker({
   value,
   onSelect,
+  autoFocus,
 }: {
-  value: Customer | null;
-  onSelect: (customer: Customer | null) => void;
+  value: CustomerRow | null;
+  onSelect: (customer: CustomerRow | null) => void;
+  autoFocus?: boolean;
 }) {
+  const { t } = useLocale();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Customer[]>([]);
+  const [results, setResults] = useState<CustomerRow[]>([]);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [active, setActive] = useState(0);
+
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  function measure() {
+    const el = inputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setRect({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 260) });
+  }
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
+
+  useEffect(() => {
+    if (!open) return;
+    measure();
+    window.addEventListener('scroll', measure, true);
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('resize', measure);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (query.trim().length < 2) {
@@ -34,16 +67,19 @@ export default function CustomerPicker({
       try {
         const res = await fetch(
           `/api/live/customers/search?q=${encodeURIComponent(query.trim())}`,
-          { signal: controller.signal }
+          { signal: controller.signal, cache: 'no-store' }
         );
         const json = await res.json();
-        if (res.ok) setResults(json.customers ?? []);
+        if (res.ok) {
+          setResults(json.customers ?? []);
+          setActive(0);
+        }
       } catch {
-        /* aborted or offline — the field just shows nothing */
+        // aborted or offline — leave the list as it was
       } finally {
         setSearching(false);
       }
-    }, 220);
+    }, 200);
 
     return () => {
       clearTimeout(timer);
@@ -52,120 +88,113 @@ export default function CustomerPicker({
   }, [query]);
 
   useEffect(() => {
-    function onClickAway(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    function onDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if ((target as HTMLElement)?.closest?.('[data-cp-menu]')) return;
+      setOpen(false);
     }
-    document.addEventListener('mousedown', onClickAway);
-    return () => document.removeEventListener('mousedown', onClickAway);
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onEsc);
+    };
   }, []);
+
+  function choose(c: CustomerRow | null) {
+    onSelect(c);
+    setOpen(false);
+    setQuery('');
+  }
 
   if (value && !open) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.9375rem' }}>{value.name || 'Unnamed'}</div>
-          {value.email && (
-            <div className="live__muted" style={{ fontSize: '0.75rem' }}>
-              {value.email}
-            </div>
-          )}
+      <div className="cp__chosen">
+        <div className="cp__chosenText">
+          <div className="cp__chosenName">{value.name || '—'}</div>
+          {value.email && <div className="cp__chosenMeta">{value.email}</div>}
         </div>
         <button
+          type="button"
           className="live__undo"
           onClick={() => {
             setOpen(true);
             setQuery('');
+            requestAnimationFrame(() => inputRef.current?.focus());
           }}
         >
-          Change
+          {t.change}
         </button>
       </div>
     );
   }
 
   return (
-    <div ref={boxRef} style={{ position: 'relative' }}>
+    <div ref={wrapRef} className="cp">
       <input
+        ref={inputRef}
         className="live__input"
-        style={{ padding: '7px 10px', fontSize: '0.875rem' }}
-        placeholder="Search name, email, phone"
+        placeholder={t.searchCustomer}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
-        aria-label="Match this basket to a customer"
+        onFocus={() => {
+          setOpen(true);
+          measure();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActive((i) => Math.min(i + 1, results.length - 1));
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive((i) => Math.max(i - 1, 0));
+          }
+          if (e.key === 'Enter' && results[active]) {
+            e.preventDefault();
+            choose(results[active]);
+          }
+        }}
+        aria-label={t.matchCustomer}
       />
 
-      {open && (query.trim().length >= 2 || value) && (
+      {open && rect && (query.trim().length >= 2 || value) && (
         <div
-          style={{
-            position: 'absolute',
-            zIndex: 20,
-            top: 'calc(100% + 4px)',
-            left: 0,
-            right: 0,
-            minWidth: 240,
-            background: 'var(--paper)',
-            border: '1px solid var(--line)',
-            borderRadius: 2,
-            boxShadow: '0 8px 24px rgba(61, 52, 40, 0.12)',
-            overflow: 'hidden',
-          }}
+          data-cp-menu
+          className="cp__menu"
+          style={{ top: rect.top, left: rect.left, width: rect.width }}
         >
           {value && (
-            <button
-              className="live__undo"
-              style={{ width: '100%', border: 'none', borderBottom: '1px solid var(--line)', padding: 10 }}
-              onClick={() => {
-                onSelect(null);
-                setOpen(false);
-              }}
-            >
-              Unmatch
+            <button type="button" className="cp__row cp__row--warn" onClick={() => choose(null)}>
+              {t.unmatch}
             </button>
           )}
 
-          {searching && (
-            <p className="live__muted" style={{ padding: 12, margin: 0, fontSize: '0.8125rem' }}>
-              Searching…
-            </p>
-          )}
+          {searching && <p className="cp__note">{t.searching}</p>}
 
           {!searching && results.length === 0 && query.trim().length >= 2 && (
-            <p className="live__muted" style={{ padding: 12, margin: 0, fontSize: '0.8125rem' }}>
-              No one matches &ldquo;{query}&rdquo;. Add them on the customers page first.
+            <p className="cp__note">
+              {t.noMatches} &ldquo;{query}&rdquo;. {t.addThemFirst}
             </p>
           )}
 
-          {results.map((customer) => (
+          {results.map((c, i) => (
             <button
-              key={customer.id}
-              onClick={() => {
-                onSelect(customer);
-                setOpen(false);
-                setQuery('');
-              }}
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
-                padding: '10px 12px',
-                background: 'none',
-                border: 'none',
-                borderBottom: '1px solid var(--line)',
-                cursor: 'pointer',
-                fontFamily: 'var(--body)',
-                color: 'var(--ink)',
-              }}
+              key={c.id}
+              type="button"
+              className={`cp__row${i === active ? ' cp__row--active' : ''}`}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => choose(c)}
             >
-              <div style={{ fontSize: '0.875rem' }}>{customer.name || 'Unnamed'}</div>
-              {customer.email && (
-                <div className="live__muted" style={{ fontSize: '0.75rem' }}>
-                  {customer.email}
-                </div>
-              )}
+              <span className="cp__rowName">{c.name || '—'}</span>
+              {c.email && <span className="cp__rowMeta">{c.email}</span>}
             </button>
           ))}
         </div>

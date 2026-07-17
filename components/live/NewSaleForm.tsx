@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { parsePriceToCents } from '@/lib/live/money';
+import { useLocale } from '@/lib/live/i18n';
 
 /** Friday 11:59pm local, the default deadline for a Wed/Thu sale. */
 function defaultDueDate(saleDate: string): string {
@@ -21,6 +22,7 @@ function defaultDueDate(saleDate: string): string {
 const PAY_PLACEHOLDER = 'Zelle: pay@erendirasboutique.com\nCash App: $erendiras\nVenmo: @erendiras-boutique';
 
 export default function NewSaleForm() {
+  const { t } = useLocale();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -81,7 +83,7 @@ export default function NewSaleForm() {
     return (
       <div>
         <button className="live__btn" onClick={() => setOpen(true)}>
-          Start a sale
+          {t.startSale}
         </button>
       </div>
     );
@@ -89,12 +91,12 @@ export default function NewSaleForm() {
 
   return (
     <section className="live__card">
-      <h2 style={{ marginBottom: 18 }}>Start a sale</h2>
+      <h2 style={{ marginBottom: 18 }}>{t.newSale}</h2>
 
       <div className="live__grid">
         <div>
           <label className="live__label" htmlFor="sale-date">
-            Live date
+            {t.liveDate}
           </label>
           <input
             id="sale-date"
@@ -107,12 +109,12 @@ export default function NewSaleForm() {
 
         <div>
           <label className="live__label" htmlFor="sale-title">
-            Name (optional)
+            {t.saleName}
           </label>
           <input
             id="sale-title"
             className="live__input"
-            placeholder="Wednesday night rack"
+            placeholder={t.saleNamePlaceholder}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -120,7 +122,7 @@ export default function NewSaleForm() {
 
         <div>
           <label className="live__label" htmlFor="sale-due">
-            Pay by
+            {t.payBy}
           </label>
           <input
             id="sale-due"
@@ -133,7 +135,7 @@ export default function NewSaleForm() {
 
         <div>
           <label className="live__label" htmlFor="sale-ship">
-            Default shipping
+            {t.defaultShipping}
           </label>
           <input
             id="sale-ship"
@@ -147,7 +149,7 @@ export default function NewSaleForm() {
 
       <div style={{ marginTop: 18 }}>
         <label className="live__label" htmlFor="sale-pay-en">
-          How to pay &mdash; shown on the customer&rsquo;s portal
+          {t.howToPay}
         </label>
         <textarea
           id="sale-pay-en"
@@ -161,7 +163,7 @@ export default function NewSaleForm() {
 
       <div style={{ marginTop: 14 }}>
         <label className="live__label" htmlFor="sale-pay-es">
-          C&oacute;mo pagar (ES)
+          {t.howToPayEs}
         </label>
         <textarea
           id="sale-pay-es"
@@ -179,14 +181,14 @@ export default function NewSaleForm() {
 
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
         <button className="live__btn" onClick={create} disabled={busy}>
-          {busy ? 'Starting…' : 'Start sale'}
+          {busy ? t.creating : t.createSale}
         </button>
         <button
           className="live__btn live__btn--ghost"
           onClick={() => setOpen(false)}
           disabled={busy}
         >
-          Cancel
+          {t.cancel}
         </button>
       </div>
     </section>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LiveItemWithStock, RecentClaim } from '@/types/live';
 import { centsToDisplay, normalizeCode } from '@/lib/live/money';
+import { useLocale } from '@/lib/live/i18n';
 
 type Flash = { kind: 'ok' | 'err'; text: string } | null;
 
@@ -15,6 +16,7 @@ export default function ClaimEntry({
   catalog: LiveItemWithStock[];
   initialClaims: RecentClaim[];
 }) {
+  const { t } = useLocale();
   const [basketNumber, setBasketNumber] = useState('');
   const [code, setCode] = useState('');
   const [claims, setClaims] = useState<RecentClaim[]>(initialClaims);
@@ -101,7 +103,7 @@ export default function ClaimEntry({
               kind: 'ok',
               text: `Basket ${n} · ${json.item.code} · ${centsToDisplay(
                 json.basket.total_cents ?? 0
-              )} running`,
+              )} ${t.running}`,
             }
       );
 
@@ -158,9 +160,9 @@ export default function ClaimEntry({
             marginBottom: 14,
           }}
         >
-          <h2>Claims</h2>
+          <h2>{t.claims}</h2>
           <button className="live__tab" onClick={() => setGridOpen((v) => !v)}>
-            {gridOpen ? 'Hide rack' : 'Show rack'}
+            {gridOpen ? t.hideRack : t.showRack}
           </button>
         </div>
 
@@ -178,7 +180,7 @@ export default function ClaimEntry({
                   {item.photo_url ? (
                     <img className="live__itemPhoto" src={item.photo_url} alt="" loading="lazy" />
                   ) : (
-                    <div className="live__itemPhoto live__itemPhoto--empty">No photo</div>
+                    <div className="rack__photo rack__photo--none">{t.noPhoto}</div>
                   )}
                   <div className="live__itemBody">
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -186,7 +188,7 @@ export default function ClaimEntry({
                       <span className="live__mono">{centsToDisplay(item.price_cents)}</span>
                     </div>
                     <span className={`live__stock${left <= 0 ? ' live__stock--out' : ''}`}>
-                      {left} left
+                      {left} {t.left}
                     </span>
                   </div>
                 </button>
@@ -197,9 +199,9 @@ export default function ClaimEntry({
 
         {claims.length === 0 ? (
           <div className="live__empty">
-            <h3>Nothing claimed yet</h3>
+            <h3>{t.nothingClaimed}</h3>
             <p className="live__muted" style={{ marginTop: 8 }}>
-              Type a basket number, then a tag code. Every claim lands here with an undo.
+              {t.nothingClaimedHint}
             </p>
           </div>
         ) : (
@@ -218,7 +220,7 @@ export default function ClaimEntry({
                   {centsToDisplay(claim.unit_price_cents * claim.quantity)}
                 </span>
                 <button className="live__undo" onClick={() => undo(claim.id)}>
-                  Undo
+                  {t.undo}
                 </button>
               </div>
             ))}
@@ -231,7 +233,7 @@ export default function ClaimEntry({
         <div className="live__entryRow">
           <div>
             <label className="live__entryLabel" htmlFor="claim-basket">
-              Basket
+              {t.basket}
             </label>
             <input
               id="claim-basket"
@@ -253,7 +255,7 @@ export default function ClaimEntry({
 
           <div>
             <label className="live__entryLabel" htmlFor="claim-code">
-              Tag
+              {t.tag}
             </label>
             <input
               id="claim-code"
@@ -295,7 +297,7 @@ export default function ClaimEntry({
           </div>
         ) : (
           <p className="live__hint">
-            Basket → Enter → tag → Enter. The basket number sticks for a run of items.
+            {t.claimHint}
           </p>
         )}
 
@@ -306,7 +308,7 @@ export default function ClaimEntry({
             onClick={submit}
             disabled={sending}
           >
-            {sending ? 'Saving…' : 'Add to basket'}
+            {sending ? t.saving : t.addToBasket}
           </button>
         </div>
 
@@ -319,7 +321,7 @@ export default function ClaimEntry({
             basketRef.current?.focus();
           }}
         >
-          New basket
+          {t.newBasket}
         </button>
 
         {flash && (
@@ -329,7 +331,7 @@ export default function ClaimEntry({
         )}
 
         <p className="live__hint" style={{ marginTop: 20 }}>
-          Ctrl+Z undoes the last claim
+          {t.undoHint}
         </p>
       </aside>
     </div>

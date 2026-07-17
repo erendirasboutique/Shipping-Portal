@@ -26,11 +26,16 @@ If you later want live-sale numbers visible from the billing admin, the clean ve
 
 ## Install — 5 steps, all browser
 
-### 1. Supabase
+### 1. Supabase — two migrations left
 
-Already done: `20260716000000_live_sales.sql` and `20260716000100_live_sales_fks.sql`.
+Already run: `20260716000000_live_sales.sql`, `20260716000100_live_sales_fks.sql`.
 
-Left to run: **`supabase/migrations/20260716000200_manual_payments.sql`**. Adds `payment_method` + `payment_note` to baskets, and `payment_instructions` (EN/ES) to sales. Ends with a verify that should return two rows.
+Run these two:
+
+1. **`20260716000200_manual_payments.sql`** — `payment_method` + `payment_note` on baskets, `payment_instructions` (EN/ES) on sales.
+2. **`20260716000300_photo_storage.sql`** — creates the `live-items` storage bucket that drag-and-drop photos land in. Without it, uploads fail with a message telling you to run this.
+
+Both end with a verify query. Both are safe to re-run.
 
 ### 2. Drop the files in
 
@@ -66,8 +71,9 @@ Vercel → the **shipping portal** project → Settings → Environment Variable
 | `NEXT_PUBLIC_SUPABASE_URL` | existing |
 | `SUPABASE_SERVICE_ROLE_KEY` | existing |
 | `NEXT_PUBLIC_PORTAL_URL` | **new** — `https://ship.erendirasboutique.com` |
+| `NEXT_PUBLIC_PORTAL_PATH` | **only if** your customer portal isn't at `/portal/{token}` — e.g. `/p` |
 
-One new variable. Redeploy after adding it.
+Redeploy after adding them.
 
 ### 5. Wire the customer portal
 

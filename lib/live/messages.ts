@@ -2,10 +2,27 @@ import { centsToDisplay } from './money';
 
 export type MessageLocale = 'en' | 'es';
 
+/**
+ * Builds the customer's portal link.
+ *
+ * The path is configurable because this module doesn't own the customer
+ * portal — your existing app does. If yours lives at /p/{token} or
+ * /customer/{token} rather than /portal/{token}, set
+ * NEXT_PUBLIC_PORTAL_PATH and nothing in here needs editing.
+ *
+ * Quickest way to find the right value: open any shipping notification
+ * email and look at the "Customer portal" button's URL.
+ */
 export function portalUrl(token: string): string {
-  const base =
-    process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://ship.erendirasboutique.com';
-  return `${base.replace(/\/$/, '')}/portal/${token}`;
+  const base = (
+    process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://ship.erendirasboutique.com'
+  ).replace(/\/+$/, '');
+
+  const path = (process.env.NEXT_PUBLIC_PORTAL_PATH ?? '/portal')
+    .replace(/^\/*/, '/')
+    .replace(/\/+$/, '');
+
+  return `${base}${path}/${token}`;
 }
 
 /**

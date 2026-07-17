@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LiveItemWithStock } from '@/types/live';
 import { centsToDisplay, normalizeCode, parsePriceToCents } from '@/lib/live/money';
+import { useLocale } from '@/lib/live/i18n';
+import PhotoDrop from '@/components/live/PhotoDrop';
 
 export default function CatalogManager({
   saleId,
@@ -11,38 +13,43 @@ export default function CatalogManager({
   saleId: string;
   initialItems: LiveItemWithStock[];
 }) {
-  const [items, setItems] = useState(initialItems);
+  const { t } = useLocale();
+  const [items, setItems] = useState<LiveItemWithStock[]>(initialItems);
   const [mode, setMode] = useState<'one' | 'paste'>('one');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const codeRef = useRef<HTMLInputElement>(null);
+  const codeRef = useRef<HTMLInputElement | null>(null);
 
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [descriptionEs, setDescriptionEs] = useState('');
   const [price, setPrice] = useState('');
   const [quantity, setQuantity] = useState('1');
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [paste, setPaste] = useState('');
 
   /**
-   * Re-read the rack from the API rather than router.refresh().
+   * The client owns this list.
    *
    * router.refresh() re-runs the server component, but the fresh props it
-   * returns can't overwrite useState — and worse, the Router Cache may
-   * hand back a stale payload. That's what made items appear and then
-   * disappear a few seconds later. Reading the API directly with
-   * no-store is the only version that's always true.
+   * returns can't overwrite useState — and Next 14's router cache can hand
+   * back a stale render on top of that. Together that's what made an item
+   * show up and then quietly disappear a few seconds later. Reading the
+   * API with no-store is the only version that's always true.
    */
-  async function reload() {
+  const reload = useCallback(async () => {
     try {
       const res = await fetch(`/api/live/sales/${saleId}/items`, { cache: 'no-store' });
       const json = await res.json();
-      if (res.ok) setItems(json.items ?? []);
+      if (res.ok && Array.isArray(json.items)) setItems(json.items);
     } catch {
-      // Keep what's on screen — it came from a successful write.
+      // keep what's on screen — it came from a write that succeeded
     }
-  }
+  }, [saleId]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const total = useMemo(
     () => items.reduce((sum, i) => sum + i.price_cents * i.quantity, 0),
@@ -63,10 +70,6 @@ export default function CatalogManager({
         setError(json.error ?? 'Could not add those items.');
         return false;
       }
-      setItems((prev) => [
-        ...prev,
-        ...json.items.map((i: any) => ({ ...i, quantity_claimed: 0, quantity_remaining: i.quantity })),
-      ]);
       await reload();
       return true;
     } catch {
@@ -90,7 +93,7 @@ export default function CatalogManager({
         description_es: descriptionEs.trim() || null,
         price_cents: priceCents,
         quantity: Math.max(1, Number(quantity) || 1),
-        photo_url: photoUrl.trim() || null,
+        photo_url: photoUrl,
         sort_order: items.length,
       },
     ]);
@@ -101,21 +104,20 @@ export default function CatalogManager({
       setDescriptionEs('');
       setPrice('');
       setQuantity('1');
-      setPhotoUrl('');
+      setPhotoUrl(null);
       codeRef.current?.focus();
     }
   }
 
-  /** Paste from a sheet: code, description, price, qty, photo url */
   async function addPasted() {
     const rows = paste
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line, index) => {
-        const cols = line.split(/\t|,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((c) =>
-          c.trim().replace(/^"|"$/g, '')
-        );
+        const cols = line
+          .split(/\t|,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+          .map((c) => c.trim().replace(/^"|"$/g, ''));
         const priceCents = parsePriceToCents(cols[2] ?? '');
         return {
           code: normalizeCode(cols[0] ?? ''),
@@ -144,58 +146,84 @@ export default function CatalogManager({
       setError(json.error ?? 'Could not remove that item.');
       return;
     }
-    setItems((prev) => prev.filter((i) => i.id !== id));
     await reload();
   }
 
   return (
-    <div style={{ display: 'grid', gap: 28 }}>
-      <section className="live__card">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 18,
-          }}
-        >
-          <h2>Load the rack</h2>
-          <div className="live__nav">
+    <div className="cat">
+      <section className="card">
+        <div className="card__head">
+          <h2>{t.loadTheRack}</h2>
+          <div className="seg">
             <button
-              className={`live__tab${mode === 'one' ? ' live__tab--on' : ''}`}
+              className={`seg__btn${mode === 'one' ? ' seg__btn--on' : ''}`}
               onClick={() => setMode('one')}
             >
-              One at a time
+              {t.oneAtATime}
             </button>
             <button
-              className={`live__tab${mode === 'paste' ? ' live__tab--on' : ''}`}
+              className={`seg__btn${mode === 'paste' ? ' seg__btn--on' : ''}`}
               onClick={() => setMode('paste')}
             >
-              Paste a list
+              {t.pasteAList}
             </button>
           </div>
         </div>
 
         {mode === 'one' ? (
-          <>
-            <div className="live__grid">
-              <div>
-                <label className="live__label" htmlFor="cat-code">
-                  Tag code
-                </label>
-                <input
-                  id="cat-code"
-                  ref={codeRef}
-                  className="live__input live__mono"
-                  placeholder="A3"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
+          <div className="cat__form">
+            <div className="cat__photo">
+              <label className="live__label">{t.photo}</label>
+              <PhotoDrop value={photoUrl} saleId={saleId} onChange={setPhotoUrl} />
+            </div>
+
+            <div className="cat__fields">
+              <div className="cat__row">
+                <div className="cat__f">
+                  <label className="live__label" htmlFor="cat-code">
+                    {t.tagCode}
+                  </label>
+                  <input
+                    id="cat-code"
+                    ref={codeRef}
+                    className="live__input live__mono"
+                    placeholder="A3"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                </div>
+
+                <div className="cat__f">
+                  <label className="live__label" htmlFor="cat-price">
+                    {t.price}
+                  </label>
+                  <input
+                    id="cat-price"
+                    className="live__input live__mono"
+                    inputMode="decimal"
+                    placeholder="24.00"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                  />
+                </div>
+
+                <div className="cat__f">
+                  <label className="live__label" htmlFor="cat-qty">
+                    {t.howMany}
+                  </label>
+                  <input
+                    id="cat-qty"
+                    className="live__input live__mono"
+                    inputMode="numeric"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                  />
+                </div>
               </div>
-              <div>
+
+              <div className="cat__f">
                 <label className="live__label" htmlFor="cat-desc">
-                  Description
+                  {t.description}
                 </label>
                 <input
                   id="cat-desc"
@@ -203,11 +231,15 @@ export default function CatalogManager({
                   placeholder="Ivory linen blouse, M"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addOne();
+                  }}
                 />
               </div>
-              <div>
+
+              <div className="cat__f">
                 <label className="live__label" htmlFor="cat-desc-es">
-                  Descripción (ES)
+                  {t.descriptionEs}
                 </label>
                 <input
                   id="cat-desc-es"
@@ -217,55 +249,18 @@ export default function CatalogManager({
                   onChange={(e) => setDescriptionEs(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="live__label" htmlFor="cat-price">
-                  Price
-                </label>
-                <input
-                  id="cat-price"
-                  className="live__input live__mono"
-                  inputMode="decimal"
-                  placeholder="24.00"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="live__label" htmlFor="cat-qty">
-                  How many
-                </label>
-                <input
-                  id="cat-qty"
-                  className="live__input live__mono"
-                  inputMode="numeric"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="live__label" htmlFor="cat-photo">
-                  Photo URL
-                </label>
-                <input
-                  id="cat-photo"
-                  className="live__input"
-                  placeholder="https://…"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <div style={{ marginTop: 20 }}>
-              <button className="live__btn" onClick={addOne} disabled={busy}>
-                {busy ? 'Adding…' : 'Add item'}
-              </button>
+              <div>
+                <button className="live__btn" onClick={addOne} disabled={busy}>
+                  {busy ? t.adding : t.addItem}
+                </button>
+              </div>
             </div>
-          </>
+          </div>
         ) : (
           <>
             <label className="live__label" htmlFor="cat-paste">
-              One item per line — code, description, price, how many, photo URL
+              {t.pasteHint}
             </label>
             <textarea
               id="cat-paste"
@@ -277,91 +272,65 @@ export default function CatalogManager({
             />
             <div style={{ marginTop: 16 }}>
               <button className="live__btn" onClick={addPasted} disabled={busy || !paste.trim()}>
-                {busy ? 'Adding…' : 'Add all'}
+                {busy ? t.adding : t.addAll}
               </button>
             </div>
           </>
         )}
 
-        {error && (
-          <p style={{ color: 'var(--alert)', marginTop: 14, fontSize: '0.875rem' }}>{error}</p>
-        )}
+        {error && <p className="card__error">{error}</p>}
       </section>
 
       <section>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'baseline',
-            marginBottom: 14,
-          }}
-        >
+        <div className="cat__rackHead">
           <h2>
-            On the rack{' '}
-            <span className="live__mono live__muted" style={{ fontSize: '1rem' }}>
-              {items.length}
-            </span>
+            {t.onTheRack} <span className="live__mono live__muted">{items.length}</span>
           </h2>
-          <span className="live__mono live__muted" style={{ fontSize: '0.875rem' }}>
-            {centsToDisplay(total)} at full price
+          <span className="live__mono live__muted">
+            {centsToDisplay(total)} {t.atFullPrice}
           </span>
         </div>
 
         {items.length === 0 ? (
           <div className="live__empty">
-            <h3>Nothing loaded yet</h3>
+            <h3>{t.nothingLoaded}</h3>
             <p className="live__muted" style={{ marginTop: 8 }}>
-              Add the rack now and the live becomes basket number plus tag code — nothing else to
-              type.
+              {t.nothingLoadedHint}
             </p>
           </div>
         ) : (
-          <div className="live__grid">
+          <div className="rack">
             {items.map((item) => (
-              <article key={item.id} className="live__item">
+              <article key={item.id} className="rack__item">
                 {item.photo_url ? (
                   <img
-                    className="live__itemPhoto"
+                    className="rack__photo"
                     src={item.photo_url}
                     alt={item.description}
                     loading="lazy"
                   />
                 ) : (
-                  <div className="live__itemPhoto live__itemPhoto--empty">No photo</div>
+                  <div className="rack__photo rack__photo--none">{t.noPhoto}</div>
                 )}
 
-                <div className="live__itemBody">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span className="live__tag">{item.code}</span>
+                <div className="rack__body">
+                  <div className="rack__top">
+                    <span className="tag">{item.code}</span>
                     <span className="live__mono">{centsToDisplay(item.price_cents)}</span>
                   </div>
 
-                  <p style={{ margin: 0, fontSize: '0.875rem', lineHeight: 1.35 }}>
-                    {item.description}
-                  </p>
-                  {item.description_es && (
-                    <p className="live__muted" style={{ margin: 0, fontSize: '0.8125rem' }}>
-                      {item.description_es}
-                    </p>
-                  )}
+                  <p className="rack__desc">{item.description}</p>
+                  {item.description_es && <p className="rack__descEs">{item.description_es}</p>}
 
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginTop: 4,
-                    }}
-                  >
+                  <div className="rack__foot">
                     <span
-                      className={`live__stock${item.quantity_remaining <= 0 ? ' live__stock--out' : ''}`}
+                      className={`stock${item.quantity_remaining <= 0 ? ' stock--out' : ''}`}
                     >
-                      {item.quantity_remaining} of {item.quantity} left
+                      {item.quantity_remaining} {t.of} {item.quantity} {t.left}
                     </span>
                     {item.quantity_claimed === 0 && (
                       <button className="live__undo" onClick={() => removeItem(item.id)}>
-                        Remove
+                        {t.remove}
                       </button>
                     )}
                   </div>
