@@ -74,15 +74,121 @@ export async function getCatalog(saleId: string): Promise<LiveItemWithStock[]> {
   });
 }
 
+/**
+ * Totals for every basket in a sale.
+ *
+ * No .order() — the database sorts nothing here, JS does. Ordering through
+ * PostgREST on this view was returning zero rows with no error, which is a
+ * silent failure and not worth debugging when Array.sort is free and
+ * there are never more than a couple hundred baskets.
+ */
 export async function getBasketTotals(saleId: string): Promise<BasketTotals[]> {
   const { data, error } = await liveDb()
     .from('basket_totals')
     .select('*')
-    .eq('live_sale_id', saleId)
-    .order('basket_number', { ascending: true });
+    .eq('live_sale_id', saleId);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as BasketTotals[];
+
+  return ((data ?? []) as BasketTotals[]).sort(
+    (a, b) => a.basket_number - b.basket_number
+  );
+}
+
+/**
+ * Every basket in a sale, fully populated, in five queries flat.
+ *
+ * Built from the `baskets` TABLE, not the basket_totals view. The view is
+ * still used for money — it's the one place totals are computed — but if
+ * it can't be read, the basket still renders with totals worked out here
+ * from the same rows. A wall that shows a basket with a wrong-looking
+ * total is recoverable; a wall that shows nothing while the customer is
+ * on the phone is not.
+ *
+ * Replaces the old N+1 (one getBasketDetail per basket), which is also
+ * how three failures got silently swallowed into an empty array.
+ */
+export async function getBasketsForSale(saleId: string): Promise<BasketDetail[]> {
+  const db = liveDb();
+
+  const basketsRes = await db.from('baskets').select('*').eq('live_sale_id', saleId);
+  if (basketsRes.error) throw new Error(basketsRes.error.message);
+
+  const baskets = (basketsRes.data ?? []) as Basket[];
+  if (!baskets.length) return [];
+
+  const ids = baskets.map((b) => b.id);
+  const customerIds = Array.from(
+    new Set(baskets.map((b) => b.customer_id).filter((x): x is string => Boolean(x)))
+  );
+  const orderIds = Array.from(
+    new Set(baskets.map((b) => b.order_id).filter((x): x is string => Boolean(x)))
+  );
+
+  const [itemsRes, totalsRes, customersRes, ordersRes] = await Promise.all([
+    db.from('basket_items').select('*').in('basket_id', ids).is('voided_at', null),
+    db.from('basket_totals').select('*').in('basket_id', ids),
+    customerIds.length
+      ? db.from(CUSTOMERS_TABLE).select(CUSTOMER_SELECT).in(CUSTOMER_COLS.id, customerIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    orderIds.length
+      ? db
+          .from(ORDERS_TABLE)
+          .select('id, order_number, status, tracking_number, tracking_url, carrier')
+          .in('id', orderIds)
+      : Promise.resolve({ data: [], error: null } as any),
+  ]);
+
+  if (itemsRes.error) throw new Error(itemsRes.error.message);
+
+  const items = (itemsRes.data ?? []) as BasketItem[];
+
+  const itemsByBasket = new Map<string, BasketItem[]>();
+  for (const i of items) {
+    const list = itemsByBasket.get(i.basket_id) ?? [];
+    list.push(i);
+    itemsByBasket.set(i.basket_id, list);
+  }
+
+  const totalsByBasket = new Map<string, any>(
+    ((totalsRes.data ?? []) as any[]).map((t) => [t.basket_id as string, t])
+  );
+  const customersById = new Map<string, CustomerRow>(
+    ((customersRes.data ?? []) as any[]).map((c) => [c.id as string, c as CustomerRow])
+  );
+  const ordersById = new Map<string, LinkedOrder>(
+    ((ordersRes.data ?? []) as any[]).map((o) => [o.id as string, o as LinkedOrder])
+  );
+
+  return baskets
+    .map((b) => {
+      const mine = (itemsByBasket.get(b.id) ?? []).sort((x, y) =>
+        x.created_at.localeCompare(y.created_at)
+      );
+
+      // Prefer the view — it's the single source of truth for money. Fall
+      // back to the same arithmetic here if it didn't come back.
+      const t = totalsByBasket.get(b.id);
+      const subtotal =
+        t?.subtotal_cents ??
+        mine.reduce((sum, i) => sum + i.unit_price_cents * i.quantity, 0);
+      const itemCount =
+        t?.item_count ?? mine.reduce((sum, i) => sum + i.quantity, 0);
+      const total =
+        t?.total_cents ??
+        Math.max(subtotal + (b.shipping_cents ?? 0) - (b.discount_cents ?? 0), 0);
+
+      return {
+        ...b,
+        subtotal_cents: subtotal,
+        item_count: itemCount,
+        total_cents: total,
+        items: mine,
+        customer: b.customer_id ? customersById.get(b.customer_id) ?? null : null,
+        order: b.order_id ? ordersById.get(b.order_id) ?? null : null,
+      } as BasketDetail;
+    })
+    .sort((a, b) => a.basket_number - b.basket_number);
 }
 
 /**
