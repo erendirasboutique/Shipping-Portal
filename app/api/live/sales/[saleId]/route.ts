@@ -30,7 +30,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
       'sale_date',
       'status',
       'payment_due_at',
+      'payment_instructions',
+      'payment_instructions_es',
       'default_shipping_cents',
+      'payment_instructions',
+      'payment_instructions_es',
     ]) {
       if (key in body) patch[key] = body[key];
     }

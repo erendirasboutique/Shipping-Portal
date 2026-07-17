@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { liveDb } from '@/lib/live/supabase';
 import { getBasketDetail } from '@/lib/live/queries';
+import { createOrderForBasket } from '@/lib/live/orders';
+import { PAYMENT_METHODS } from '@/lib/live/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,16 +34,36 @@ export async function PATCH(req: Request, { params }: Ctx) {
       'discount_cents',
       'notes',
       'status',
+      'payment_method',
+      'payment_note',
     ]) {
       if (key in body) patch[key] = body[key];
     }
 
-    // Keep the timestamps honest with the status.
-    if (body.status === 'paid') patch.paid_at = new Date().toISOString();
+    // Marking paid requires knowing how. The database enforces this too,
+    // but a clear message beats a constraint violation.
+    if (body.status === 'paid') {
+      const method = body.payment_method;
+      const valid = PAYMENT_METHODS.some((m) => m.value === method);
+      if (!valid) {
+        return NextResponse.json(
+          { error: 'Pick how they paid before marking this basket paid.' },
+          { status: 400 }
+        );
+      }
+      patch.paid_at = new Date().toISOString();
+    }
+
     if (body.status === 'released') patch.released_at = new Date().toISOString();
+
+    // Reopening clears the payment record — otherwise a basket can sit in
+    // 'open' still claiming it was paid by Zelle.
     if (body.status === 'open') {
       patch.finalized_at = null;
       patch.released_at = null;
+      patch.paid_at = null;
+      patch.payment_method = null;
+      patch.payment_note = null;
     }
 
     if (!Object.keys(patch).length) {
@@ -51,7 +73,21 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const { error } = await liveDb().from('baskets').update(patch).eq('id', basketId);
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ basket: await getBasketDetail(basketId) });
+    // A paid basket becomes a draft order so Saturday's labels are
+    // already queued. Idempotent — clicking twice won't make two orders.
+    let warning: string | null = null;
+    if (body.status === 'paid') {
+      try {
+        await createOrderForBasket(basketId);
+      } catch (err: any) {
+        warning = `Marked paid, but the order didn't get created: ${err.message}`;
+      }
+    }
+
+    return NextResponse.json({
+      basket: await getBasketDetail(basketId),
+      ...(warning ? { warning } : {}),
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

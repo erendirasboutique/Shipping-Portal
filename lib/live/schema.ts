@@ -56,7 +56,32 @@ export const CUSTOMER_SEARCH_COLS = [
 ];
 
 /**
- * Status stamped on an order the webhook creates.
+ * How a customer paid. Staff pick one when marking a basket paid —
+ * nothing here is ever set automatically.
+ *
+ * Order matters: this is the order they appear in the picker, so the
+ * ones you actually use should come first.
+ */
+export const PAYMENT_METHODS = [
+  { value: 'zelle', label: 'Zelle', label_es: 'Zelle' },
+  { value: 'cashapp', label: 'Cash App', label_es: 'Cash App' },
+  { value: 'venmo', label: 'Venmo', label_es: 'Venmo' },
+  { value: 'paypal', label: 'PayPal', label_es: 'PayPal' },
+  { value: 'cash', label: 'Cash', label_es: 'Efectivo' },
+  { value: 'applepay', label: 'Apple Pay', label_es: 'Apple Pay' },
+  { value: 'stripe', label: 'Card (Stripe)', label_es: 'Tarjeta (Stripe)' },
+  { value: 'other', label: 'Other', label_es: 'Otro' },
+] as const;
+
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number]['value'];
+
+export function paymentMethodLabel(value: string | null): string {
+  if (!value) return '—';
+  return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? value;
+}
+
+/**
+ * Status stamped on an order that gets created when a basket is paid.
  *
  * Your vocabulary is purchased / refunded / draft. An order that exists
  * but has no postage yet is a draft — that's what Saturday turns into
@@ -70,6 +95,36 @@ export const NEW_ORDER_STATUS = 'draft';
  * in the same second will collide.
  */
 export const ORDER_NUMBER_COL = 'order_number';
+
+/**
+ * How a basket was paid. Recorded by hand — most customers don't use
+ * Stripe, so there's nothing to sync from.
+ *
+ * No database check constraint backs this list on purpose: adding a
+ * method should be a one-line edit here, not a migration.
+ */
+export const PAYMENT_METHODS = [
+  { value: 'zelle', label: 'Zelle' },
+  { value: 'cash_app', label: 'Cash App' },
+  { value: 'venmo', label: 'Venmo' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'apple_pay', label: 'Apple Pay' },
+  { value: 'stripe', label: 'Stripe' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number]['value'];
+
+const METHOD_VALUES = new Set(PAYMENT_METHODS.map((m) => m.value as string));
+
+export function isPaymentMethod(value: unknown): value is PaymentMethod {
+  return typeof value === 'string' && METHOD_VALUES.has(value);
+}
+
+export function paymentMethodLabel(value: string | null): string {
+  return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? '—';
+}
 
 /**
  * portal_token is a uuid column, not text. Postgres throws 22P02 on a

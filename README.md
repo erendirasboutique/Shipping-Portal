@@ -26,11 +26,11 @@ If you later want live-sale numbers visible from the billing admin, the clean ve
 
 ## Install — 6 steps, all browser
 
-### 1. Supabase — mostly done already
+### 1. Supabase
 
-You've already run `20260716000000_live_sales.sql` in the shipping project. `live_sales`, `live_items`, `baskets`, `basket_items`, `basket_totals` and `live_item_stock` are all in place.
+Already done: `20260716000000_live_sales.sql` and `20260716000100_live_sales_fks.sql`.
 
-One thing left: **run `supabase/migrations/20260716000100_live_sales_fks.sql`**. The first migration shipped with the foreign keys commented out because I didn't know your table names yet. Now confirmed — `shipping_customers.id` and `shipping_orders.id` are both uuid — so they can go in. It ends with a verify query that should return two rows.
+Left to run: **`supabase/migrations/20260716000200_manual_payments.sql`**. Adds `payment_method` + `payment_note` to baskets, and `payment_instructions` (EN/ES) to sales. Ends with a verify that should return two rows.
 
 ### 2. Drop the files in
 
@@ -61,15 +61,16 @@ npm install stripe
 
 ### 4. Environment variables
 
-Vercel → Settings → Environment Variables. You already have the first three.
+Vercel → the **shipping portal** project → Settings → Environment Variables.
 
 | Variable | Notes |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | existing |
 | `SUPABASE_SERVICE_ROLE_KEY` | existing |
-| `STRIPE_SECRET_KEY` | existing |
-| `NEXT_PUBLIC_PORTAL_URL` | **new** — e.g. `https://ship.erendirasboutique.com` |
-| `STRIPE_LIVE_WEBHOOK_SECRET` | **new**, only if you use the included webhook |
+| `STRIPE_SECRET_KEY` | existing — only used by the optional Card link button |
+| `NEXT_PUBLIC_PORTAL_URL` | **new** — `https://ship.erendirasboutique.com` |
+
+One new variable. Redeploy after adding it.
 
 ### 5. Wire the customer portal
 
@@ -85,22 +86,9 @@ import '@/styles/live.css';
 
 That's the whole integration. See `app/portal-basket-example/EXAMPLE-portal-page.tsx`.
 
-### 6. Stripe webhook
+### 6. There is no step 6
 
-**If you already have a webhook route:** open it, and inside your `checkout.session.completed` handler add:
-
-```ts
-import { markBasketPaid } from '@/app/api/live/stripe-webhook/route';
-
-const basketId = session.metadata?.basket_id;
-if (basketId) await markBasketPaid(basketId);
-```
-
-Then delete `app/api/live/stripe-webhook/route.ts`… except for that exported function, so easier: keep the file, just don't register a second endpoint in Stripe.
-
-**If you don't:** Stripe → Developers → Webhooks → add `https://ship.erendirasboutique.com/api/live/stripe-webhook`, event `checkout.session.completed`, copy the signing secret into `STRIPE_LIVE_WEBHOOK_SECRET`.
-
----
+No webhook, no second Stripe destination, no signing secret. Payment is marked by hand.
 
 ## How this module talks to your existing tables
 
@@ -134,10 +122,20 @@ Claims screen. Type `47`, Enter, `A3`, Enter. The basket number sticks, so a cus
 Using a barcode scanner? Most scanners send the code then a Tab — the tag field treats Tab as Enter, so scanning just works. Type the basket number, scan, scan, scan.
 
 **Thursday night — send totals (~5 min for 150 baskets)**
-Baskets screen. Match each basket to a customer (typeahead), then **Finalize every matched basket**. Every basket gets its total locked and a Stripe link minted. Then per basket: **Copy message** → paste into Messenger. Toggle EN/ES at the top.
+Baskets screen. Match each basket to a customer (typeahead), then **Finalize every matched basket** — that just locks the totals, nothing calls Stripe. Then per basket: **Copy message** → paste into Messenger. Toggle EN/ES at the top.
 
-**Friday — payment**
-Nothing. Stripe webhook marks baskets paid as they come in. Watch the Collected number climb.
+The customer opens their portal and sees their itemized basket, their total, your payment handles, and the deadline. Whatever you typed into "How to pay" when you started the sale is what they read.
+
+**Friday — payment comes in however it comes in**
+Zelle, Cash App, Venmo, PayPal, cash, Apple Pay, card. You watch your own accounts, and when money lands you hit **Mark paid** on that basket and pick the method. A reference field is there if you want to jot a Zelle confirmation number.
+
+Nothing marks itself paid. That's deliberate — you asked for it, and it's the right call when six payment rails feed one basket.
+
+Two things happen the moment you mark it:
+- The basket becomes a **draft order** in `shipping_orders`, address already filled in
+- The method gets counted in the running totals at the top of the screen, so you can see at a glance what came in by Zelle vs Venmo vs cash
+
+**Card link (optional, per basket).** If a customer would rather pay by card, hit **Card link** on their row. It mints a Stripe payment link for exactly their total and copies it to your clipboard. It still doesn't auto-mark — when the money shows up in Stripe, you mark it paid like anything else, method `Card (Stripe)`. Ignore the button entirely if you never use it.
 
 **Saturday — ship**
 Every paid basket already has a **draft order** in `shipping_orders`, address copied from the customer record, `order_number` assigned by your sequence. Open the orders page, filter to drafts, buy labels. Your EasyPost webhook email sequence takes it from there.

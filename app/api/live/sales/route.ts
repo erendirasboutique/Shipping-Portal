@@ -22,7 +22,11 @@ export async function POST(req: Request) {
         sale_date: body.sale_date ?? new Date().toISOString().slice(0, 10),
         title: body.title ?? null,
         payment_due_at: body.payment_due_at ?? null,
+        payment_instructions: body.payment_instructions ?? null,
+        payment_instructions_es: body.payment_instructions_es ?? null,
         default_shipping_cents: body.default_shipping_cents ?? 0,
+        payment_instructions: body.payment_instructions ?? null,
+        payment_instructions_es: body.payment_instructions_es ?? null,
       })
       .select('*')
       .single();

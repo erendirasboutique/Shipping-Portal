@@ -43,7 +43,7 @@ export function basketMessage(opts: {
         itemCount === 1 ? 'artículo' : 'artículos'
       } — total ${total}.`,
       '',
-      `Mira tus fotos y paga aquí: ${link}`,
+      `Mira tus fotos y cómo pagar aquí: ${link}`,
       dueLabel ? `Puedes pagar hasta el ${dueLabel}.` : '',
       '',
       'Enviamos el sábado. ¡Gracias! 🤍',
@@ -86,14 +86,14 @@ export function reminderMessage(opts: {
     return [
       firstName ? `Hola ${firstName} —` : 'Hola —',
       `Tu canasta #${basketNumber} (${total}) todavía está esperando.`,
-      `Paga aquí antes de esta noche para que salga el sábado: ${link}`,
+      `Detalles para pagar aquí — antes de esta noche y sale el sábado: ${link}`,
     ].join('\n');
   }
 
   return [
     firstName ? `Hi ${firstName} —` : 'Hi —',
     `Your basket #${basketNumber} (${total}) is still waiting.`,
-    `Pay here by tonight and it ships Saturday: ${link}`,
+    `Payment details here — pay by tonight and it ships Saturday: ${link}`,
   ].join('\n');
 }
 

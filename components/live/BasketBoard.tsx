@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import type { BasketDetail, LiveSale } from '@/types/live';
 import { centsToDisplay, parsePriceToCents } from '@/lib/live/money';
 import { basketMessage, dueLabel, type MessageLocale } from '@/lib/live/messages';
+import { PAYMENT_METHODS, paymentMethodLabel } from '@/lib/live/schema';
 import CustomerPicker from '@/components/live/CustomerPicker';
+import MarkPaidMenu from '@/components/live/MarkPaidMenu';
 
 export default function BasketBoard({
   sale,
@@ -23,16 +25,23 @@ export default function BasketBoard({
 
   const stats = useMemo(() => {
     const live = baskets.filter((b) => b.status !== 'void' && b.status !== 'released');
+    const paid = baskets.filter((b) => b.status === 'paid' || b.status === 'shipped');
+
     return {
       count: baskets.length,
       unmatched: baskets.filter((b) => !b.customer_id).length,
-      open: baskets.filter((b) => b.status === 'open').length,
       awaiting: baskets.filter((b) => b.status === 'finalized').length,
-      paid: baskets.filter((b) => b.status === 'paid' || b.status === 'shipped').length,
+      paid: paid.length,
       gross: live.reduce((sum, b) => sum + b.total_cents, 0),
-      collected: baskets
-        .filter((b) => b.status === 'paid' || b.status === 'shipped')
-        .reduce((sum, b) => sum + b.total_cents, 0),
+      collected: paid.reduce((sum, b) => sum + b.total_cents, 0),
+      byMethod: PAYMENT_METHODS.map((m) => {
+        const rows = baskets.filter((b) => b.payment_method === m.value);
+        return {
+          ...m,
+          count: rows.length,
+          cents: rows.reduce((sum, b) => sum + b.total_cents, 0),
+        };
+      }).filter((m) => m.count > 0),
     };
   }, [baskets]);
 
@@ -54,6 +63,7 @@ export default function BasketBoard({
         setError(json.error ?? 'That change did not save.');
         return;
       }
+      if (json.warning) setError(json.warning);
       replace(json.basket);
       router.refresh();
     } catch {
@@ -69,15 +79,9 @@ export default function BasketBoard({
     try {
       const res = await fetch(`/api/live/baskets/${basket.id}/finalize`, { method: 'POST' });
       const json = await res.json();
-
-      if (!res.ok && res.status !== 207) {
+      if (!res.ok) {
         setError(json.error ?? `Basket ${basket.basket_number} could not be finalized.`);
         return;
-      }
-      if (json.payment_link_error) {
-        setError(
-          `Basket ${basket.basket_number} is locked, but Stripe said: ${json.payment_link_error}`
-        );
       }
       replace(json.basket);
       router.refresh();
@@ -120,6 +124,41 @@ export default function BasketBoard({
     }
   }
 
+  /**
+   * Optional and per basket — only for the customers who ask to pay by
+   * card. Nothing about this marks the basket paid; you still do that by
+   * hand once the money shows up in Stripe.
+   */
+  async function makeCardLink(basket: BasketDetail) {
+    setBusyId(basket.id);
+    setError(null);
+    try {
+      if (basket.stripe_payment_link_url) {
+        await navigator.clipboard.writeText(basket.stripe_payment_link_url);
+        setCopiedId(basket.id);
+        setTimeout(() => setCopiedId(null), 1800);
+        return;
+      }
+
+      const res = await fetch(`/api/live/baskets/${basket.id}/payment-link`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error ?? 'Could not create a card link.');
+        return;
+      }
+
+      await navigator.clipboard.writeText(json.url).catch(() => {});
+      replace({ ...basket, stripe_payment_link_url: json.url });
+      setCopiedId(basket.id);
+      setTimeout(() => setCopiedId(null), 1800);
+      router.refresh();
+    } catch {
+      setError('Network trouble — no link was created.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       {/* ---- summary ---- */}
@@ -138,6 +177,27 @@ export default function BasketBoard({
           <Stat label="Gross" value={centsToDisplay(stats.gross)} />
           <Stat label="Collected" value={centsToDisplay(stats.collected)} />
         </div>
+
+        {stats.byMethod.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 18,
+              flexWrap: 'wrap',
+              marginTop: 18,
+              paddingTop: 16,
+              borderTop: '1px solid var(--line)',
+            }}
+          >
+            {stats.byMethod.map((m) => (
+              <span key={m.value} className="live__mono" style={{ fontSize: '0.8125rem' }}>
+                <span className="live__muted">{m.label} </span>
+                {centsToDisplay(m.cents)}
+                <span className="live__muted"> ({m.count})</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 22, flexWrap: 'wrap' }}>
           <button className="live__btn" onClick={finalizeAll} disabled={busyId !== null}>
@@ -184,7 +244,8 @@ export default function BasketBoard({
                 <th>Ship</th>
                 <th>Total</th>
                 <th>Status</th>
-                <th style={{ textAlign: 'right', paddingRight: 20 }}>Thursday night</th>
+                <th>Paid with</th>
+                <th style={{ textAlign: 'right', paddingRight: 20 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -235,15 +296,41 @@ export default function BasketBoard({
                     </span>
                   </td>
 
+                  <td>
+                    {basket.payment_method ? (
+                      <>
+                        <div style={{ fontSize: '0.875rem' }}>
+                          {paymentMethodLabel(basket.payment_method)}
+                        </div>
+                        {basket.payment_note && (
+                          <div className="live__muted" style={{ fontSize: '0.75rem' }}>
+                            {basket.payment_note}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="live__muted">—</span>
+                    )}
+                  </td>
+
                   <td style={{ paddingRight: 20 }}>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 6,
+                        justifyContent: 'flex-end',
+                        flexWrap: 'wrap',
+                      }}
+                    >
                       {basket.status === 'open' && (
                         <button
                           className="live__undo"
                           onClick={() => finalize(basket)}
                           disabled={busyId === basket.id || !basket.customer_id}
                           title={
-                            basket.customer_id ? 'Lock the total and make the pay link' : 'Match a customer first'
+                            basket.customer_id
+                              ? 'Lock the total so the portal can show it'
+                              : 'Match a customer first'
                           }
                         >
                           Finalize
@@ -258,11 +345,24 @@ export default function BasketBoard({
 
                       {basket.status === 'finalized' && (
                         <>
+                          <MarkPaidMenu
+                            basketNumber={basket.basket_number}
+                            disabled={busyId === basket.id}
+                            onConfirm={(method, note) =>
+                              patch(basket.id, {
+                                status: 'paid',
+                                payment_method: method,
+                                payment_note: note || null,
+                              })
+                            }
+                          />
                           <button
                             className="live__undo"
-                            onClick={() => patch(basket.id, { status: 'paid' })}
+                            onClick={() => makeCardLink(basket)}
+                            disabled={busyId === basket.id}
+                            title="Only for customers who want to pay by card"
                           >
-                            Mark paid
+                            {basket.stripe_payment_link_url ? 'Copy card link' : 'Card link'}
                           </button>
                           <button
                             className="live__undo"
@@ -278,6 +378,7 @@ export default function BasketBoard({
                         <button
                           className="live__undo"
                           onClick={() => patch(basket.id, { status: 'open' })}
+                          title="Unlock the total. Clears any payment record."
                         >
                           Reopen
                         </button>

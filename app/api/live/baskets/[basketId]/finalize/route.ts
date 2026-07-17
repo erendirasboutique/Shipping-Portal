@@ -7,11 +7,17 @@ export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ basketId: string }> };
 
 /**
- * Locks a basket's total and mints its payment link. This is the
- * Thursday-night button: after this, the customer's portal shows a
- * total and a Pay button, and nobody types anything.
+ * Locks a basket's total. That's all it does.
+ *
+ * No Stripe call — payment is manual. After this the customer's portal
+ * shows their itemized basket, their total, and how to pay you. When the
+ * money actually arrives (Zelle, Cash App, Venmo, cash, whatever), a
+ * person marks it paid and records the method.
+ *
+ * If a particular customer wants a card link, generate one for that
+ * basket with the "Stripe link" button — it's per-basket and optional.
  */
-export async function POST(req: Request, { params }: Ctx) {
+export async function POST(_req: Request, { params }: Ctx) {
   try {
     const { basketId } = await params;
 
@@ -41,26 +47,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
     if (error) throw new Error(error.message);
 
-    // Mint the payment link through the same route the UI uses, so
-    // there's exactly one place that talks to Stripe.
-    const origin = new URL(req.url).origin;
-    const linkRes = await fetch(`${origin}/api/live/baskets/${basketId}/payment-link`, {
-      method: 'POST',
-    });
-    const linkJson = await linkRes.json();
-
-    if (!linkRes.ok) {
-      // Finalized but unpayable — surface it rather than pretending.
-      return NextResponse.json(
-        { basket: await getBasketDetail(basketId), payment_link_error: linkJson.error },
-        { status: 207 }
-      );
-    }
-
-    return NextResponse.json({
-      basket: await getBasketDetail(basketId),
-      payment_link_url: linkJson.url,
-    });
+    return NextResponse.json({ basket: await getBasketDetail(basketId) });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

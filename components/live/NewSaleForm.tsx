@@ -27,6 +27,10 @@ export default function NewSaleForm() {
   const [title, setTitle] = useState('');
   const [dueAt, setDueAt] = useState(defaultDueDate(today));
   const [shipping, setShipping] = useState('0');
+  const [payEn, setPayEn] = useState('');
+  const [payEs, setPayEs] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [instructionsEs, setInstructionsEs] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +57,11 @@ export default function NewSaleForm() {
           sale_date: saleDate,
           title: title.trim() || null,
           payment_due_at: dueAt ? new Date(dueAt).toISOString() : null,
+          payment_instructions: instructions.trim() || null,
+          payment_instructions_es: instructionsEs.trim() || null,
           default_shipping_cents: shippingCents,
+          payment_instructions: payEn.trim() || null,
+          payment_instructions_es: payEs.trim() || null,
         }),
       });
 
@@ -137,6 +145,62 @@ export default function NewSaleForm() {
             onChange={(e) => setShipping(e.target.value)}
           />
         </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: 14, marginTop: 18 }}>
+        <div>
+          <label className="live__label" htmlFor="sale-pay">
+            How to pay — shown on the customer&rsquo;s portal
+          </label>
+          <textarea
+            id="sale-pay"
+            className="live__textarea"
+            rows={3}
+            placeholder={'Zelle: pay@erendirasboutique.com\nVenmo: @erendiras-boutique\nCash App: $erendirasboutique'}
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="live__label" htmlFor="sale-pay-es">
+            C&oacute;mo pagar (ES) &mdash; optional, falls back to English
+          </label>
+          <textarea
+            id="sale-pay-es"
+            className="live__textarea"
+            rows={3}
+            value={instructionsEs}
+            onChange={(e) => setInstructionsEs(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <label className="live__label" htmlFor="sale-pay-en">
+          How to pay — shown on the customer&rsquo;s portal
+        </label>
+        <textarea
+          id="sale-pay-en"
+          className="live__textarea"
+          rows={3}
+          placeholder={'Zelle: pay@erendirasboutique.com\nCash App: $erendiras\nVenmo: @erendiras-boutique'}
+          value={payEn}
+          onChange={(e) => setPayEn(e.target.value)}
+        />
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <label className="live__label" htmlFor="sale-pay-es">
+          C&oacute;mo pagar (ES)
+        </label>
+        <textarea
+          id="sale-pay-es"
+          className="live__textarea"
+          rows={3}
+          placeholder={'Zelle: pay@erendirasboutique.com\nCash App: $erendiras\nVenmo: @erendiras-boutique'}
+          value={payEs}
+          onChange={(e) => setPayEs(e.target.value)}
+        />
       </div>
 
       {error && (

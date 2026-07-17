@@ -14,6 +14,10 @@ export interface LiveSale {
   title: string | null;
   status: LiveSaleStatus;
   payment_due_at: string | null;
+  payment_instructions: string | null;
+  payment_instructions_es: string | null;
+  payment_instructions: string | null;
+  payment_instructions_es: string | null;
   default_shipping_cents: number;
   created_at: string;
   updated_at: string;
@@ -57,8 +61,7 @@ export interface Basket {
   shipping_cents: number;
   discount_cents: number;
   notes: string | null;
-  stripe_payment_link_id: string | null;
-  stripe_payment_link_url: string | null;
+  payment_method: string | null;
   finalized_at: string | null;
   paid_at: string | null;
   released_at: string | null;
