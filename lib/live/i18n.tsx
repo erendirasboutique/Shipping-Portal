@@ -253,7 +253,16 @@ const DICT = {
   },
 } as const;
 
-export type Dict = (typeof DICT)['en'];
+/**
+ * Every key from the English dictionary, each widened to `string`.
+ *
+ * Not `(typeof DICT)['en']` — `as const` makes that the *literal* English
+ * strings, so "Ventas en vivo" isn't assignable to "Live sales" and the
+ * Spanish half won't compile. Mapping to string keeps the key names
+ * checked (a typo in `t.baskts` still errors) while letting either
+ * language's values through.
+ */
+export type Dict = { readonly [K in keyof (typeof DICT)['en']]: string };
 
 const LocaleContext = createContext<{
   locale: Locale;
