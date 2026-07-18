@@ -168,15 +168,15 @@ function CreateLabelInner() {
     };
   }
 
-  async function saveDraft(silent = false): Promise<string> {
+ async function saveDraft(silent = false): Promise<string> {
     setError(null);
     if (!silent) setBusy("draft");
     const payload = buildPayload();
     try {
-      let id = orderId;
-      if (id) {
-        const { error } = await supabase.from("shipping_orders").update(payload).eq("id", id);
+      if (orderId) {
+        const { error } = await supabase.from("shipping_orders").update(payload).eq("id", orderId);
         if (error) throw new Error(error.message);
+        return orderId;
       } else {
         const { data, error } = await supabase
           .from("shipping_orders")
@@ -184,10 +184,9 @@ function CreateLabelInner() {
           .select("id")
           .single();
         if (error) throw new Error(error.message);
-        id = data.id;
         setOrderId(data.id);
+        return data.id as string;
       }
-      return id;
     } finally {
       if (!silent) setBusy(null);
     }
