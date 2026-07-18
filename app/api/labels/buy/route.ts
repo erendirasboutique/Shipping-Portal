@@ -1,3 +1,4 @@
+// app/api/labels/buy/route.ts
 import { NextResponse } from "next/server";
 import { getProvider } from "@/lib/shipping";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -14,7 +15,11 @@ export async function POST(req: Request) {
 
     const { data: order, error: loadErr } = await admin
       .from("shipping_orders").select("*").eq("id", order_id).single();
-    if (loadErr || !order) throw new Error("Order not found — save the draft first");
+    if (loadErr) {
+      console.error("[labels/buy] failed to load order", loadErr);
+      throw new Error(`Could not load order: ${loadErr.message}`);
+    }
+    if (!order) throw new Error("Order not found — save the draft first");
 
     const provider = getProvider(providerName);
     const bought = await provider.buy({
@@ -35,6 +40,18 @@ export async function POST(req: Request) {
       },
     });
 
+    // Guard: never mark an order "purchased" unless a real label came back.
+    // A missing label_url/tracking_number almost always means the provider
+    // transaction is still QUEUED (e.g. Shippo async:true) rather than SUCCESS.
+    if (!bought?.label_url || !bought?.tracking_number) {
+      console.error("[labels/buy] provider returned no label", { providerName, bought });
+      throw new Error(
+        "Label was not fully purchased — the carrier returned no " +
+          (!bought?.label_url ? "label URL" : "tracking number") +
+          ". The transaction is likely still queued; check that the provider buys with async:false."
+      );
+    }
+
     const update = {
       provider: providerName || "easypost",
       easypost_shipment_id: bought.shipmentRef,
@@ -52,10 +69,14 @@ export async function POST(req: Request) {
     };
 
     const { error } = await admin.from("shipping_orders").update(update).eq("id", order_id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[labels/buy] failed to update order", error);
+      throw new Error(error.message);
+    }
 
     return NextResponse.json({ ok: true, ...update });
   } catch (e: any) {
+    console.error("[labels/buy] error", e);
     return NextResponse.json({ error: e.message }, { status: 400 });
   }
 }
