@@ -46,8 +46,14 @@ export function basketMessage(opts: {
   totalCents: number;
   portalToken: string;
   dueLabel?: string | null;
+  /**
+   * Pre-resolved short link. When present (the drawer fetches the dub link
+   * on open), it's used instead of the long portal URL — so the message the
+   * customer receives carries the branded short link, not the raw uuid one.
+   */
+  overrideLink?: string | null;
 }): string {
-  const link = portalUrl(opts.portalToken);
+  const link = opts.overrideLink || portalUrl(opts.portalToken);
   const total = centsToDisplay(opts.totalCents, 'es');
 
   return `Hola Chula Serian ${total}\nVer tu pedido: ${link}`;

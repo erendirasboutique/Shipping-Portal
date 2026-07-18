@@ -55,6 +55,7 @@ export default function BasketDrawer({
   const [tracking, setTracking] = useState(basket?.tracking_number ?? '');
   const [carrier, setCarrier] = useState(basket?.carrier ?? '');
   const [copied, setCopied] = useState<string | null>(null);
+  const [shortLink, setShortLink] = useState<string | null>(null);
 
   useEffect(() => {
     setPayOpen(false);
@@ -65,6 +66,33 @@ export default function BasketDrawer({
     setTracking(basket?.tracking_number ?? '');
     setCarrier(basket?.carrier ?? '');
   }, [basket?.id, basket?.stripe_payment_link_url, basket?.tracking_number, basket?.carrier]);
+
+  // Resolve the customer's short (dub) link once when the drawer opens, so
+  // BOTH Copy and Send use it — otherwise Send builds the long uuid URL and
+  // the two disagree. Falls back to null (callers use the long URL) if dub
+  // is off or the fetch fails.
+  useEffect(() => {
+    const customerId = basket?.customer?.id;
+    if (!customerId) {
+      setShortLink(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/live/customers/${customerId}/portal-link`, {
+          cache: 'no-store',
+        });
+        const json = await res.json();
+        if (!cancelled) setShortLink(res.ok ? json.url ?? null : null);
+      } catch {
+        if (!cancelled) setShortLink(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [basket?.id, basket?.customer?.id]);
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) {
@@ -91,18 +119,10 @@ export default function BasketDrawer({
    * the request fails, so Copy never leaves you empty-handed.
    */
   async function copyPortalLink() {
-    const customerId = basket?.customer?.id;
-    if (!customerId || !token) return;
-    const fallback = portalUrl(token);
-    try {
-      const res = await fetch(`/api/live/customers/${customerId}/portal-link`, {
-        cache: 'no-store',
-      });
-      const json = await res.json();
-      await copy(json.url || fallback, 'link');
-    } catch {
-      await copy(fallback, 'link');
-    }
+    if (!token) return;
+    // shortLink is resolved on open; fall back to the long URL if it isn't
+    // ready or dub is off.
+    await copy(shortLink || portalUrl(token), 'link');
   }
 
   const token = basket?.customer?.portal_token ?? null;
@@ -341,6 +361,7 @@ export default function BasketDrawer({
                       itemCount: basket.item_count,
                       totalCents: basket.total_cents,
                       portalToken: token,
+                      overrideLink: shortLink,
                       dueLabel: dueLabel(sale.payment_due_at, locale),
                     })}
                     photoUrl={basket.photo_url}
