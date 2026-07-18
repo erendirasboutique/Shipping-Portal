@@ -51,7 +51,8 @@ const copy = {
     total: 'Total',
     howToPay: 'How to pay',
     dueBy: 'Please pay by',
-    payCard: 'Pay by card',
+    payCard: 'Pay by card or installments',
+    payOpening: 'Opening secure checkout…',
     noInstructions: 'We sent you a message with the payment options.',
     empty: 'Nothing here yet.',
     each: 'each',
@@ -73,7 +74,8 @@ const copy = {
     total: 'Total',
     howToPay: 'Cómo pagar',
     dueBy: 'Por favor paga antes del',
-    payCard: 'Pagar con tarjeta',
+    payCard: 'Pagar con tarjeta o a plazos',
+    payOpening: 'Abriendo pago seguro…',
     noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
     empty: 'Nada por aquí todavía.',
     each: 'c/u',
@@ -97,6 +99,29 @@ export default function PortalBaskets({
   const [locale, setLocale] = useState<'en' | 'es'>(forced ?? 'es');
   const [baskets, setBaskets] = useState<PortalBasket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Which basket is currently opening a checkout, so its button can show a
+  // spinner and not be tapped twice.
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  async function startCheckout(basketId: string) {
+    setPayingId(basketId);
+    try {
+      const res = await fetch(`/api/live/portal/${token}/baskets/${basketId}/pay`, {
+        method: 'POST',
+        cache: 'no-store',
+      });
+      const json = await res.json();
+      if (res.ok && json.url) {
+        // Straight to Stripe's hosted page — card + BNPL live there.
+        window.location.href = json.url;
+        return;
+      }
+      setPayingId(null);
+    } catch {
+      setPayingId(null);
+    }
+  }
 
   // Spanish is the default and stays the default. The customers are
   // Spanish-speaking; browser language is a weak signal (a borrowed phone,
@@ -297,11 +322,13 @@ export default function PortalBaskets({
                     })}
                   </p>
                 )}
-                {b.pay_url && (
-                  <a className="ob2__btn" href={b.pay_url}>
-                    {t.payCard}
-                  </a>
-                )}
+                <button
+                  className="ob2__btn"
+                  disabled={payingId === b.id}
+                  onClick={() => startCheckout(b.id)}
+                >
+                  {payingId === b.id ? t.payOpening : t.payCard}
+                </button>
               </div>
             )}
 
