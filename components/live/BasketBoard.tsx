@@ -22,6 +22,7 @@ export default function BasketBoard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState('');
+  const [nameQuery, setNameQuery] = useState('');
 
   /**
    * The client owns this list. router.refresh() can't update useState, and
@@ -53,6 +54,14 @@ export default function BasketBoard({
     () => baskets.find((b) => b.basket_number === openNumber) ?? null,
     [baskets, openNumber]
   );
+
+  // Name search filters the wall to baskets whose matched customer's name
+  // contains the query. Basket number stays available through the # jump.
+  const shown = useMemo(() => {
+    const q = nameQuery.trim().toLowerCase();
+    if (!q) return baskets;
+    return baskets.filter((b) => (b.customer?.name ?? '').toLowerCase().includes(q));
+  }, [baskets, nameQuery]);
 
   const stats = useMemo(() => {
     const live = baskets.filter((b) => b.status !== 'void' && b.status !== 'released');
@@ -194,6 +203,15 @@ export default function BasketBoard({
           {t.finalizeAll}
         </button>
 
+        <input
+          className="live__input board__search"
+          type="search"
+          placeholder={t.searchByName}
+          value={nameQuery}
+          aria-label={t.searchByName}
+          onChange={(e) => setNameQuery(e.target.value)}
+        />
+
         <div className="board__jump">
           <input
             className="live__input live__mono"
@@ -223,7 +241,7 @@ export default function BasketBoard({
         </div>
       ) : (
         <BasketGrid
-          baskets={baskets}
+          baskets={shown}
           selectedId={selected?.id ?? null}
           onSelect={(n) => setOpenNumber(n)}
         />

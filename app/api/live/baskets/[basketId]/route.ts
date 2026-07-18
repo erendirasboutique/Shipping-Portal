@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { liveDb } from '@/lib/live/supabase';
 import { getBasketDetail } from '@/lib/live/queries';
 import { createOrderForBasket } from '@/lib/live/orders';
+import { recordEvent } from '@/lib/live/timeline';
 import { PAYMENT_METHODS } from '@/lib/live/schema';
 
 export const dynamic = 'force-dynamic';
@@ -102,6 +103,29 @@ export async function PATCH(req: Request, { params }: Ctx) {
         },
         { status: 404 }
       );
+    }
+
+    // Timeline: log what this PATCH actually changed. Best-effort — a
+    // failed log never blocks the save (recordEvent swallows its own
+    // errors), and these run after the row is already updated.
+    if (patch.customer_id) {
+      await recordEvent({
+        basketId,
+        kind: 'customer_matched',
+        actor: by ?? undefined,
+        detail: { customer_id: patch.customer_id },
+      });
+    }
+    if (body.status === 'paid') {
+      await recordEvent({
+        basketId,
+        kind: 'paid',
+        actor: by ?? undefined,
+        detail: { method: body.payment_method, note: body.payment_note ?? null },
+      });
+    }
+    if (body.status === 'released') {
+      await recordEvent({ basketId, kind: 'released', actor: by ?? undefined });
     }
 
     // A paid basket becomes a draft order so Saturday's labels are

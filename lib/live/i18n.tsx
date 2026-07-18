@@ -170,6 +170,12 @@ const DICT = {
     removeFailed: 'Could not remove that item',
     printPickup: 'Print pickup label',
     printLabelHint: 'Opens a 2.25×1.25 label — print it to your Rollo and stick it on the basket.',
+    searchByName: 'Search by name',
+    timeline: 'Timeline',
+    timelineLoading: 'Loading history…',
+    timelineEmpty: 'Nothing recorded yet.',
+    timelineNotePlaceholder: 'Add a note to this basket…',
+    timelineAddNote: 'Add note',
   },
   es: {
     brand: "Erendira's Boutique",
@@ -323,6 +329,12 @@ const DICT = {
     removeFailed: 'No se pudo quitar el artículo',
     printPickup: 'Imprimir etiqueta de recoger',
     printLabelHint: 'Abre una etiqueta de 2.25×1.25 — imprímela en tu Rollo y pégala en la canasta.',
+    searchByName: 'Buscar por nombre',
+    timeline: 'Historial',
+    timelineLoading: 'Cargando historial…',
+    timelineEmpty: 'Nada registrado todavía.',
+    timelineNotePlaceholder: 'Agrega una nota a esta canasta…',
+    timelineAddNote: 'Agregar nota',
   },
 } as const;
 

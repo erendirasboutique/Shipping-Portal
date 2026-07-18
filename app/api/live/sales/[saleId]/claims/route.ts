@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { recordEvent } from '@/lib/live/timeline';
 import { liveDb } from '@/lib/live/supabase';
 import { ensureBasket, getRecentClaims } from '@/lib/live/queries';
 import { normalizeCode } from '@/lib/live/money';
@@ -88,6 +89,17 @@ export async function POST(req: Request, { params }: Ctx) {
       .single();
 
     if (claim.error) throw new Error(claim.error.message);
+
+    await recordEvent({
+      basketId: basket.id,
+      kind: 'item_added',
+      actor: by ?? undefined,
+      detail: {
+        description: item.data.description,
+        quantity,
+        unit_price_cents: item.data.price_cents,
+      },
+    });
 
     const [totals, stock] = await Promise.all([
       db.from('basket_totals').select('*').eq('basket_id', basket.id).maybeSingle(),

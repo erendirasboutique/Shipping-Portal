@@ -5,6 +5,7 @@ import type { BasketDetail, CustomerRow, LiveSale } from '@/types/live';
 import { centsToDisplay, parsePriceToCents } from '@/lib/live/money';
 import { PAYMENT_METHODS, formatOrderNumber, paymentMethodLabel } from '@/lib/live/schema';
 import { basketMessage, dueLabel, portalUrl } from '@/lib/live/messages';
+import BasketTimeline from '@/components/live/BasketTimeline';
 import { useLocale } from '@/lib/live/i18n';
 import CustomerPicker from '@/components/live/CustomerPicker';
 import PhotoDrop from '@/components/live/PhotoDrop';
@@ -80,6 +81,27 @@ export default function BasketDrawer({
       setTimeout(() => setCopied(null), 1600);
     } catch {
       // clipboard blocked — nothing useful to say beyond the button not flipping
+    }
+  }
+
+  /**
+   * Copy the customer's portal link — shortened via dub and reused for
+   * every future order. Asks the server for the short link (which stores
+   * it the first time), and falls back to the long URL if dub is off or
+   * the request fails, so Copy never leaves you empty-handed.
+   */
+  async function copyPortalLink() {
+    const customerId = basket?.customer?.id;
+    if (!customerId || !token) return;
+    const fallback = portalUrl(token);
+    try {
+      const res = await fetch(`/api/live/customers/${customerId}/portal-link`, {
+        cache: 'no-store',
+      });
+      const json = await res.json();
+      await copy(json.url || fallback, 'link');
+    } catch {
+      await copy(fallback, 'link');
     }
   }
 
@@ -327,7 +349,7 @@ export default function BasketDrawer({
 
                   <button
                     className="live__btn live__btn--ghost"
-                    onClick={() => copy(portalUrl(token), 'link')}
+                    onClick={copyPortalLink}
                   >
                     {copied === 'link' ? t.copied : t.portalLink}
                   </button>
@@ -481,6 +503,9 @@ export default function BasketDrawer({
                 )}
               </section>
             )}
+
+            {/* timeline — history + staff notes */}
+            <BasketTimeline basketId={basket.id} />
 
             {/* card link */}
             {basket.status === 'finalized' && (

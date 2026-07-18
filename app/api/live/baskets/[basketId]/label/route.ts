@@ -1,6 +1,7 @@
 import { getBasketDetail } from '@/lib/live/queries';
 import { formatOrderNumber } from '@/lib/live/schema';
 import { buildPickupLabel } from '@/lib/live/label';
+import { recordEvent } from '@/lib/live/timeline';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -35,6 +36,13 @@ export async function GET(req: Request, { params }: Ctx) {
   const sub = [`Canasta #${basket.basket_number}`, orderNo].filter(Boolean).join(' · ');
 
   const pdf = await buildPickupLabel({ tagline, name, sub });
+
+  // Log the print so the timeline shows a label went out.
+  await recordEvent({
+    basketId: basket.id,
+    kind: 'label_printed',
+    detail: { tag: tagline },
+  });
 
   return new Response(pdf as any, {
     headers: {

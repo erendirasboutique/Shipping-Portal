@@ -1106,10 +1106,14 @@
 .ob2__hero { position: relative; }
 .ob2__heroImg {
   width: 100%;
+  /* contain, not cover: show the whole basket photo. Cropping to fill was
+     hiding items at the edges — the entire picture matters here because
+     it IS the itemization the customer recognises. Matted on a soft brand
+     tone so letterboxing reads as intentional. */
   aspect-ratio: 4 / 3;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
-  background: var(--sand-soft);
+  background: linear-gradient(160deg, var(--sand-soft), rgba(128,106,82,0.14));
 }
 .ob2__heroImg--none {
   background:
@@ -1118,7 +1122,9 @@
 }
 .ob2__heroVeil {
   position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(45,38,28,0.82) 0%, rgba(45,38,28,0.15) 45%, transparent 72%);
+  /* Only darken the very bottom, where the total sits — the photo above
+     stays fully visible now that it's contained rather than cropped. */
+  background: linear-gradient(to top, rgba(45,38,28,0.86) 0%, rgba(45,38,28,0.4) 18%, transparent 40%);
 }
 .ob2__heroText {
   position: absolute; left: 22px; right: 22px; bottom: 18px;
@@ -1231,3 +1237,37 @@
   .ob2__heroTotal { font-size: 2.5rem; }
   .ob2__tape { padding: 20px 18px 8px; }
 }
+
+
+/* ---------- basket timeline ---------- */
+.tl { list-style: none; margin: 10px 0 0; padding: 0; position: relative; }
+.tl::before {
+  content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px;
+  width: 1px; background: var(--line-firm);
+}
+.tl__row { position: relative; display: flex; gap: 14px; padding: 0 0 14px 0; }
+.tl__dot {
+  position: relative; z-index: 1; flex: 0 0 auto;
+  width: 11px; height: 11px; margin-top: 3px; border-radius: 50%;
+  background: var(--sand); border: 2px solid var(--paper);
+  box-shadow: 0 0 0 1px var(--line-firm);
+}
+.tl__row--paid .tl__dot, .tl__row--finalized .tl__dot { background: var(--good); }
+.tl__row--item_removed .tl__dot, .tl__row--released .tl__dot { background: var(--alert); }
+.tl__row--note .tl__dot { background: var(--ink); }
+.tl__body { flex: 1; min-width: 0; }
+.tl__what { margin: 0; font-size: 0.875rem; line-height: 1.3; }
+.tl__note {
+  margin: 4px 0 0; padding: 8px 10px;
+  background: var(--sand-soft); border-radius: 6px;
+  font-size: 0.875rem; line-height: 1.45; white-space: pre-wrap;
+}
+.tl__meta {
+  margin: 3px 0 0; font-family: var(--mono);
+  font-size: 0.6875rem; color: var(--taupe);
+}
+.tl__meta b { color: var(--ink-soft); font-weight: 600; }
+.tl__add { margin-top: 10px; display: grid; gap: 8px; }
+
+/* board name search box */
+.board__search { max-width: 220px; }

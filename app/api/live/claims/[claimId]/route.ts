@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { liveDb } from '@/lib/live/supabase';
+import { recordEvent } from '@/lib/live/timeline';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
       .update({ voided_at: new Date().toISOString(), voided_by: by || null })
       .eq('id', claimId)
       .is('voided_at', null)
-      .select('basket_id')
+      .select('basket_id, description, quantity, unit_price_cents')
       .maybeSingle();
 
     if (error) throw new Error(error.message);
@@ -33,10 +34,21 @@ export async function DELETE(req: Request, { params }: Ctx) {
       );
     }
 
+    await recordEvent({
+      basketId: (data as any).basket_id,
+      kind: 'item_removed',
+      actor: by || undefined,
+      detail: {
+        description: (data as any).description,
+        quantity: (data as any).quantity,
+        unit_price_cents: (data as any).unit_price_cents,
+      },
+    });
+
     const totals = await db
       .from('basket_totals')
       .select('*')
-      .eq('basket_id', data.basket_id)
+      .eq('basket_id', (data as any).basket_id)
       .maybeSingle();
 
     return NextResponse.json({ ok: true, basket: totals.data ?? null });

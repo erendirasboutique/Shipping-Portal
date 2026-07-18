@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { liveDb } from '@/lib/live/supabase';
 import { getBasketDetail } from '@/lib/live/queries';
+import { recordEvent } from '@/lib/live/timeline';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,13 @@ export async function POST(req: Request, { params }: Ctx) {
       .eq('id', basketId);
 
     if (error) throw new Error(error.message);
+
+    await recordEvent({
+      basketId,
+      kind: 'finalized',
+      actor: by ?? undefined,
+      detail: { total_cents: basket.total_cents, item_count: basket.item_count },
+    });
 
     return NextResponse.json({ basket: await getBasketDetail(basketId) });
   } catch (err: any) {

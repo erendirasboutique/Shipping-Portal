@@ -1,4 +1,5 @@
 import { asRow, liveDb } from './supabase';
+import { recordEvent } from './timeline';
 import {
   CUSTOMERS_TABLE,
   CUSTOMER_COLS,
@@ -247,6 +248,16 @@ export async function ensureBasket(
     })
     .select('*')
     .single();
+
+  if (!created.error && created.data) {
+    // First time this basket number appears in the sale. Log its birth.
+    recordEvent({
+      basketId: (created.data as Basket).id,
+      kind: 'created',
+      actor: createdBy ?? undefined,
+      detail: { basket_number: basketNumber },
+    });
+  }
 
   if (created.error) {
     // Lost the race — someone else just created it. Read it back.
