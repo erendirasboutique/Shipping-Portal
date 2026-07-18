@@ -51,6 +51,7 @@ export const shippoProvider: ShippingProvider = {
         async: false,
       }),
     });
+
     return {
       shipmentRef: shipment.object_id,
       rates: (shipment.rates || [])
@@ -76,10 +77,32 @@ export const shippoProvider: ShippingProvider = {
         async: false,
       }),
     });
+
     if (t.status !== "SUCCESS") {
       const msg = (t.messages || []).map((m: any) => m.text).join("; ");
       throw new Error(msg || "Shippo could not purchase the label");
     }
+
+    // A genuine purchase always has a label. If SUCCESS comes back with no
+    // label_url, treat it as a failure rather than saving a draft-looking order.
+    if (!t.label_url) {
+      const msg = (t.messages || []).map((m: any) => m.text).join("; ");
+      throw new Error(
+        msg || "Shippo returned SUCCESS but no label URL — label was not purchased."
+      );
+    }
+
+    // On a transaction response Shippo returns `rate` as the rate ID *string*,
+    // not the expanded object — so fetch it to recover carrier/service/amount.
+    let rate: any = t.rate;
+    if (typeof rate === "string") {
+      try {
+        rate = await shippo(`/rates/${rate}`);
+      } catch {
+        rate = null;
+      }
+    }
+
     return {
       shipmentRef,
       transactionRef: t.object_id,
@@ -87,10 +110,10 @@ export const shippoProvider: ShippingProvider = {
       label_url: t.label_url ?? null,
       tracking_number: t.tracking_number ?? null,
       tracking_url: t.tracking_url_provider ?? null,
-      carrier: t.rate?.provider ?? null,
-      service: t.rate?.servicelevel?.name ?? null,
-      rate: t.rate?.amount ? Number(t.rate.amount) : null,
-      currency: t.rate?.currency ?? "USD",
+      carrier: rate?.provider ?? null,
+      service: rate?.servicelevel?.name ?? null,
+      rate: rate?.amount ? Number(rate.amount) : null,
+      currency: rate?.currency ?? "USD",
     };
   },
 
