@@ -96,10 +96,18 @@ export default function PortalBaskets({
   const [baskets, setBaskets] = useState<PortalBasket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Spanish is the default and stays the default. The customers are
+  // Spanish-speaking; browser language is a weak signal (a borrowed phone,
+  // an English-set device in Spanish-speaking hands) and shouldn't flip
+  // the whole page. Only an explicit ?lang=en switches it.
   useEffect(() => {
     if (forced) return;
-    const lang = navigator.language?.toLowerCase() ?? '';
-    setLocale(lang.startsWith('en') ? 'en' : 'es');
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('lang') === 'en') setLocale('en');
+    } catch {
+      // stays es
+    }
   }, [forced]);
 
   const load = useCallback(async () => {

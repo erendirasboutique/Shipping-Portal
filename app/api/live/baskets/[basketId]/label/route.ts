@@ -29,9 +29,10 @@ export async function GET(req: Request, { params }: Ctx) {
   const url = new URL(req.url);
   const tagline = url.searchParams.get('tag') || 'Pickup';
 
-  const name = basket.customer?.name || `Basket ${basket.basket_number}`;
+  const name = basket.customer?.name || `Canasta ${basket.basket_number}`;
   const orderNo = formatOrderNumber(basket.order?.order_number);
-  const sub = [orderNo || `Basket #${basket.basket_number}`].filter(Boolean).join(' · ');
+  // Spanish sub-line: "Canasta #12" plus the EB number if there is one.
+  const sub = [`Canasta #${basket.basket_number}`, orderNo].filter(Boolean).join(' · ');
 
   const pdf = await buildPickupLabel({ tagline, name, sub });
 
