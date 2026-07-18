@@ -297,6 +297,18 @@ export default function BasketDrawer({
                 </button>
               )}
 
+              {basket.customer && (
+                <a
+                  className="live__btn live__btn--ghost"
+                  href={`/api/live/baskets/${basket.id}/label?tag=Pickup`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={t.printLabelHint}
+                >
+                  {t.printPickup}
+                </a>
+              )}
+
               {token && (
                 <>
                   <SendMenu
