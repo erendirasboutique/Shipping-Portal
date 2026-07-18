@@ -38,6 +38,7 @@ type PortalBasket = {
 const copy = {
   en: {
     heading: 'Your basket',
+    basket: 'Basket',
     from: 'From the live on',
     forming: 'Still adding',
     ready: 'Ready to pay',
@@ -59,6 +60,7 @@ const copy = {
   },
   es: {
     heading: 'Tu canasta',
+    basket: 'Canasta',
     from: 'Del live del',
     forming: 'Todavía agregando',
     ready: 'Lista para pagar',
@@ -200,78 +202,93 @@ export default function PortalBaskets({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 22 }}>
+    <div className="ob2">
       {baskets.map((b) => {
         const instructions =
           locale === 'es' && b.payment_instructions_es
             ? b.payment_instructions_es
             : b.payment_instructions;
 
-        return (
-          <section key={b.id} className="live__card ob">
-            {/* Their actual basket, first. It's what they recognise —
-                they picked these things out on a live an hour ago. */}
-            {b.photo_url && (
-              <img className="ob__hero" src={b.photo_url} alt="" />
-            )}
+        const paid = b.status === 'paid' || b.status === 'shipped';
 
-            <div className="ob__head">
-              <div>
-                <h2 className="ob__title">
-                  {t.heading} <span className="live__mono live__muted">#{b.basket_number}</span>
-                </h2>
+        return (
+          <article key={b.id} className="ob2__ticket">
+            {/* Hero: their own basket photo, total set over a dark scrim.
+                The signature of the page — the thing they recognise from
+                the live, with what they owe laid right on top of it. */}
+            <div className="ob2__hero">
+              {b.photo_url ? (
+                <img className="ob2__heroImg" src={b.photo_url} alt="" />
+              ) : (
+                <div className="ob2__heroImg ob2__heroImg--none" />
+              )}
+              <div className="ob2__heroVeil" />
+              <div className="ob2__heroText">
+                <span className="ob2__basketNo">
+                  {t.basket} #{b.basket_number}
+                </span>
+                <span className="ob2__heroTotal">{centsToDisplay(b.total_cents, locale)}</span>
                 {b.sale_date && (
-                  <p className="ob__from">
+                  <span className="ob2__heroFrom">
                     {t.from} {b.sale_title || formatSaleDate(b.sale_date, locale)}
-                  </p>
-                )}
-                {b.order_number && (
-                  <p className="ob__order live__mono">{b.order_number}</p>
+                  </span>
                 )}
               </div>
-              <span className={`live__pill live__pill--${b.status}`}>
-                {statusLabel(b.status)}
-              </span>
+              <span className={`ob2__stamp ob2__stamp--${b.status}`}>{statusLabel(b.status)}</span>
             </div>
 
-            <ul className="ob__items">
-              {b.items.map((i) => (
-                <li key={i.id}>
-                  <span>
-                    {locale === 'es' && i.description_es ? i.description_es : i.description}
-                    {i.quantity > 1 && (
-                      <span className="live__muted live__mono">
-                        {' '}
-                        ×{i.quantity} · {centsToDisplay(i.unit_price_cents, locale)} {t.each}
-                      </span>
-                    )}
-                  </span>
-                  <span className="live__mono">
-                    {centsToDisplay(i.unit_price_cents * i.quantity, locale)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {/* Receipt tape: the itemization, as a boutique receipt. */}
+            <div className="ob2__tape">
+              {b.order_number && <p className="ob2__order">{b.order_number}</p>}
 
-            <div className="ob__totals">
-              <Row label={t.subtotal} value={centsToDisplay(b.subtotal_cents, locale)} />
-              {b.shipping_cents > 0 && (
-                <Row label={t.shipping} value={centsToDisplay(b.shipping_cents, locale)} />
-              )}
-              {b.discount_cents > 0 && (
-                <Row label={t.discount} value={`−${centsToDisplay(b.discount_cents, locale)}`} />
-              )}
-              <Row label={t.total} value={centsToDisplay(b.total_cents, locale)} strong />
+              <ul className="ob2__items">
+                {b.items.map((i) => (
+                  <li key={i.id} className="ob2__item">
+                    <span className="ob2__itemName">
+                      {locale === 'es' && i.description_es ? i.description_es : i.description}
+                      {i.quantity > 1 && <span className="ob2__x"> ×{i.quantity}</span>}
+                    </span>
+                    <span className="ob2__dots" aria-hidden="true" />
+                    <span className="ob2__itemPrice">
+                      {centsToDisplay(i.unit_price_cents * i.quantity, locale)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="ob2__sums">
+                <div className="ob2__sumRow">
+                  <span>{t.subtotal}</span>
+                  <span>{centsToDisplay(b.subtotal_cents, locale)}</span>
+                </div>
+                {b.shipping_cents > 0 && (
+                  <div className="ob2__sumRow">
+                    <span>{t.shipping}</span>
+                    <span>{centsToDisplay(b.shipping_cents, locale)}</span>
+                  </div>
+                )}
+                {b.discount_cents > 0 && (
+                  <div className="ob2__sumRow">
+                    <span>{t.discount}</span>
+                    <span>−{centsToDisplay(b.discount_cents, locale)}</span>
+                  </div>
+                )}
+                <div className="ob2__sumRow ob2__sumRow--total">
+                  <span>{t.total}</span>
+                  <span>{centsToDisplay(b.total_cents, locale)}</span>
+                </div>
+              </div>
             </div>
 
+            {/* How to pay — only while there's a balance to settle. */}
             {b.status === 'finalized' && (
-              <div className="ob__pay">
-                <p className="live__eyebrow">{t.howToPay}</p>
-                <p className={instructions ? 'ob__inst' : 'ob__inst live__muted'}>
+              <div className="ob2__pay">
+                <p className="ob2__payLabel">{t.howToPay}</p>
+                <p className={instructions ? 'ob2__inst' : 'ob2__inst ob2__muted'}>
                   {instructions || t.noInstructions}
                 </p>
                 {b.due_at && (
-                  <p className="ob__due">
+                  <p className="ob2__due">
                     {t.dueBy}{' '}
                     {new Date(b.due_at).toLocaleString(locale === 'es' ? 'es-US' : 'en-US', {
                       weekday: 'long',
@@ -281,22 +298,22 @@ export default function PortalBaskets({
                   </p>
                 )}
                 {b.pay_url && (
-                  <a className="live__btn ob__card" href={b.pay_url}>
+                  <a className="ob2__btn" href={b.pay_url}>
                     {t.payCard}
                   </a>
                 )}
               </div>
             )}
 
-            {b.tracking_number && (
-              <div className="ob__track">
-                <p className="live__eyebrow">{t.tracking}</p>
-                <p className="ob__num live__mono">
+            {paid && b.tracking_number && (
+              <div className="ob2__track">
+                <span className="ob2__trackLabel">{t.tracking}</span>
+                <span className="ob2__trackNo">
                   {b.carrier ? `${b.carrier} · ` : ''}
                   {b.tracking_number}
-                </p>
+                </span>
                 <a
-                  className="live__btn live__btn--ghost ob__trackBtn"
+                  className="ob2__btn ob2__btn--ghost"
                   href={b.tracking_url || trackUrl(b.tracking_number)}
                   target="_blank"
                   rel="noreferrer"
@@ -305,7 +322,7 @@ export default function PortalBaskets({
                 </a>
               </div>
             )}
-          </section>
+          </article>
         );
       })}
     </div>

@@ -1082,3 +1082,152 @@
 
 .drawer__tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
 .chip--sm { font-size: 0.6875rem; padding: 5px 8px; }
+
+/* ============================================================
+   Customer order page — redesign (.ob2)
+   ------------------------------------------------------------
+   The page is a boutique receipt. Signature: the customer's own
+   basket photo as a full-bleed hero with the total set over it,
+   then the itemization on "receipt tape" — the artifact this page
+   actually is. Palette stays brand (cream/taupe/ink) because the
+   brief fixes it; the boldness is spent on the hero + tape motif,
+   not on colour.
+   ============================================================ */
+.ob2 { display: grid; gap: 26px; }
+
+.ob2__ticket {
+  background: var(--paper);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(61,52,40,0.05), 0 18px 44px rgba(61,52,40,0.10);
+}
+
+/* ---- hero ---- */
+.ob2__hero { position: relative; }
+.ob2__heroImg {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--sand-soft);
+}
+.ob2__heroImg--none {
+  background:
+    radial-gradient(120% 120% at 30% 20%, rgba(189,168,145,0.5), transparent 60%),
+    linear-gradient(160deg, var(--sand), var(--taupe));
+}
+.ob2__heroVeil {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(45,38,28,0.82) 0%, rgba(45,38,28,0.15) 45%, transparent 72%);
+}
+.ob2__heroText {
+  position: absolute; left: 22px; right: 22px; bottom: 18px;
+  display: grid; gap: 2px; color: #fff;
+}
+.ob2__basketNo {
+  font-family: var(--mono);
+  font-size: 0.6875rem; letter-spacing: 0.16em; text-transform: uppercase;
+  opacity: 0.85;
+}
+.ob2__heroTotal {
+  font-family: var(--serif);
+  font-size: 3rem; line-height: 0.98; letter-spacing: 0.01em;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.35);
+}
+.ob2__heroFrom {
+  font-family: var(--serif); font-size: 0.9375rem; opacity: 0.9; margin-top: 2px;
+}
+.ob2__stamp {
+  position: absolute; top: 14px; right: 14px;
+  font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 6px 11px; border-radius: 999px;
+  background: rgba(255,255,255,0.92); color: var(--ink);
+  backdrop-filter: blur(4px);
+}
+.ob2__stamp--paid, .ob2__stamp--shipped { background: var(--good); color: #fff; }
+.ob2__stamp--finalized { background: var(--ink); color: var(--cream); }
+.ob2__stamp--released { background: var(--alert); color: #fff; }
+
+/* ---- receipt tape ---- */
+.ob2__tape { padding: 22px 24px 8px; }
+.ob2__order {
+  font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em;
+  color: var(--taupe); margin: 0 0 14px;
+}
+.ob2__items { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.ob2__item { display: flex; align-items: baseline; gap: 6px; }
+.ob2__itemName { font-size: 0.9375rem; line-height: 1.3; }
+.ob2__x { font-family: var(--mono); color: var(--taupe); font-size: 0.8125rem; }
+/* the dotted leader of a receipt line */
+.ob2__dots {
+  flex: 1;
+  border-bottom: 1px dotted var(--line-firm);
+  transform: translateY(-3px);
+  min-width: 16px;
+}
+.ob2__itemPrice { font-family: var(--mono); font-size: 0.9375rem; white-space: nowrap; }
+
+.ob2__sums {
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px dashed var(--line-firm);
+  display: grid; gap: 7px;
+}
+.ob2__sumRow {
+  display: flex; justify-content: space-between;
+  font-size: 0.875rem; color: var(--ink-soft);
+}
+.ob2__sumRow span:last-child { font-family: var(--mono); }
+.ob2__sumRow--total {
+  margin-top: 5px; padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-family: var(--serif); font-size: 1.375rem; color: var(--ink);
+}
+.ob2__sumRow--total span:last-child { font-family: var(--serif); }
+
+/* ---- pay ---- */
+.ob2__pay {
+  margin: 6px 16px 16px; padding: 18px 20px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(189,168,145,0.24), rgba(189,168,145,0.1));
+}
+.ob2__payLabel {
+  font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--taupe); margin: 0 0 8px;
+}
+.ob2__inst { margin: 0; font-size: 0.9375rem; line-height: 1.65; white-space: pre-line; }
+.ob2__muted { color: var(--ink-soft); opacity: 0.7; }
+.ob2__due { margin: 10px 0 0; font-size: 0.8125rem; color: var(--taupe); }
+
+.ob2__btn {
+  display: block; text-align: center; text-decoration: none;
+  margin-top: 14px; padding: 13px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #4a4033, var(--ink));
+  color: var(--cream);
+  font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+  transition: transform 0.06s ease, box-shadow 0.14s ease;
+}
+.ob2__btn:hover { box-shadow: 0 6px 18px rgba(61,52,40,0.24); transform: translateY(-1px); }
+.ob2__btn--ghost {
+  background: transparent; color: var(--taupe);
+  border: 1px solid var(--line-firm);
+}
+
+/* ---- tracking ---- */
+.ob2__track {
+  margin: 0 16px 18px; padding: 16px 20px;
+  border-radius: 8px;
+  background: rgba(74,101,71,0.08);
+  display: grid; gap: 4px;
+}
+.ob2__trackLabel {
+  font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--good);
+}
+.ob2__trackNo { font-family: var(--mono); font-size: 1rem; }
+
+@media (max-width: 480px) {
+  .ob2__heroTotal { font-size: 2.5rem; }
+  .ob2__tape { padding: 20px 18px 8px; }
+}
