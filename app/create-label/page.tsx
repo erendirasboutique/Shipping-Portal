@@ -35,6 +35,13 @@ const emptyForm = {
   customer_id: null as string | null,
 };
 
+// Coerce anything (including "" or NaN) to a safe number so numeric
+// columns never receive an empty string, which Postgres rejects.
+function toNum(v: unknown): number {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
 const CARRIER_COLORS: Record<string, string> = {
   UPS: "bg-[#351c15] text-[#ffb500]",
   USPS: "bg-[#333366] text-white",
@@ -64,7 +71,7 @@ function CreateLabelInner() {
   const [manual, setManual] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
-  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation"| "easyship">("shippo");
+  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation" | "easyship">("shippo");
   const [rates, setRates] = useState<Rate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
@@ -147,24 +154,43 @@ function CreateLabelInner() {
     setSelectedRate(null);
   }
 
-  async function saveDraft(silent = false): Promise<string | null> {
+  // Build a DB-safe payload: numeric columns always get real numbers,
+  // empty optional text stays null-friendly.
+  function buildPayload() {
+    return {
+      ...form,
+      length: toNum(form.length),
+      width: toNum(form.width),
+      height: toNum(form.height),
+      weight_lb: toNum(form.weight_lb),
+      weight_oz: toNum(form.weight_oz),
+      status: "draft",
+    };
+  }
+
+  async function saveDraft(silent = false): Promise<string> {
     setError(null);
     if (!silent) setBusy("draft");
-    const payload = { ...form, status: "draft" };
-    let id = orderId;
-    if (id) {
-      const { error } = await supabase.from("shipping_orders").update(payload).eq("id", id);
-      if (error) setError(error.message);
-    } else {
-      const { data, error } = await supabase.from("shipping_orders").insert(payload).select("id").single();
-      if (error) setError(error.message);
-      if (data) {
+    const payload = buildPayload();
+    try {
+      let id = orderId;
+      if (id) {
+        const { error } = await supabase.from("shipping_orders").update(payload).eq("id", id);
+        if (error) throw new Error(error.message);
+      } else {
+        const { data, error } = await supabase
+          .from("shipping_orders")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw new Error(error.message);
         id = data.id;
         setOrderId(data.id);
       }
+      return id;
+    } finally {
+      if (!silent) setBusy(null);
     }
-    if (!silent) setBusy(null);
-    return id;
   }
 
   async function getRates() {
@@ -190,11 +216,11 @@ function CreateLabelInner() {
             email: form.to_email || undefined,
           },
           parcel: {
-            length: form.length,
-            width: form.width,
-            height: form.height,
-            weight_lb: form.weight_lb,
-            weight_oz: form.weight_oz,
+            length: toNum(form.length),
+            width: toNum(form.width),
+            height: toNum(form.height),
+            weight_lb: toNum(form.weight_lb),
+            weight_oz: toNum(form.weight_oz),
           },
           signature: form.signature_confirmation,
         }),
@@ -214,8 +240,9 @@ function CreateLabelInner() {
     setError(null);
     setBusy(rate.id);
     try {
+      // saveDraft now throws the real Supabase error if it fails,
+      // so we no longer mask it with a generic message.
       const id = await saveDraft(true);
-      if (!id) throw new Error("Could not save order before purchase");
       const res = await fetch("/api/labels/buy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -526,7 +553,11 @@ function CreateLabelInner() {
 
           <div className="my-5 h-px bg-taupe/15" />
 
-          <button onClick={() => saveDraft()} disabled={busy !== null} className="btn-secondary w-full">
+          <button
+            onClick={() => saveDraft().catch((e: any) => setError(e.message))}
+            disabled={busy !== null}
+            className="btn-secondary w-full"
+          >
             {busy === "draft" ? "Saving…" : orderId ? "Update Draft" : "Save Draft"}
           </button>
           <p className="mt-3 text-xs leading-relaxed text-ink/50">
