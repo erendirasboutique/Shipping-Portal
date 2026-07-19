@@ -75,7 +75,7 @@ export function inviteMessage(opts: {
   const link = opts.overrideLink || portalUrl(opts.portalToken);
   return (
     'Hola chula! \uD83C\uDF38 Te abrimos tu canasta. ' +
-    'Mira aqu\u00ED lo que vas apartando y lo pagas cuando te mandemos tu total' +
+    'Mira aqu\u00ED lo que vas apartando y lo pagas cuando te mandemos tu total    ' +
     link
   );
 }
