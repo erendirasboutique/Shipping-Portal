@@ -11,6 +11,7 @@ import { getOperator } from '@/lib/live/operator';
 import CustomerPicker from '@/components/live/CustomerPicker';
 import PhotoDrop from '@/components/live/PhotoDrop';
 import SendMenu from '@/components/live/SendMenu';
+import PaymentProof from '@/components/live/PaymentProof';
 
 /**
  * Everything about one basket, in a panel.
@@ -328,6 +329,18 @@ export default function BasketDrawer({
                 </div>
               )}
             </section>
+
+            {/* customer-submitted payment proof — the screenshot they uploaded
+                when they tapped "¿Ya pagaste?". Method + note already show in
+                the money section above; this pulls the private image on demand. */}
+            {(basket.status === 'paid' || basket.status === 'shipped') && (
+              <section className="drawer__sec">
+                <p className="live__label">
+                  {locale === 'es' ? 'Comprobante de pago' : 'Payment proof'}
+                </p>
+                <PaymentProof basketId={basket.id} />
+              </section>
+            )}
 
             {/* notes — staff only */}
             <section className="drawer__sec">
