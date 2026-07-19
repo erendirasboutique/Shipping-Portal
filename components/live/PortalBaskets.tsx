@@ -124,6 +124,9 @@ export default function PortalBaskets({
   const [payingId, setPayingId] = useState<string | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [paidMessageId, setPaidMessageId] = useState<string | null>(null);
+  const [showPaidFormId, setShowPaidFormId] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
 
   const t = copy[locale];
 
@@ -154,21 +157,39 @@ export default function PortalBaskets({
 
 
   async function reportPayment(basketId: string) {
-    if (!window.confirm(t.confirmPaid)) return;
+    if (!paymentMethod) {
+      setError(
+        locale === 'es'
+          ? 'Selecciona cómo pagaste.'
+          : 'Select how you paid.',
+      );
+      return;
+    }
+
+    if (!paymentProof) {
+      setError(
+        locale === 'es'
+          ? 'Sube una imagen de tu confirmación.'
+          : 'Upload your payment confirmation image.',
+      );
+      return;
+    }
 
     setMarkingPaidId(basketId);
     setPaidMessageId(null);
     setError(null);
 
     try {
+      const body = new FormData();
+      body.append('paymentMethod', paymentMethod);
+      body.append('paymentProof', paymentProof);
+
       const res = await fetch(
         `/api/live/portal/${token}/baskets/${basketId}/mark-paid`,
         {
           method: 'POST',
+          body,
           cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-          },
         },
       );
 
@@ -181,6 +202,9 @@ export default function PortalBaskets({
       }
 
       setPaidMessageId(basketId);
+      setShowPaidFormId(null);
+      setPaymentMethod('');
+      setPaymentProof(null);
       setMarkingPaidId(null);
       await load();
     } catch {
@@ -516,24 +540,92 @@ export default function PortalBaskets({
                       )}
                     </button>
 
-                    <button
-                      type="button"
-                      className="alreadyPaidButton"
-                      disabled={markingPaidId === b.id || payingId === b.id}
-                      onClick={() => reportPayment(b.id)}
-                    >
-                      {markingPaidId === b.id ? (
-                        <>
-                          <span className="buttonLoader buttonLoader--brand" />
-                          <span>{t.markingPaid}</span>
-                        </>
-                      ) : (
-                        <>
-                          <span aria-hidden="true">✓</span>
-                          <span>{t.alreadyPaid}</span>
-                        </>
+                    <div className="paidReport">
+                      <button
+                        type="button"
+                        className="alreadyPaidButton"
+                        disabled={markingPaidId === b.id || payingId === b.id}
+                        onClick={() => {
+                          setError(null);
+                          setShowPaidFormId(
+                            showPaidFormId === b.id ? null : b.id,
+                          );
+                        }}
+                      >
+                        <span aria-hidden="true">✓</span>
+                        <span>{t.alreadyPaid}</span>
+                      </button>
+
+                      {showPaidFormId === b.id && (
+                        <div className="paidReport__form">
+                          <label>
+                            <span>
+                              {locale === 'es'
+                                ? '¿Cómo pagaste?'
+                                : 'How did you pay?'}
+                            </span>
+
+                            <select
+                              value={paymentMethod}
+                              onChange={(event) =>
+                                setPaymentMethod(event.target.value)
+                              }
+                            >
+                              <option value="">
+                                {locale === 'es'
+                                  ? 'Selecciona una opción'
+                                  : 'Select an option'}
+                              </option>
+                              <option value="zelle">Zelle</option>
+                              <option value="cash_app">Cash App</option>
+                              <option value="venmo">Venmo</option>
+                              <option value="paypal">PayPal</option>
+                              <option value="apple_pay">Apple Pay</option>
+                              <option value="other">
+                                {locale === 'es' ? 'Otro' : 'Other'}
+                              </option>
+                            </select>
+                          </label>
+
+                          <label>
+                            <span>
+                              {locale === 'es'
+                                ? 'Sube tu confirmación de pago'
+                                : 'Upload your payment confirmation'}
+                            </span>
+
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/heic"
+                              onChange={(event) =>
+                                setPaymentProof(
+                                  event.target.files?.[0] ?? null,
+                                )
+                              }
+                            />
+
+                            <small>
+                              {locale === 'es'
+                                ? 'JPG, PNG, WEBP o HEIC. Máximo 8 MB.'
+                                : 'JPG, PNG, WEBP, or HEIC. Maximum 8 MB.'}
+                            </small>
+                          </label>
+
+                          <button
+                            type="button"
+                            className="submitPaidButton"
+                            disabled={markingPaidId === b.id}
+                            onClick={() => reportPayment(b.id)}
+                          >
+                            {markingPaidId === b.id
+                              ? t.markingPaid
+                              : locale === 'es'
+                                ? 'Confirmar que ya pagué'
+                                : 'Confirm that I paid'}
+                          </button>
+                        </div>
                       )}
-                    </button>
+                    </div>
 
                     {paidMessageId === b.id && (
                       <p className="paidSuccess">{t.markedPaid}</p>
@@ -1119,6 +1211,94 @@ const styles = `
   }
 
   .alreadyPaidButton:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+
+  .paidReport {
+    margin-top: 10px;
+  }
+
+  .paidReport__form {
+    display: grid;
+    gap: 15px;
+    margin-top: 10px;
+    padding: 17px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--background);
+  }
+
+  .paidReport__form label {
+    display: grid;
+    gap: 7px;
+  }
+
+  .paidReport__form label > span {
+    color: var(--brand);
+    font-size: 0.79rem;
+    font-weight: 600;
+  }
+
+  .paidReport__form select,
+  .paidReport__form input[type='file'] {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 11px 12px;
+    background: var(--white);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.82rem;
+  }
+
+  .paidReport__form input[type='file'] {
+    padding: 9px;
+  }
+
+  .paidReport__form input[type='file']::file-selector-button {
+    margin-right: 10px;
+    border: 0;
+    border-radius: 5px;
+    padding: 8px 10px;
+    background: var(--accent);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .paidReport__form small {
+    color: var(--muted);
+    font-size: 0.7rem;
+    line-height: 1.4;
+  }
+
+  .submitPaidButton {
+    min-height: 47px;
+    border: 1px solid var(--brand);
+    border-radius: 7px;
+    padding: 12px 16px;
+    background: var(--brand);
+    color: var(--background);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .submitPaidButton:hover:not(:disabled) {
+    background: transparent;
+    color: var(--brand);
+  }
+
+  .submitPaidButton:disabled {
     cursor: wait;
     opacity: 0.65;
   }
