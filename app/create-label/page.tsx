@@ -249,6 +249,24 @@ function CreateLabelInner() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      // If a basket number was entered, link that basket (from the most
+      // recent live sale) to this order so tracking reaches their portal.
+      // Best-effort: a failed link never blocks the ship — the label's
+      // already bought.
+      const bn = parseInt(String(form.basket_number), 10);
+      if (Number.isInteger(bn) && bn > 0) {
+        try {
+          await fetch("/api/live/link-basket", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ basket_number: bn, order_id: id }),
+          });
+        } catch {
+          // ignore — nothing here is worth stopping the redirect for
+        }
+      }
+
       router.push("/");
     } catch (e: any) {
       setError(e.message);
