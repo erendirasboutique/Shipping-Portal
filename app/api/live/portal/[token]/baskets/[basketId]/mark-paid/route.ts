@@ -9,8 +9,12 @@ function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !serviceRoleKey) {
-    throw new Error('Supabase server environment variables are missing.');
+  if (!url) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL in Vercel.');
+  }
+
+  if (!serviceRoleKey) {
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in Vercel.');
   }
 
   return createClient(url, serviceRoleKey, {
@@ -19,6 +23,30 @@ function getAdminClient() {
       persistSession: false,
     },
   });
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+
+  if (error && typeof error === 'object') {
+    const value = error as {
+      message?: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+    };
+
+    return [
+      value.message,
+      value.details,
+      value.hint,
+      value.code ? `Code: ${value.code}` : null,
+    ]
+      .filter(Boolean)
+      .join(' — ');
+  }
+
+  return 'Unknown server error.';
 }
 
 export async function POST(
@@ -36,19 +64,20 @@ export async function POST(
 
     if (!isUuid(token) || !isUuid(basketId)) {
       return NextResponse.json(
-        { error: 'Invalid basket link.' },
+        { error: 'Invalid basket link or basket ID.' },
         { status: 400 },
       );
     }
 
-    // The public token is the credential. Never trust only the basket ID:
-    // confirm this exact basket belongs to this exact portal token first.
     const baskets = await getBasketsForPortalToken(token);
     const basket = baskets.find((item) => item.id === basketId);
 
     if (!basket) {
       return NextResponse.json(
-        { error: 'Basket not found for this portal link.' },
+        {
+          error:
+            'The basket was not found for this customer portal token.',
+        },
         { status: 404 },
       );
     }
@@ -56,44 +85,66 @@ export async function POST(
     if (basket.status === 'paid' || basket.status === 'shipped') {
       return NextResponse.json({
         ok: true,
-        status: basket.status,
         alreadyPaid: true,
+        status: basket.status,
       });
     }
 
     if (basket.status !== 'finalized') {
       return NextResponse.json(
-        { error: 'This basket is not ready to be marked as paid.' },
+        {
+          error: `This basket has status "${basket.status}", not "finalized".`,
+        },
         { status: 409 },
       );
     }
 
     const supabase = getAdminClient();
+
+    // Change this environment variable in Vercel if your real table
+    // is not named live_baskets.
+    const tableName =
+      process.env.LIVE_BASKETS_TABLE || 'live_baskets';
+
     const paidAt = new Date().toISOString();
 
     const { data, error } = await supabase
-      .from('live_baskets')
+      .from(tableName)
       .update({
         status: 'paid',
         paid_at: paidAt,
       })
       .eq('id', basketId)
-      .eq('status', 'finalized')
       .select('id, status, paid_at')
       .maybeSingle();
 
     if (error) {
-      console.error('Customer mark-paid update failed:', error);
+      const message = errorMessage(error);
+
+      console.error('Customer mark-paid Supabase error:', {
+        tableName,
+        basketId,
+        message,
+        error,
+      });
+
       return NextResponse.json(
-        { error: 'Could not mark the basket as paid.' },
+        {
+          error: `Supabase update failed: ${message}`,
+          table: tableName,
+        },
         { status: 500 },
       );
     }
 
     if (!data) {
       return NextResponse.json(
-        { error: 'The basket changed before it could be updated.' },
-        { status: 409 },
+        {
+          error:
+            `No row was updated in "${tableName}". The basket ID may be in a different table.`,
+          table: tableName,
+        },
+        { status: 404 },
       );
     }
 
@@ -102,10 +153,14 @@ export async function POST(
       basket: data,
     });
   } catch (error) {
-    console.error('Customer mark-paid route failed:', error);
+    const message = errorMessage(error);
+
+    console.error('Customer mark-paid route error:', error);
 
     return NextResponse.json(
-      { error: 'Could not mark the basket as paid.' },
+      {
+        error: message,
+      },
       { status: 500 },
     );
   }
