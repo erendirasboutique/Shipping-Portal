@@ -32,9 +32,10 @@ const emptyForm = {
   weight_oz: "",
   signature_confirmation: false,
   notes: "",
-    customer_id: null as string | null,
-    basket_number: "" as string,   // ← live-sale basket to link (optional)
+  customer_id: null as string | null,
+  basket_number: "" as string, // live-sale basket to link (optional)
 };
+
 // Coerce anything (including "" or NaN) to a safe number so numeric
 // columns never receive an empty string, which Postgres rejects.
 function toNum(v: unknown): number {
@@ -104,6 +105,7 @@ function CreateLabelInner() {
           signature_confirmation: data.signature_confirmation ?? false,
           notes: data.notes ?? "",
           customer_id: data.customer_id,
+          basket_number: "", // drafts don't carry a basket number to restore
         });
       }
     })();
@@ -157,8 +159,11 @@ function CreateLabelInner() {
   // Build a DB-safe payload: numeric columns always get real numbers,
   // empty optional text stays null-friendly.
   function buildPayload() {
+    // basket_number is a UI-only field for linking — it isn't a column on
+    // shipping_orders, so strip it out before writing the order.
+    const { basket_number, ...orderFields } = form;
     return {
-      ...form,
+      ...orderFields,
       length: toNum(form.length),
       width: toNum(form.width),
       height: toNum(form.height),
@@ -168,15 +173,15 @@ function CreateLabelInner() {
     };
   }
 
- async function saveDraft(silent = false): Promise<string> {
+  async function saveDraft(silent = false): Promise<string> {
     setError(null);
     if (!silent) setBusy("draft");
     const payload = buildPayload();
     try {
-      if (orderId) {
-        const { error } = await supabase.from("shipping_orders").update(payload).eq("id", orderId);
+      let id = orderId;
+      if (id) {
+        const { error } = await supabase.from("shipping_orders").update(payload).eq("id", id);
         if (error) throw new Error(error.message);
-        return orderId;
       } else {
         const { data, error } = await supabase
           .from("shipping_orders")
@@ -184,9 +189,10 @@ function CreateLabelInner() {
           .select("id")
           .single();
         if (error) throw new Error(error.message);
+        id = data.id;
         setOrderId(data.id);
-        return data.id as string;
       }
+      return id;
     } finally {
       if (!silent) setBusy(null);
     }
@@ -316,25 +322,6 @@ function CreateLabelInner() {
           <div className="card !rounded-[2rem]">
             <h2 className="text-center text-2xl">1. 📍 Address Information</h2>
             <div className="relative mt-5">
-              {/* Live-sale basket link (optional) */}
-            <div className="mt-4">
-              <label className="label">
-                Basket # <span className="text-ink/40">(from this week's live — optional)</span>
-              </label>
-              <input
-                className="input"
-                inputMode="numeric"
-                placeholder="e.g. 12"
-                value={form.basket_number}
-                onChange={(e) =>
-                  set("basket_number", e.target.value.replace(/\D/g, ""))
-                }
-              />
-              <p className="mt-1 text-xs text-ink/50">
-                Links this shipment to that basket so tracking shows on the
-                customer's portal.
-              </p>
-            </div>
               <input
                 className="input"
                 placeholder="Search Existing Customers 👤"
@@ -357,6 +344,23 @@ function CreateLabelInner() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Live-sale basket link (optional) */}
+            <div className="mt-4">
+              <label className="label">
+                Basket # <span className="text-ink/40">(from this week&#39;s live — optional)</span>
+              </label>
+              <input
+                className="input"
+                inputMode="numeric"
+                placeholder="e.g. 12"
+                value={form.basket_number}
+                onChange={(e) => set("basket_number", e.target.value.replace(/\D/g, ""))}
+              />
+              <p className="mt-1 text-xs text-ink/50">
+                Links this shipment to that basket so tracking shows on the customer&#39;s portal.
+              </p>
             </div>
 
             {!manual ? (
