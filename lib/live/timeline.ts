@@ -22,6 +22,7 @@ export type BasketEventKind =
   | 'paid'
   | 'released'
   | 'label_printed'
+  | 'linked_order'
   | 'note';
 
 export type BasketEvent = {

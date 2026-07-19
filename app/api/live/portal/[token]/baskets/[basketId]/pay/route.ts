@@ -55,7 +55,13 @@ export async function POST(_req: Request, { params }: Ctx) {
       return NextResponse.json({ error: 'Payment is not configured.' }, { status: 500 });
     }
 
-    // Where Stripe sends them back — their own portal.
+    // Where Stripe sends them after paying. Defaults to a payment-complete
+    // page; {CHECKOUT_SESSION_ID} is a Stripe template it fills in on
+    // redirect. Payment is confirmed by the webhook, not this redirect —
+    // this page is just what the customer sees.
+    const completeUrl =
+      process.env.LIVE_PAYMENT_COMPLETE_URL ||
+      'https://pay.erendirasboutique.com/payment-complete';
     const portalBase = (
       process.env.NEXT_PUBLIC_PORTAL_URL || 'https://order.erendirasboutique.com'
     ).replace(/\/+$/, '');
@@ -68,13 +74,21 @@ export async function POST(_req: Request, { params }: Ctx) {
         amount_cents: basket.total_cents,
         label: `Canasta #${basket.basket_number} — Erendira's Boutique`,
         email: basket.customer?.email ?? undefined,
-        success_url: `${portalBase}/${token}`,
+        basket_id: basket.id,
+        success_url: `${completeUrl}?session_id={CHECKOUT_SESSION_ID}`,
+        // If they cancel, back to their portal rather than the pay page.
+        cancel_url: `${portalBase}/${token}`,
       }),
     });
 
-    const json = await res.json();
+    const json = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return NextResponse.json({ error: json.error ?? 'Checkout failed' }, { status: 502 });
+      // Pass billing's actual message through — a bare 502 hides whether
+      // it's a missing key, a secret mismatch, or a Stripe error.
+      return NextResponse.json(
+        { error: json.error ?? `Checkout failed (billing returned ${res.status})` },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({ url: json.url });

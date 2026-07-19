@@ -23,6 +23,8 @@ export default function BasketBoard({
   const [error, setError] = useState<string | null>(null);
   const [jump, setJump] = useState('');
   const [nameQuery, setNameQuery] = useState('');
+  const [mergeMode, setMergeMode] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
 
   /**
    * The client owns this list. router.refresh() can't update useState, and
@@ -54,6 +56,41 @@ export default function BasketBoard({
     () => baskets.find((b) => b.basket_number === openNumber) ?? null,
     [baskets, openNumber]
   );
+
+  function togglePick(basketId: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(basketId)) next.delete(basketId);
+      else next.add(basketId);
+      return next;
+    });
+  }
+
+  async function doMerge() {
+    if (picked.size < 2) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/live/merge-baskets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ basket_ids: Array.from(picked), by: getOperator() }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error ?? 'Could not merge those baskets.');
+        return;
+      }
+      // Reload so the shared order shows on each merged basket.
+      setMergeMode(false);
+      setPicked(new Set());
+      await reload();
+    } catch {
+      setError('Could not merge those baskets.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // Name search filters the wall to baskets whose matched customer's name
   // contains the query. Basket number stays available through the # jump.
@@ -199,8 +236,19 @@ export default function BasketBoard({
       )}
 
       <section className="board__bar">
-        <button className="live__btn" onClick={finalizeAll} disabled={busy}>
+        <button className="live__btn" onClick={finalizeAll} disabled={busy || mergeMode}>
           {t.finalizeAll}
+        </button>
+
+        <button
+          className={`live__btn live__btn--ghost${mergeMode ? ' live__btn--active' : ''}`}
+          onClick={() => {
+            setMergeMode((m) => !m);
+            setPicked(new Set());
+          }}
+          disabled={busy}
+        >
+          {mergeMode ? t.mergeCancel : t.mergeMode}
         </button>
 
         <input
@@ -230,6 +278,21 @@ export default function BasketBoard({
         </div>
       </section>
 
+      {mergeMode && (
+        <div className="board__mergeBar">
+          <span>
+            {picked.size} {t.selected}
+          </span>
+          <button
+            className="live__btn"
+            disabled={picked.size < 2 || busy}
+            onClick={doMerge}
+          >
+            {busy ? t.merging : t.mergeInto}
+          </button>
+        </div>
+      )}
+
       {error && <p className="board__error">{error}</p>}
 
       {baskets.length === 0 ? (
@@ -244,6 +307,9 @@ export default function BasketBoard({
           baskets={shown}
           selectedId={selected?.id ?? null}
           onSelect={(n) => setOpenNumber(n)}
+          selectMode={mergeMode}
+          selectedIds={picked}
+          onToggleSelect={togglePick}
         />
       )}
 

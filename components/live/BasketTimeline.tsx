@@ -23,6 +23,7 @@ const KIND_LABEL: Record<string, { en: string; es: string }> = {
   paid: { en: 'Marked paid', es: 'Marcada como pagada' },
   released: { en: 'Released', es: 'Liberada' },
   label_printed: { en: 'Pickup label printed', es: 'Etiqueta impresa' },
+  linked_order: { en: 'Linked to order', es: 'Vinculada a pedido' },
   note: { en: 'Note', es: 'Nota' },
 };
 

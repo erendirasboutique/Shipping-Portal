@@ -1,3 +1,4 @@
+import { recordEvent } from './timeline';
 import { asRow, liveDb } from './supabase';
 import type { CustomerAddressRow } from '@/types/live';
 import {
@@ -123,4 +124,103 @@ export async function createOrderForBasket(basketId: string): Promise<string | n
   }
 
   return order.data.id;
+}
+
+/**
+ * Link a basket to an existing shipping order, both directions.
+ *
+ * Used by (a) the drawer's "attach to existing order" picker and (b) the
+ * create-label page's basket-number field. Sets the basket's order_id so
+ * tracking flows to the customer's portal (the portal reads tracking
+ * through order_id), and records it on the timeline.
+ *
+ * Idempotent: linking a basket that's already on this order is a no-op.
+ */
+export async function linkBasketToOrder(opts: {
+  basketId: string;
+  orderId: string;
+  actor?: string;
+}): Promise<void> {
+  const db = liveDb();
+
+  const { error } = await db
+    .from('baskets')
+    .update({ order_id: opts.orderId })
+    .eq('id', opts.basketId);
+
+  if (error) throw new Error(error.message);
+
+  await recordEvent({
+    basketId: opts.basketId,
+    kind: 'linked_order',
+    actor: opts.actor,
+    detail: { order_id: opts.orderId },
+  });
+}
+
+/**
+ * Find an open basket by number in the MOST RECENT live sale.
+ *
+ * This is what the create-label page calls: the operator types a basket
+ * number, and we resolve it against the newest sale (the one being shipped
+ * this week). Returns null if there's no such basket — the label still
+ * buys, it just isn't linked.
+ *
+ * "Most recent" = newest sale by created_at. Per Dylan: always the current
+ * week's sale, so basket #12 means #12 in the newest sale, unambiguously.
+ */
+export async function findBasketByNumberInLatestSale(
+  basketNumber: number
+): Promise<{ id: string; customer_id: string | null } | null> {
+  const db = liveDb();
+
+  const sale = await db
+    .from('live_sales')
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (sale.error) throw new Error(sale.error.message);
+  if (!sale.data) return null;
+
+  const basket = await db
+    .from('baskets')
+    .select('id, customer_id')
+    .eq('live_sale_id', (sale.data as any).id)
+    .eq('basket_number', basketNumber)
+    .maybeSingle();
+
+  if (basket.error) throw new Error(basket.error.message);
+  return (basket.data as any) ?? null;
+}
+
+/**
+ * Merge several baskets onto ONE order — one label, one shipment, for a
+ * customer who won multiple baskets in the same live. Each basket keeps its
+ * own record but points at the shared order_id; the customer's portal shows
+ * them grouped under that one shipment.
+ */
+export async function mergeBasketsToOrder(opts: {
+  basketIds: string[];
+  orderId: string;
+  actor?: string;
+}): Promise<void> {
+  const db = liveDb();
+
+  const { error } = await db
+    .from('baskets')
+    .update({ order_id: opts.orderId })
+    .in('id', opts.basketIds);
+
+  if (error) throw new Error(error.message);
+
+  for (const id of opts.basketIds) {
+    await recordEvent({
+      basketId: id,
+      kind: 'linked_order',
+      actor: opts.actor,
+      detail: { order_id: opts.orderId, merged: opts.basketIds.length },
+    });
+  }
 }

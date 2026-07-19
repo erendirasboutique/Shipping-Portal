@@ -7,6 +7,7 @@ import { PAYMENT_METHODS, formatOrderNumber, paymentMethodLabel } from '@/lib/li
 import { basketMessage, dueLabel, portalUrl } from '@/lib/live/messages';
 import BasketTimeline from '@/components/live/BasketTimeline';
 import { useLocale } from '@/lib/live/i18n';
+import { getOperator } from '@/lib/live/operator';
 import CustomerPicker from '@/components/live/CustomerPicker';
 import PhotoDrop from '@/components/live/PhotoDrop';
 import SendMenu from '@/components/live/SendMenu';
@@ -56,6 +57,9 @@ export default function BasketDrawer({
   const [carrier, setCarrier] = useState(basket?.carrier ?? '');
   const [copied, setCopied] = useState<string | null>(null);
   const [shortLink, setShortLink] = useState<string | null>(null);
+  const [orderQuery, setOrderQuery] = useState('');
+  const [orderResults, setOrderResults] = useState<any[]>([]);
+  const [attaching, setAttaching] = useState(false);
 
   useEffect(() => {
     setPayOpen(false);
@@ -109,6 +113,51 @@ export default function BasketDrawer({
       setTimeout(() => setCopied(null), 1600);
     } catch {
       // clipboard blocked — nothing useful to say beyond the button not flipping
+    }
+  }
+
+  // Search existing orders to attach this basket to one.
+  useEffect(() => {
+    const q = orderQuery.trim();
+    if (q.length < 1) {
+      setOrderResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/live/orders/search?q=${encodeURIComponent(q)}`, {
+          cache: 'no-store',
+        });
+        const json = await res.json();
+        if (!cancelled) setOrderResults(json.orders ?? []);
+      } catch {
+        if (!cancelled) setOrderResults([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [orderQuery]);
+
+  async function attachToOrder(orderId: string) {
+    if (!basket) return;
+    setAttaching(true);
+    try {
+      const res = await fetch('/api/live/link-basket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ basket_id: basket.id, order_id: orderId, by: getOperator() }),
+      });
+      if (res.ok) {
+        setOrderQuery('');
+        setOrderResults([]);
+        // Re-read so the linked order (and its tracking) shows immediately.
+        onPatch({});
+      }
+    } finally {
+      setAttaching(false);
     }
   }
 
@@ -452,6 +501,41 @@ export default function BasketDrawer({
               </section>
             )}
 
+            {/* attach to an existing order — when this basket isn't linked yet */}
+            {!basket.order && (
+              <section className="drawer__sec">
+                <p className="live__label">{t.attachOrder}</p>
+                <p className="live__muted drawer__hint">{t.attachOrderHint}</p>
+                <input
+                  className="live__input"
+                  placeholder={t.attachOrderSearch}
+                  value={orderQuery}
+                  onChange={(e) => setOrderQuery(e.target.value)}
+                />
+                {orderResults.length > 0 && (
+                  <div className="drawer__orderList">
+                    {orderResults.map((o) => (
+                      <button
+                        key={o.id}
+                        className="drawer__orderItem"
+                        disabled={attaching}
+                        onClick={() => attachToOrder(o.id)}
+                      >
+                        <span className="live__mono">
+                          {o.order_number ? `EB-${o.order_number}` : '—'}
+                        </span>
+                        <span className="drawer__orderName">
+                          {o.to_name}
+                          {o.to_city ? ` · ${o.to_city}, ${o.to_state}` : ''}
+                        </span>
+                        {o.tracking_number && <span className="drawer__orderShipped">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* tracking — appears on their page the moment it saves */}
             {(basket.status === 'paid' || basket.status === 'shipped' || basket.tracking_number) && (
               <section className="drawer__sec">
@@ -461,10 +545,20 @@ export default function BasketDrawer({
                 </p>
 
                 {basket.order?.tracking_number && (
-                  <p className="drawer__fromLabel live__mono">
+                  <a
+                    className="drawer__fromLabel live__mono drawer__trackLink"
+                    href={
+                      basket.order.tracking_url ||
+                      `https://track.erendirasboutique.com/?tracking=${encodeURIComponent(
+                        basket.order.tracking_number
+                      )}`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {basket.order.carrier ? `${basket.order.carrier} · ` : ''}
-                    {basket.order.tracking_number}
-                  </p>
+                    {basket.order.tracking_number} ↗
+                  </a>
                 )}
                 <div className="drawer__track">
                   <input

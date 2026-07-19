@@ -25,11 +25,18 @@ export default function BasketGrid({
   selectedId,
   onSelect,
   minTiles = 48,
+  selectMode = false,
+  selectedIds,
+  onToggleSelect,
 }: {
   baskets: BasketDetail[];
   selectedId: string | null;
   onSelect: (basketNumber: number) => void;
   minTiles?: number;
+  /** Merge mode: tiles toggle a selection instead of opening the drawer. */
+  selectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (basketId: string) => void;
 }) {
   const { t } = useLocale();
 
@@ -55,14 +62,25 @@ export default function BasketGrid({
         const basket = byNumber.get(n);
         const state = !basket ? 'empty' : basket.status;
         const selected = basket && basket.id === selectedId;
+        const picked = basket && selectedIds?.has(basket.id);
 
         return (
           <button
             key={n}
             role="listitem"
             type="button"
-            className={`tile tile--${state}${selected ? ' tile--on' : ''}`}
-            onClick={() => onSelect(n)}
+            className={`tile tile--${state}${selected ? ' tile--on' : ''}${
+              picked ? ' tile--picked' : ''
+            }`}
+            onClick={() => {
+              if (selectMode) {
+                // In merge mode, tapping a real basket toggles it; empty
+                // tiles do nothing.
+                if (basket && onToggleSelect) onToggleSelect(basket.id);
+              } else {
+                onSelect(n);
+              }
+            }}
             aria-label={
               basket
                 ? `${t.basket} ${n}, ${basket.item_count} ${t.items}, ${centsToDisplay(

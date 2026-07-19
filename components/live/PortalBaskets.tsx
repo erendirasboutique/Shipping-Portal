@@ -53,6 +53,7 @@ const copy = {
     dueBy: 'Please pay by',
     payCard: 'Pay by card or installments',
     payOpening: 'Opening secure checkout…',
+    payError: 'Payment could not start. Please try again or contact us.',
     noInstructions: 'We sent you a message with the payment options.',
     empty: 'Nothing here yet.',
     each: 'each',
@@ -76,6 +77,7 @@ const copy = {
     dueBy: 'Por favor paga antes del',
     payCard: 'Pagar con tarjeta o a plazos',
     payOpening: 'Abriendo pago seguro…',
+    payError: 'No se pudo iniciar el pago. Intenta de nuevo o contáctanos.',
     noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
     empty: 'Nada por aquí todavía.',
     each: 'c/u',
@@ -106,19 +108,23 @@ export default function PortalBaskets({
 
   async function startCheckout(basketId: string) {
     setPayingId(basketId);
+    setError(null);
     try {
       const res = await fetch(`/api/live/portal/${token}/baskets/${basketId}/pay`, {
         method: 'POST',
         cache: 'no-store',
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (res.ok && json.url) {
         // Straight to Stripe's hosted page — card + BNPL live there.
         window.location.href = json.url;
         return;
       }
+      // Show why, rather than a button that just does nothing.
+      setError(json.error ?? t.payError);
       setPayingId(null);
     } catch {
+      setError(t.payError);
       setPayingId(null);
     }
   }
@@ -329,6 +335,7 @@ export default function PortalBaskets({
                 >
                   {payingId === b.id ? t.payOpening : t.payCard}
                 </button>
+                {error && payingId === null && <p className="ob2__payErr">{error}</p>}
               </div>
             )}
 
