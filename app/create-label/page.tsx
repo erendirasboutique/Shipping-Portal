@@ -32,9 +32,9 @@ const emptyForm = {
   weight_oz: "",
   signature_confirmation: false,
   notes: "",
-  customer_id: null as string | null,
+    customer_id: null as string | null,
+    basket_number: "" as string,   // ← live-sale basket to link (optional)
 };
-
 // Coerce anything (including "" or NaN) to a safe number so numeric
 // columns never receive an empty string, which Postgres rejects.
 function toNum(v: unknown): number {
