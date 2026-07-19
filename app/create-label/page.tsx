@@ -192,7 +192,7 @@ function CreateLabelInner() {
         id = data.id;
         setOrderId(data.id);
       }
-      return id;
+      return id as string;
     } finally {
       if (!silent) setBusy(null);
     }
