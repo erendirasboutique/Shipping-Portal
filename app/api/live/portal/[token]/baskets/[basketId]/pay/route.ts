@@ -59,9 +59,16 @@ export async function POST(_req: Request, { params }: Ctx) {
     // page; {CHECKOUT_SESSION_ID} is a Stripe template it fills in on
     // redirect. Payment is confirmed by the webhook, not this redirect —
     // this page is just what the customer sees.
-    const completeUrl =
+    //
+    // Strip any query string the env var might already carry. If
+    // LIVE_PAYMENT_COMPLETE_URL is set to ".../payment-complete/en?session_id={CHECKOUT_SESSION_ID}",
+    // appending our own ?session_id= would double it — which produced a
+    // mangled id Stripe couldn't look up. Take only the path, then add the
+    // one session_id ourselves.
+    const rawComplete =
       process.env.LIVE_PAYMENT_COMPLETE_URL ||
-      'https://pay.erendirasboutique.com/payment-complete';
+      'https://my.erendirasboutique.com/payment-complete/en';
+    const completeUrl = rawComplete.split('?')[0];
     const portalBase = (
       process.env.NEXT_PUBLIC_PORTAL_URL || 'https://order.erendirasboutique.com'
     ).replace(/\/+$/, '');
