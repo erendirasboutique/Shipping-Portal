@@ -60,6 +60,26 @@ export function basketMessage(opts: {
 }
 
 /** Friday reminder for anything still unpaid. */
+/**
+ * The "we opened your basket" heads-up, sent while the live is still going.
+ * Warm and short — tells them they can watch their basket fill up and that
+ * payment comes after the live wraps. Spanish only, by design.
+ *
+ * Uses the short link when one is passed in (the drawer resolves it), else
+ * the long portal URL.
+ */
+export function inviteMessage(opts: {
+  portalToken: string;
+  overrideLink?: string | null;
+}): string {
+  const link = opts.overrideLink || portalUrl(opts.portalToken);
+  return (
+    '\u00A1Hola chula! \uD83C\uDF38 Te abrimos tu canasta. ' +
+    'Mira aqu\u00ED lo que vas apartando y lo pagas cuando terminemos el live \uD83D\uDC9B\n' +
+    link
+  );
+}
+
 export function reminderMessage(opts: {
   locale: MessageLocale;
   customerName?: string | null;

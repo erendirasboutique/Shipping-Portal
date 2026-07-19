@@ -4,14 +4,13 @@ import { useEffect, useState } from 'react';
 import type { BasketDetail, CustomerRow, LiveSale } from '@/types/live';
 import { centsToDisplay, parsePriceToCents } from '@/lib/live/money';
 import { PAYMENT_METHODS, formatOrderNumber, paymentMethodLabel } from '@/lib/live/schema';
-import { basketMessage, dueLabel, portalUrl } from '@/lib/live/messages';
+import { basketMessage, dueLabel, inviteMessage, portalUrl } from '@/lib/live/messages';
 import BasketTimeline from '@/components/live/BasketTimeline';
 import { useLocale } from '@/lib/live/i18n';
 import { getOperator } from '@/lib/live/operator';
 import CustomerPicker from '@/components/live/CustomerPicker';
 import PhotoDrop from '@/components/live/PhotoDrop';
 import SendMenu from '@/components/live/SendMenu';
-import PaymentProof from '@/components/live/PaymentProof';
 
 /**
  * Everything about one basket, in a panel.
@@ -170,9 +169,15 @@ export default function BasketDrawer({
    */
   async function copyPortalLink() {
     if (!token) return;
-    // shortLink is resolved on open; fall back to the long URL if it isn't
-    // ready or dub is off.
-    await copy(shortLink || portalUrl(token), 'link');
+    // Copy the whole warm heads-up message (with the short link inside),
+    // not just the URL — this is what gets pasted to the customer mid-live.
+    // shortLink is resolved on open; falls back to the long URL if dub is
+    // off or it isn't ready yet.
+    const message = inviteMessage({
+      portalToken: token,
+      overrideLink: shortLink,
+    });
+    await copy(message, 'link');
   }
 
   const token = basket?.customer?.portal_token ?? null;
@@ -329,18 +334,6 @@ export default function BasketDrawer({
                 </div>
               )}
             </section>
-
-            {/* customer-submitted payment proof — the screenshot they uploaded
-                when they tapped "¿Ya pagaste?". Method + note already show in
-                the money section above; this pulls the private image on demand. */}
-            {(basket.status === 'paid' || basket.status === 'shipped') && (
-              <section className="drawer__sec">
-                <p className="live__label">
-                  {locale === 'es' ? 'Comprobante de pago' : 'Payment proof'}
-                </p>
-                <PaymentProof basketId={basket.id} />
-              </section>
-            )}
 
             {/* notes — staff only */}
             <section className="drawer__sec">
