@@ -2,21 +2,17 @@
 
 import { useState } from 'react';
 
-// Matches the values the customer form submits in PortalBaskets.tsx.
-const METHOD_LABELS: Record<string, string> = {
-  zelle: 'Zelle',
-  cash_app: 'Cash App',
-  venmo: 'Venmo',
-  paypal: 'PayPal',
-  apple_pay: 'Apple Pay',
-  other: 'Other',
-};
+// Image-only viewer. The basket's payment method + note are already shown in
+// BasketDrawer's money section (via paymentMethodLabel), so this deliberately
+// doesn't repeat them — it just pulls the private screenshot on demand. The
+// link is signed server-side and expires in ~10 min, so we fetch on click
+// rather than pre-loading it for every basket.
 
 type State =
   | { phase: 'idle' }
   | { phase: 'loading' }
   | { phase: 'error'; message: string }
-  | { phase: 'ready'; url: string | null; method: string | null; note: string | null };
+  | { phase: 'ready'; url: string | null };
 
 export default function PaymentProof({ basketId }: { basketId: string }) {
   const [state, setState] = useState<State>({ phase: 'idle' });
@@ -32,12 +28,7 @@ export default function PaymentProof({ basketId }: { basketId: string }) {
         setState({ phase: 'error', message: json.error ?? 'Could not load the proof.' });
         return;
       }
-      setState({
-        phase: 'ready',
-        url: json.url ?? null,
-        method: json.method ?? null,
-        note: json.note ?? null,
-      });
+      setState({ phase: 'ready', url: json.url ?? null });
     } catch {
       setState({ phase: 'error', message: 'Network trouble loading the proof.' });
     }
@@ -58,45 +49,29 @@ export default function PaymentProof({ basketId }: { basketId: string }) {
 
       {state.phase === 'error' && <p className="proof__err">{state.message}</p>}
 
-      {state.phase === 'ready' && (
-        <div className="proof__panel">
-          <div className="proof__row">
-            <span className="proof__label">Method</span>
-            <span className="proof__value">
-              {state.method ? METHOD_LABELS[state.method] ?? state.method : '—'}
-            </span>
-          </div>
-
-          {state.note && (
-            <div className="proof__row">
-              <span className="proof__label">Note</span>
-              <span className="proof__value">{state.note}</span>
-            </div>
-          )}
-
-          {state.url ? (
+      {state.phase === 'ready' &&
+        (state.url ? (
+          <div className="proof__panel">
             <a href={state.url} target="_blank" rel="noreferrer" className="proof__imgLink">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={state.url} alt="Payment proof" className="proof__img" />
               <span className="proof__open">Open full size ↗</span>
             </a>
-          ) : (
-            <p className="proof__err">No image was uploaded for this basket.</p>
-          )}
-
-          <button
-            type="button"
-            className="proof__btn proof__btn--ghost"
-            onClick={() => setState({ phase: 'idle' })}
-          >
-            Hide
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              className="proof__btn proof__btn--ghost"
+              onClick={() => setState({ phase: 'idle' })}
+            >
+              Hide
+            </button>
+          </div>
+        ) : (
+          <p className="proof__err">No image was uploaded for this basket.</p>
+        ))}
 
       <style jsx>{`
         .proof {
-          margin-top: 12px;
+          margin-top: 4px;
         }
         .proof__btn {
           min-height: 40px;
@@ -121,31 +96,9 @@ export default function PaymentProof({ basketId }: { basketId: string }) {
         }
         .proof__panel {
           margin-top: 10px;
-          padding: 14px;
-          border: 1px solid rgba(149, 127, 103, 0.22);
-          border-radius: 10px;
-          background: #fffdf9;
-        }
-        .proof__row {
-          display: flex;
-          justify-content: space-between;
-          gap: 16px;
-          padding: 6px 0;
-          font-size: 0.83rem;
-        }
-        .proof__label {
-          color: #8f8174;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          font-size: 0.72rem;
-        }
-        .proof__value {
-          color: #675746;
-          font-weight: 600;
         }
         .proof__imgLink {
           display: block;
-          margin-top: 10px;
           text-decoration: none;
         }
         .proof__img {
