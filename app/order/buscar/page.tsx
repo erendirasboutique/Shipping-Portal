@@ -5,6 +5,9 @@ export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: "Busca tu canasta — Erendira's Boutique",
+  openGraph: { images: [], title: '', description: '' },
+  twitter: { card: 'summary', images: [], title: '', description: '' },
+  other: { 'og:image': '' },
   robots: { index: false, follow: false },
 };
 
