@@ -79,7 +79,7 @@ export async function POST(_req: Request, { params }: Ctx) {
       cache: 'no-store',
       body: JSON.stringify({
         amount_cents: basket.total_cents,
-        label: `Canasta #${basket.basket_number} — Erendira's Boutique`,
+        label: `Canasta #${basket.basket_number} — ${basket.customer?.name || "Erendira's Boutique"}`,
         email: basket.customer?.email ?? undefined,
         basket_id: basket.id,
         success_url: `${completeUrl}?session_id={CHECKOUT_SESSION_ID}`,
