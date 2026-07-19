@@ -80,7 +80,7 @@ const copy = {
     total: 'Total',
     howToPay: 'Detalles de pago',
     dueBy: 'Por favor paga antes del',
-    payCard: 'Continuar al pago seguro',
+    payCard: 'Pagar con Tarjeta, Klarna, Affirm, Afterpay, o Zip',
     payOpening: 'Abriendo pago seguro…',
     payError: 'No se pudo iniciar el pago. Intenta de nuevo o contáctanos.',
     noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
