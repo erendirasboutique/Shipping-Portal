@@ -316,6 +316,25 @@ function CreateLabelInner() {
           <div className="card !rounded-[2rem]">
             <h2 className="text-center text-2xl">1. 📍 Address Information</h2>
             <div className="relative mt-5">
+              {/* Live-sale basket link (optional) */}
+            <div className="mt-4">
+              <label className="label">
+                Basket # <span className="text-ink/40">(from this week's live — optional)</span>
+              </label>
+              <input
+                className="input"
+                inputMode="numeric"
+                placeholder="e.g. 12"
+                value={form.basket_number}
+                onChange={(e) =>
+                  set("basket_number", e.target.value.replace(/\D/g, ""))
+                }
+              />
+              <p className="mt-1 text-xs text-ink/50">
+                Links this shipment to that basket so tracking shows on the
+                customer's portal.
+              </p>
+            </div>
               <input
                 className="input"
                 placeholder="Search Existing Customers 👤"
