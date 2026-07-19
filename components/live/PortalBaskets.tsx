@@ -63,6 +63,7 @@ const copy = {
     orderSummary: 'Order summary',
     liveOrder: 'Live order',
     secure: 'Secure payment powered by Stripe',
+    saveImage: 'Save basket image',
   },
   es: {
     heading: 'Tu canasta',
@@ -91,6 +92,7 @@ const copy = {
     orderSummary: 'Resumen del pedido',
     liveOrder: 'Pedido del live',
     secure: 'Pago seguro procesado por Stripe',
+    saveImage: 'Guardar imagen de la canasta',
   },
 } as const;
 
@@ -212,6 +214,24 @@ export default function PortalBaskets({
     return t.paid;
   }
 
+  async function saveBasketImage(url: string, basketNumber: number) {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+
+      anchor.href = objectUrl;
+      anchor.download = `erendiras-boutique-canasta-${basketNumber}.jpg`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
   if (error && baskets === null) {
     return (
       <div className="portalState portalState--error">
@@ -282,13 +302,18 @@ export default function PortalBaskets({
           return (
             <article key={b.id} className="shopCard">
               <div className="shopCard__media">
-                {b.photo_url ? (
-                  <img src={b.photo_url} alt="" />
-                ) : (
-                  <div className="shopCard__placeholder">
-                    <span>EB</span>
-                  </div>
-                )}
+                <div className="shopCard__imageStage">
+                  {b.photo_url ? (
+                    <img
+                      src={b.photo_url}
+                      alt={`${t.basket} #${b.basket_number}`}
+                    />
+                  ) : (
+                    <div className="shopCard__placeholder">
+                      <span>EB</span>
+                    </div>
+                  )}
+                </div>
 
                 <div className="shopCard__mediaTop">
                   <span className={`status status--${b.status}`}>
@@ -298,8 +323,21 @@ export default function PortalBaskets({
                 </div>
 
                 <div className="shopCard__mediaBottom">
-                  <span>{t.liveOrder}</span>
-                  <strong>#{b.basket_number}</strong>
+                  <div>
+                    <span>{t.liveOrder}</span>
+                    <strong>#{b.basket_number}</strong>
+                  </div>
+
+                  {b.photo_url && (
+                    <button
+                      type="button"
+                      className="saveImageButton"
+                      onClick={() => saveBasketImage(b.photo_url as string, b.basket_number)}
+                    >
+                      <span aria-hidden="true">↓</span>
+                      {t.saveImage}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -570,7 +608,7 @@ const styles = `
 
   .shopCard {
     display: grid;
-    grid-template-columns: minmax(300px, 0.86fr) minmax(420px, 1.14fr);
+    grid-template-columns: minmax(460px, 1.05fr) minmax(460px, 0.95fr);
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -580,26 +618,39 @@ const styles = `
 
   .shopCard__media {
     position: relative;
-    min-height: 100%;
+    display: flex;
+    min-width: 0;
+    min-height: 640px;
+    padding: 72px 28px 92px;
     overflow: hidden;
     background: var(--accent);
   }
 
-  .shopCard__media img,
-  .shopCard__placeholder {
-    position: absolute;
-    inset: 0;
+  .shopCard__imageStage {
+    display: grid;
+    place-items: center;
     width: 100%;
-    height: 100%;
+    min-height: 470px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(245, 243, 239, 0.5);
   }
 
-  .shopCard__media img {
-    object-fit: cover;
+  .shopCard__imageStage img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 560px;
+    object-fit: contain;
+    object-position: center;
   }
 
   .shopCard__placeholder {
     display: grid;
     place-items: center;
+    width: 100%;
+    height: 100%;
+    min-height: 470px;
     background: var(--accent);
   }
 
@@ -615,17 +666,6 @@ const styles = `
     font-size: 1.9rem;
   }
 
-  .shopCard__media::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      to top,
-      rgba(73, 60, 48, 0.48),
-      transparent 48%
-    );
-    pointer-events: none;
-  }
 
   .shopCard__mediaTop,
   .shopCard__mediaBottom {
@@ -648,16 +688,46 @@ const styles = `
     color: var(--background);
   }
 
-  .shopCard__mediaBottom span {
-    font-size: 0.75rem;
+  .shopCard__mediaBottom > div span,
+  .shopCard__mediaBottom > div strong {
+    display: block;
+  }
+
+  .shopCard__mediaBottom > div span {
+    font-size: 0.72rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
-  .shopCard__mediaBottom strong {
+  .shopCard__mediaBottom > div strong {
+    margin-top: 3px;
     font-family: 'La Luxes Serif', serif;
     font-size: 2rem;
     font-weight: 400;
+  }
+
+  .saveImageButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    border: 1px solid rgba(245, 243, 239, 0.72);
+    border-radius: 7px;
+    padding: 9px 12px;
+    background: rgba(245, 243, 239, 0.92);
+    color: var(--brand);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .saveImageButton:hover {
+    background: var(--brand);
+    color: var(--background);
   }
 
   .status {
@@ -1036,7 +1106,7 @@ const styles = `
     }
   }
 
-  @media (max-width: 860px) {
+  @media (max-width: 980px) {
     .portal {
       padding: 22px;
     }
@@ -1046,7 +1116,11 @@ const styles = `
     }
 
     .shopCard__media {
-      min-height: 390px;
+      min-height: 560px;
+    }
+
+    .shopCard__imageStage img {
+      max-height: 430px;
     }
   }
 
@@ -1083,7 +1157,24 @@ const styles = `
     }
 
     .shopCard__media {
-      min-height: 285px;
+      min-height: auto;
+      padding: 68px 14px 92px;
+    }
+
+    .shopCard__imageStage {
+      min-height: 330px;
+    }
+
+    .shopCard__imageStage img {
+      max-height: 390px;
+    }
+
+    .shopCard__mediaBottom {
+      align-items: center;
+    }
+
+    .saveImageButton {
+      max-width: 190px;
     }
 
     .shopCard__content {
@@ -1108,6 +1199,22 @@ const styles = `
 
     .trackingBox a {
       width: max-content;
+    }
+  }
+
+
+  @media (min-width: 1180px) {
+    .portal {
+      padding-inline: 48px;
+    }
+
+    .basketStack,
+    .portalHeader {
+      max-width: 1380px;
+    }
+
+    .shopCard__content {
+      padding: 44px;
     }
   }
 
