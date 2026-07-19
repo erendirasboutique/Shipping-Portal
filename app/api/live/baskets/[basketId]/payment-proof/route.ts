@@ -12,26 +12,27 @@ import { createClient } from '@supabase/supabase-js';
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
+  { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
-// ── Confirm these two against your mark-paid route ──────────────────────────
-// In app/api/live/portal/[token]/baskets/[basketId]/mark-paid/route.ts, look
-// for `.storage.from('…').upload(` → that string is your BUCKET, and the
-// column your `.update({ … })` writes the returned path to is PROOF_COLUMN.
-const BUCKET = 'payment-proofs';
+// All three confirmed against your mark-paid route. BUCKET mirrors the same
+// env fallback that route uses, so they stay in sync if you ever set it.
+const BUCKET = process.env.PAYMENT_PROOFS_BUCKET || 'payment-proofs';
 const PROOF_COLUMN = 'payment_proof_path';
-const TABLE = 'live_baskets'; // ← confirm your baskets table name
+const TABLE = 'baskets';
 
 export async function GET(
   _req: Request,
   { params }: { params: { basketId: string } }, // sync params, matches your pages
 ) {
-  // 🔒 This hands back a private financial screenshot. Gate it behind the SAME
-  //    admin auth the rest of your /api/live admin routes use — if an
-  //    unauthenticated request reaches this, anyone can read the signed link.
-  //    e.g.  const ok = await isAdmin(_req); if (!ok) return NextResponse.json(
-  //            { error: 'Unauthorized' }, { status: 401 });
+  // 🔒 This hands back a private financial screenshot. It sits at the same
+  //    /api/live/baskets/[basketId]/... prefix as your existing admin PATCH,
+  //    merge, and claims routes — so if those are protected by middleware,
+  //    this inherits that protection automatically. Verify by hitting this URL
+  //    while logged out: it should NOT return a signed link. If it does, add
+  //    the same guard your other admin routes use, e.g.:
+  //      const ok = await isAdmin(_req);
+  //      if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { basketId } = params;
 
