@@ -6,7 +6,7 @@ import '@/styles/live.css';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: "Your basket — Erendira's Boutique",
+  title: "Tu Canasta — Erendira's Boutique",
   robots: { index: false, follow: false },
 };
 
@@ -48,7 +48,9 @@ export default async function OrderPage({
             </p>
           </div>
         ) : (
-          <PortalBaskets token={token} />
+          <div className="orderPage__content">
+            <PortalBaskets token={token} />
+          </div>
         )}
 
         <footer className="orderPage__footer">
@@ -57,22 +59,54 @@ export default async function OrderPage({
       </div>
 
       <style>{`
+        *,
+        *::before,
+        *::after {
+          box-sizing: border-box;
+        }
+
+        html,
+        body {
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
+          overflow-x: hidden;
+          background: #f5f3ef;
+        }
+
         .orderPage {
+          width: 100%;
           min-height: 100vh;
           margin: 0;
           padding: 24px;
+          overflow-x: hidden;
           background: #f5f3ef;
         }
 
         .orderPage__shell {
-          width: min(100%, 1540px);
+          width: 100%;
+          max-width: 1540px;
+          min-width: 0;
           margin: 0 auto;
+        }
+
+        .orderPage__content {
+          width: 100%;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .orderPage__content > * {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
         }
 
         .orderPage__header {
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 100%;
           min-height: 94px;
           padding: 8px 0 22px;
         }
@@ -80,13 +114,15 @@ export default async function OrderPage({
         .orderPage__logo {
           display: block;
           width: auto;
+          height: auto;
           max-width: min(240px, 64vw);
           max-height: 82px;
           object-fit: contain;
         }
 
         .orderPage__empty {
-          width: min(100%, 680px);
+          width: 100%;
+          max-width: 680px;
           margin: 40px auto;
           padding: 48px 30px;
           border: 1px solid rgba(149, 127, 103, 0.22);
@@ -101,6 +137,7 @@ export default async function OrderPage({
           font-family: 'La Luxes Serif', serif;
           font-size: clamp(2.2rem, 5vw, 3.8rem);
           font-weight: 400;
+          overflow-wrap: anywhere;
         }
 
         .orderPage__empty p {
@@ -108,9 +145,11 @@ export default async function OrderPage({
           color: #8f8174;
           font-family: 'Recoleta', Georgia, serif;
           line-height: 1.65;
+          overflow-wrap: anywhere;
         }
 
         .orderPage__footer {
+          width: 100%;
           padding: 32px 0 14px;
           color: #957f67;
           font-family: 'Recoleta', Georgia, serif;
@@ -124,18 +163,50 @@ export default async function OrderPage({
           margin: 0;
         }
 
+        @media (max-width: 900px) {
+          .orderPage {
+            padding: 16px;
+          }
+        }
+
         @media (max-width: 640px) {
           .orderPage {
-            padding: 10px;
+            padding: 8px;
           }
 
           .orderPage__header {
-            min-height: 74px;
-            padding-bottom: 12px;
+            min-height: 70px;
+            padding: 8px 0 10px;
           }
 
           .orderPage__logo {
-            max-height: 60px;
+            max-width: 58vw;
+            max-height: 58px;
+          }
+
+          .orderPage__empty {
+            margin: 18px auto;
+            padding: 30px 18px;
+            border-radius: 10px;
+          }
+
+          .orderPage__empty h1 {
+            font-size: 2.35rem;
+          }
+
+          .orderPage__footer {
+            padding-top: 24px;
+            font-size: 0.66rem;
+          }
+        }
+
+        @media (max-width: 390px) {
+          .orderPage {
+            padding: 5px;
+          }
+
+          .orderPage__logo {
+            max-width: 66vw;
           }
         }
       `}</style>
