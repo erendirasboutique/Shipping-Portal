@@ -10,11 +10,11 @@ function getAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL in Vercel.');
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
   }
 
   if (!serviceRoleKey) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in Vercel.');
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
   }
 
   return createClient(url, serviceRoleKey, {
@@ -25,32 +25,8 @@ function getAdminClient() {
   });
 }
 
-function errorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-
-  if (error && typeof error === 'object') {
-    const value = error as {
-      message?: string;
-      details?: string;
-      hint?: string;
-      code?: string;
-    };
-
-    return [
-      value.message,
-      value.details,
-      value.hint,
-      value.code ? `Code: ${value.code}` : null,
-    ]
-      .filter(Boolean)
-      .join(' — ');
-  }
-
-  return 'Unknown server error.';
-}
-
 export async function POST(
-  _request: Request,
+  request: Request,
   {
     params,
   }: {
@@ -64,36 +40,35 @@ export async function POST(
 
     if (!isUuid(token) || !isUuid(basketId)) {
       return NextResponse.json(
-        { error: 'Invalid basket link or basket ID.' },
+        { error: 'Invalid basket.' },
         { status: 400 },
       );
     }
 
+    // Make sure this basket belongs to this customer's portal link
     const baskets = await getBasketsForPortalToken(token);
-    const basket = baskets.find((item) => item.id === basketId);
+    const basket = baskets.find((b) => b.id === basketId);
 
     if (!basket) {
       return NextResponse.json(
-        {
-          error:
-            'The basket was not found for this customer portal token.',
-        },
+        { error: 'Basket not found.' },
         { status: 404 },
       );
     }
 
+    // Already paid
     if (basket.status === 'paid' || basket.status === 'shipped') {
       return NextResponse.json({
         ok: true,
         alreadyPaid: true,
-        status: basket.status,
       });
     }
 
+    // Only finalized baskets can be marked paid
     if (basket.status !== 'finalized') {
       return NextResponse.json(
         {
-          error: `This basket has status "${basket.status}", not "finalized".`,
+          error: `Basket status is "${basket.status}", expected "finalized".`,
         },
         { status: 409 },
       );
@@ -101,50 +76,27 @@ export async function POST(
 
     const supabase = getAdminClient();
 
-    // Change this environment variable in Vercel if your real table
-    // is not named live_baskets.
-    const tableName =
-      process.env.LIVE_BASKETS_TABLE || 'live_baskets';
-
-    const paidAt = new Date().toISOString();
-
     const { data, error } = await supabase
-      .from(tableName)
+      .from('baskets')
       .update({
         status: 'paid',
-        paid_at: paidAt,
+        paid_at: new Date().toISOString(),
       })
       .eq('id', basketId)
-      .select('id, status, paid_at')
-      .maybeSingle();
+      .select()
+      .single();
 
     if (error) {
-      const message = errorMessage(error);
-
-      console.error('Customer mark-paid Supabase error:', {
-        tableName,
-        basketId,
-        message,
-        error,
-      });
+      console.error(error);
 
       return NextResponse.json(
         {
-          error: `Supabase update failed: ${message}`,
-          table: tableName,
+          error: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
         },
         { status: 500 },
-      );
-    }
-
-    if (!data) {
-      return NextResponse.json(
-        {
-          error:
-            `No row was updated in "${tableName}". The basket ID may be in a different table.`,
-          table: tableName,
-        },
-        { status: 404 },
       );
     }
 
@@ -152,14 +104,12 @@ export async function POST(
       ok: true,
       basket: data,
     });
-  } catch (error) {
-    const message = errorMessage(error);
-
-    console.error('Customer mark-paid route error:', error);
+  } catch (err: any) {
+    console.error(err);
 
     return NextResponse.json(
       {
-        error: message,
+        error: err.message ?? 'Unknown error',
       },
       { status: 500 },
     );
