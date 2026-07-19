@@ -16,6 +16,13 @@ const ALLOWED_METHODS = new Set([
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
 
+// ── Confirm this matches the table your /timeline route reads from ──────────
+// Open app/api/live/baskets/[basketId]/timeline/route.ts (or @/lib/live/timeline)
+// and check the table its .insert()/.select() uses. Everything else about the
+// row shape (kind, detail, actor) is already correct — this is the one name to
+// verify. If it's wrong the payment still succeeds; only the log is skipped.
+const EVENTS_TABLE = 'basket_events';
+
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -148,6 +155,9 @@ export async function POST(
         paid_at: paidAt,
         payment_method: method,
         payment_proof_path: uploadedPath,
+        // Was never set on the customer path, so these payments showed blank
+        // in the drawer's "who did what". Marks it as a self-report.
+        paid_by: 'customer',
       })
       .eq('id', basketId)
       .eq('status', 'finalized')
@@ -169,6 +179,21 @@ export async function POST(
         },
         { status: 500 },
       );
+    }
+
+    // Log to the basket's timeline. This is what was missing — the update
+    // above flipped the basket to paid, but nothing recorded it in history, so
+    // customer payments never appeared in the timeline. Wrapped on its own so a
+    // logging hiccup can't undo a payment that already went through.
+    try {
+      await supabase.from(EVENTS_TABLE).insert({
+        basket_id: basketId,
+        kind: 'paid',
+        detail: { method, source: 'customer_portal' },
+        actor: 'customer',
+      });
+    } catch (logError) {
+      console.error('Timeline log (paid) failed:', logError);
     }
 
     return NextResponse.json({
