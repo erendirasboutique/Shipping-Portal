@@ -39,7 +39,7 @@ const copy = {
   en: {
     heading: 'Your basket',
     basket: 'Basket',
-    from: 'From the',
+    from: 'From the live on',
     forming: 'Still adding',
     ready: 'Ready to pay',
     paid: 'Paid — shipping Saturday',
@@ -51,7 +51,7 @@ const copy = {
     total: 'Total',
     howToPay: 'Payment details',
     dueBy: 'Please pay by',
-    payCard: 'Pay with Card, Klarna, Affirm, Afterpay, Zip',
+    payCard: 'Continue to secure checkout',
     payOpening: 'Opening secure checkout…',
     payError: 'Payment could not start. Please try again or contact us.',
     noInstructions: 'We sent you a message with the payment options.',
@@ -62,25 +62,30 @@ const copy = {
     items: 'items',
     orderSummary: 'Order summary',
     liveOrder: 'Live order',
-    secure: '',
+    secure: 'Secure payment powered by Stripe',
     saveImage: 'Save basket image',
+    alreadyPaid: 'Already paid? Click here',
+    confirmPaid: 'Confirm that you already sent your payment?',
+    markingPaid: 'Marking as paid…',
+    markedPaid: 'Payment reported successfully.',
+    markPaidError: 'We could not mark this basket as paid. Please contact us.',
   },
   es: {
     heading: 'Tu canasta',
     basket: 'Canasta',
-    from: 'Del',
+    from: 'Del live del',
     forming: 'Todavía agregando',
     ready: 'Lista para pagar',
-    paid: 'Pagada — Se envía el Sábado!',
+    paid: 'Pagada — se envía el sábado',
     released: 'Liberada',
-    shipped: 'Paquete Enviado',
+    shipped: 'Enviada',
     subtotal: 'Subtotal',
     shipping: 'Envío',
     discount: 'Descuento',
     total: 'Total',
     howToPay: 'Detalles de pago',
     dueBy: 'Por favor paga antes del',
-    payCard: 'Pagar con Tarjeta, Klarna, Affirm, Afterpay, o Zip',
+    payCard: 'Continuar al pago seguro',
     payOpening: 'Abriendo pago seguro…',
     payError: 'No se pudo iniciar el pago. Intenta de nuevo o contáctanos.',
     noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
@@ -91,8 +96,13 @@ const copy = {
     items: 'artículos',
     orderSummary: 'Resumen del pedido',
     liveOrder: 'Pedido del live',
-    secure: '',
+    secure: 'Pago seguro procesado por Stripe',
     saveImage: 'Guardar imagen de la canasta',
+    alreadyPaid: '¿Ya pagaste? — Haz clic aquí',
+    confirmPaid: '¿Confirmas que ya enviaste tu pago?',
+    markingPaid: 'Marcando como pagada…',
+    markedPaid: 'Tu pago fue reportado correctamente.',
+    markPaidError: 'No pudimos marcar la canasta como pagada. Por favor contáctanos.',
   },
 } as const;
 
@@ -112,6 +122,8 @@ export default function PortalBaskets({
   const [baskets, setBaskets] = useState<PortalBasket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [paidMessageId, setPaidMessageId] = useState<string | null>(null);
 
   const t = copy[locale];
 
@@ -137,6 +149,43 @@ export default function PortalBaskets({
     } catch {
       setError(t.payError);
       setPayingId(null);
+    }
+  }
+
+
+  async function reportPayment(basketId: string) {
+    if (!window.confirm(t.confirmPaid)) return;
+
+    setMarkingPaidId(basketId);
+    setPaidMessageId(null);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `/api/live/portal/${token}/baskets/${basketId}/mark-paid`,
+        {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(json.error ?? t.markPaidError);
+        setMarkingPaidId(null);
+        return;
+      }
+
+      setPaidMessageId(basketId);
+      setMarkingPaidId(null);
+      await load();
+    } catch {
+      setError(t.markPaidError);
+      setMarkingPaidId(null);
     }
   }
 
@@ -454,7 +503,7 @@ export default function PortalBaskets({
                     <button
                       type="button"
                       className="checkoutButton"
-                      disabled={payingId === b.id}
+                      disabled={payingId === b.id || markingPaidId === b.id}
                       onClick={() => startCheckout(b.id)}
                     >
                       <span>
@@ -467,7 +516,30 @@ export default function PortalBaskets({
                       )}
                     </button>
 
-                    {error && payingId === null && (
+                    <button
+                      type="button"
+                      className="alreadyPaidButton"
+                      disabled={markingPaidId === b.id || payingId === b.id}
+                      onClick={() => reportPayment(b.id)}
+                    >
+                      {markingPaidId === b.id ? (
+                        <>
+                          <span className="buttonLoader buttonLoader--brand" />
+                          <span>{t.markingPaid}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span aria-hidden="true">✓</span>
+                          <span>{t.alreadyPaid}</span>
+                        </>
+                      )}
+                    </button>
+
+                    {paidMessageId === b.id && (
+                      <p className="paidSuccess">{t.markedPaid}</p>
+                    )}
+
+                    {error && payingId === null && markingPaidId === null && (
                       <p className="paymentError">{error}</p>
                     )}
                   </div>
@@ -1016,6 +1088,51 @@ const styles = `
     height: 14px;
     border: 2px solid rgba(245, 243, 239, 0.35);
     border-top-color: var(--background);
+  }
+
+
+  .alreadyPaidButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 47px;
+    margin-top: 10px;
+    border: 1px solid var(--brand);
+    border-radius: 7px;
+    padding: 12px 16px;
+    background: transparent;
+    color: var(--brand);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .alreadyPaidButton:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--ink);
+  }
+
+  .alreadyPaidButton:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+  .buttonLoader--brand {
+    border-color: rgba(149, 127, 103, 0.22);
+    border-top-color: var(--brand);
+  }
+
+  .paidSuccess {
+    margin: 11px 0 0;
+    color: #778568;
+    font-size: 0.78rem;
+    text-align: center;
   }
 
   .paymentError {
