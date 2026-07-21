@@ -1305,3 +1305,14 @@
   box-shadow: 0 10px 30px rgba(61,52,40,0.18); border: 1px solid var(--line-firm);
   font-size: 0.875rem;
 }
+
+/* catalog: print-code-label button */
+.rack__label {
+  text-decoration: none;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.55;
+  transition: opacity 0.12s ease;
+  margin-left: 2px;
+}
+.rack__label:hover { opacity: 1; }

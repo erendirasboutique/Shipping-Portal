@@ -153,6 +153,96 @@ export async function buildPickupLabel(opts: {
   return font ? embeddedPDF(opts, font) : helveticaPDF(opts);
 }
 
+/**
+ * Item-code label: the CODE huge and centered (e.g. "A1"), the description
+ * small beneath it. No top bar — the code itself is the hero. Same font and
+ * fallback behaviour as the pickup label.
+ */
+export async function buildItemLabel(opts: {
+  code: string;
+  description?: string;
+}): Promise<Uint8Array> {
+  const font = await loadRecoleta();
+  return font
+    ? itemEmbeddedPDF(opts, font)
+    : itemHelveticaPDF(opts);
+}
+
+function itemEmbeddedPDF(opts: { code: string; description?: string }, f: Font): Uint8Array {
+  const pad = 0.1 * PT;
+  const code = opts.code.toUpperCase();
+  const maxW = W - 2 * pad;
+
+  // Shrink the code until it fits on one line, as big as possible.
+  let size = 54;
+  for (; size >= 14; size--) {
+    if (widthEmbedded(code, size, f) <= maxW) break;
+  }
+
+  const ops: string[] = [];
+  ops.push('0 g');
+
+  // Code, centered, vertically a touch above middle to leave room for desc.
+  const hasDesc = !!(opts.description && opts.description.trim());
+  const codeY = hasDesc ? H * 0.42 : (H - size * 0.7) / 2;
+  ops.push('BT /F1 ' + size + ' Tf',
+    `${((W - widthEmbedded(code, size, f)) / 2).toFixed(2)} ${codeY.toFixed(2)} Td ${glyphHex(code, f.map)} Tj ET`);
+
+  if (hasDesc) {
+    const desc = opts.description!.trim();
+    let dSize = 10;
+    let lines = wrap(desc, (str) => widthEmbedded(str, dSize, f), maxW, 2);
+    while (dSize > 6 && (lines.length > 2 || lines.some((l) => widthEmbedded(l, dSize, f) > maxW))) {
+      dSize--;
+      lines = wrap(desc, (str) => widthEmbedded(str, dSize, f), maxW, 2);
+    }
+    let dy = H * 0.42 - size * 0.35 - dSize;
+    for (const ln of lines.slice(0, 2)) {
+      ops.push('BT /F1 ' + dSize + ' Tf',
+        `${((W - widthEmbedded(ln, dSize, f)) / 2).toFixed(2)} ${dy.toFixed(2)} Td ${glyphHex(ln, f.map)} Tj ET`);
+      dy -= dSize * 1.1;
+    }
+  }
+
+  return assembleEmbedded(ops.join('\n'), f);
+}
+
+function itemHelveticaPDF(opts: { code: string; description?: string }): Uint8Array {
+  const pad = 0.1 * PT;
+  const code = opts.code.toUpperCase();
+  const maxW = W - 2 * pad;
+
+  let size = 54;
+  for (; size >= 14; size--) {
+    if (widthHelv(code, size, true) <= maxW) break;
+  }
+
+  const ops: string[] = [];
+  ops.push('0 g');
+  const hasDesc = !!(opts.description && opts.description.trim());
+  const codeY = hasDesc ? H * 0.42 : (H - size * 0.7) / 2;
+  ops.push('BT /F2 ' + size + ' Tf',
+    `${((W - widthHelv(code, size, true)) / 2).toFixed(2)} ${codeY.toFixed(2)} Td (${esc(code)}) Tj ET`);
+
+  if (hasDesc) {
+    const desc = opts.description!.trim();
+    let dSize = 10;
+    let lines = wrap(desc, (str) => widthHelv(str, dSize, false), maxW, 2);
+    while (dSize > 6 && (lines.length > 2 || lines.some((l) => widthHelv(l, dSize, false) > maxW))) {
+      dSize--;
+      lines = wrap(desc, (str) => widthHelv(str, dSize, false), maxW, 2);
+    }
+    let dy = H * 0.42 - size * 0.35 - dSize;
+    for (const ln of lines.slice(0, 2)) {
+      ops.push('BT /F1 ' + dSize + ' Tf',
+        `${((W - widthHelv(ln, dSize, false)) / 2).toFixed(2)} ${dy.toFixed(2)} Td (${esc(ln)}) Tj ET`);
+      dy -= dSize * 1.1;
+    }
+  }
+
+  return assembleHelvetica(ops.join('\n'));
+}
+
 // ---- path A: Recoleta embedded ----
 function embeddedPDF(opts: { tagline: string; name: string; sub?: string }, f: Font): Uint8Array {
   const pad = 0.12 * PT, barH = 0.34 * PT;
@@ -181,8 +271,11 @@ function embeddedPDF(opts: { tagline: string; name: string; sub?: string }, f: F
     ops.push('BT /F1 9 Tf',
       `${((W - widthEmbedded(opts.sub, 9, f)) / 2).toFixed(2)} ${pad.toFixed(2)} Td ${glyphHex(opts.sub, f.map)} Tj ET`);
   }
-  const content = ops.join('\n');
+  return assembleEmbedded(ops.join('\n'), f);
+}
 
+/** Wrap a content stream + embedded Recoleta into a finished PDF. */
+function assembleEmbedded(content: string, f: Font): Uint8Array {
   const scale = 1000 / f.unitsPerEm;
   const wArr = '[0[' + f.adv.map((a) => Math.round(a * scale)).join(' ') + ']]';
 
@@ -255,8 +348,11 @@ function helveticaPDF(opts: { tagline: string; name: string; sub?: string }): Ui
     ops.push('BT /F1 9 Tf',
       `${((W - widthHelv(opts.sub, 9, false)) / 2).toFixed(2)} ${pad.toFixed(2)} Td (${esc(opts.sub)}) Tj ET`);
   }
-  const content = ops.join('\n');
+  return assembleHelvetica(ops.join('\n'));
+}
 
+/** Wrap a content stream into a finished PDF using the standard Helvetica fonts. */
+function assembleHelvetica(content: string): Uint8Array {
   const enc = new TextEncoder();
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',

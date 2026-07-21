@@ -316,6 +316,15 @@ export default function CatalogManager({
                 <div className="rack__body">
                   <div className="rack__top">
                     <span className="tag">{item.code}</span>
+                    <a
+                      className="rack__label"
+                      href={`/api/live/items/${item.id}/label`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={t.printCodeLabel}
+                    >
+                      🏷️
+                    </a>
                     <span className="live__mono">{centsToDisplay(item.price_cents)}</span>
                   </div>
 
