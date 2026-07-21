@@ -8,7 +8,8 @@ type PortalItem = {
   description: string;
   description_es: string | null;
   quantity: number;
-  unit_price_cents: number;
+  unit_price_cents: number | null;
+  photo_url: string | null;
 };
 
 type PortalBasket = {
@@ -22,10 +23,10 @@ type PortalBasket = {
   tracking_number: string | null;
   tracking_url: string | null;
   carrier: string | null;
-  subtotal_cents: number;
-  shipping_cents: number;
-  discount_cents: number;
-  total_cents: number;
+  subtotal_cents: number | null;
+  shipping_cents: number | null;
+  discount_cents: number | null;
+  total_cents: number | null;
   item_count: number;
   paid_at: string | null;
   due_at: string | null;
@@ -258,7 +259,7 @@ export default function PortalBaskets({
                 <span className="ob2__basketNo">
                   {t.basket} #{b.basket_number}
                 </span>
-                <span className="ob2__heroTotal">{centsToDisplay(b.total_cents, locale)}</span>
+                <span className="ob2__heroTotal">{centsToDisplay(b.total_cents ?? 0, locale)}</span>
                 {b.sale_date && (
                   <span className="ob2__heroFrom">
                     {t.from} {b.sale_title || formatSaleDate(b.sale_date, locale)}
@@ -275,13 +276,16 @@ export default function PortalBaskets({
               <ul className="ob2__items">
                 {b.items.map((i) => (
                   <li key={i.id} className="ob2__item">
+                    {i.photo_url && (
+                      <img className="ob2__itemThumb" src={i.photo_url} alt="" loading="lazy" />
+                    )}
                     <span className="ob2__itemName">
                       {locale === 'es' && i.description_es ? i.description_es : i.description}
                       {i.quantity > 1 && <span className="ob2__x"> ×{i.quantity}</span>}
                     </span>
                     <span className="ob2__dots" aria-hidden="true" />
                     <span className="ob2__itemPrice">
-                      {centsToDisplay(i.unit_price_cents * i.quantity, locale)}
+                      {centsToDisplay((i.unit_price_cents ?? 0) * i.quantity, locale)}
                     </span>
                   </li>
                 ))}
@@ -290,23 +294,23 @@ export default function PortalBaskets({
               <div className="ob2__sums">
                 <div className="ob2__sumRow">
                   <span>{t.subtotal}</span>
-                  <span>{centsToDisplay(b.subtotal_cents, locale)}</span>
+                  <span>{centsToDisplay(b.subtotal_cents ?? 0, locale)}</span>
                 </div>
-                {b.shipping_cents > 0 && (
+                {(b.shipping_cents ?? 0) > 0 && (
                   <div className="ob2__sumRow">
                     <span>{t.shipping}</span>
-                    <span>{centsToDisplay(b.shipping_cents, locale)}</span>
+                    <span>{centsToDisplay(b.shipping_cents ?? 0, locale)}</span>
                   </div>
                 )}
-                {b.discount_cents > 0 && (
+                {(b.discount_cents ?? 0) > 0 && (
                   <div className="ob2__sumRow">
                     <span>{t.discount}</span>
-                    <span>−{centsToDisplay(b.discount_cents, locale)}</span>
+                    <span>−{centsToDisplay(b.discount_cents ?? 0, locale)}</span>
                   </div>
                 )}
                 <div className="ob2__sumRow ob2__sumRow--total">
                   <span>{t.total}</span>
-                  <span>{centsToDisplay(b.total_cents, locale)}</span>
+                  <span>{centsToDisplay(b.total_cents ?? 0, locale)}</span>
                 </div>
               </div>
             </div>

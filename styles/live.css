@@ -1316,3 +1316,14 @@
   margin-left: 2px;
 }
 .rack__label:hover { opacity: 1; }
+
+/* customer order page: per-item photo thumbnail */
+.ob2__itemThumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 7px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--sand-soft);
+}
+.ob2__item { align-items: center; }
