@@ -74,8 +74,8 @@ export function inviteMessage(opts: {
 }): string {
   const link = opts.overrideLink || portalUrl(opts.portalToken);
   return (
-    'Hola chula! \uD83C\uDF38 Te abrimos tu canasta. ' +
-    'Mira aqu\u00ED lo que vas apartando y lo pagas cuando te enviemos tu total!    ' +
+    '\u00A1Hola chula! \uD83C\uDF38 Te abrimos tu canasta. ' +
+    'Mira aqu\u00ED lo que vas apartando y lo pagas cuando terminemos el live \uD83D\uDC9B\n' +
     link
   );
 }

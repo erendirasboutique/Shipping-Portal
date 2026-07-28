@@ -17,6 +17,8 @@ export interface LiveSale {
   payment_instructions: string | null;
   payment_instructions_es: string | null;
   default_shipping_cents: number;
+  /** When true, this sale uses quick mode: type a total instead of items. */
+  quick_mode: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +89,12 @@ export interface Basket {
   status: BasketStatus;
   shipping_cents: number;
   discount_cents: number;
+  /**
+   * Quick mode: a manually-typed all-in total. When set, the basket's total
+   * is this minus discount, and items are ignored. When null, the total is
+   * computed from items the normal way.
+   */
+  manual_total_cents: number | null;
   notes: string | null;
   /** Photo of the physical basket, sent with their total. */
   photo_url: string | null;

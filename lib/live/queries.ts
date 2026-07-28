@@ -188,7 +188,12 @@ export async function getBasketsForSale(saleId: string): Promise<BasketDetail[]>
         t?.item_count ?? mine.reduce((sum, i) => sum + i.quantity, 0);
       const total =
         t?.total_cents ??
-        Math.max(subtotal + (b.shipping_cents ?? 0) - (b.discount_cents ?? 0), 0);
+        Math.max(
+          (b.manual_total_cents != null
+            ? b.manual_total_cents
+            : subtotal + (b.shipping_cents ?? 0)) - (b.discount_cents ?? 0),
+          0
+        );
 
       return {
         ...b,

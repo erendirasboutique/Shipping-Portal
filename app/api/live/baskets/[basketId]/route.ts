@@ -33,6 +33,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       'order_id',
       'shipping_cents',
       'discount_cents',
+      'manual_total_cents',
       'notes',
       'status',
       'payment_method',

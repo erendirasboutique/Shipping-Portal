@@ -53,12 +53,16 @@ function Shell({
     router.refresh();
   }, [router]);
 
+  // Quick mode skips the catalog and live-claim tabs entirely — there are no
+  // items to manage or claim, just baskets with typed totals.
   const tabs = sale
-    ? ([
-        { key: 'catalog', label: t.catalog, href: `/admin/live/${sale.id}/catalog` },
-        { key: 'claims', label: t.runLive, href: `/admin/live/${sale.id}/claims` },
-        { key: 'baskets', label: t.baskets, href: `/admin/live/${sale.id}/baskets` },
-      ] as const)
+    ? sale.quick_mode
+      ? ([{ key: 'baskets', label: t.baskets, href: `/admin/live/${sale.id}/baskets` }] as const)
+      : ([
+          { key: 'catalog', label: t.catalog, href: `/admin/live/${sale.id}/catalog` },
+          { key: 'claims', label: t.runLive, href: `/admin/live/${sale.id}/claims` },
+          { key: 'baskets', label: t.baskets, href: `/admin/live/${sale.id}/baskets` },
+        ] as const)
     : [];
 
   return (

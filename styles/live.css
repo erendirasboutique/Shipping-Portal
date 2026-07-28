@@ -1327,3 +1327,9 @@
   background: var(--sand-soft);
 }
 .ob2__item { align-items: center; }
+
+/* quick-mode: sale-form toggle + drawer total input */
+.live__quickToggle { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; }
+.live__quickToggle input { width: 18px; height: 18px; accent-color: var(--taupe); }
+.drawer__total { width: 100%; font-size: 1.25rem; text-align: right; }
+.ob2__item--single .ob2__itemName { font-style: italic; color: var(--taupe); }

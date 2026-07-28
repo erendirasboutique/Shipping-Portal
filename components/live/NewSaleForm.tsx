@@ -31,6 +31,7 @@ export default function NewSaleForm({ onCreated }: { onCreated?: () => void }) {
   const [title, setTitle] = useState('');
   const [dueAt, setDueAt] = useState(defaultDueDate(today));
   const [shipping, setShipping] = useState('0');
+  const [quickMode, setQuickMode] = useState(false);
   const [instructions, setInstructions] = useState('');
   const [instructionsEs, setInstructionsEs] = useState('');
   const [busy, setBusy] = useState(false);
@@ -60,6 +61,7 @@ export default function NewSaleForm({ onCreated }: { onCreated?: () => void }) {
           title: title.trim() || null,
           payment_due_at: dueAt ? new Date(dueAt).toISOString() : null,
           default_shipping_cents: shippingCents,
+          quick_mode: quickMode,
           payment_instructions: instructions.trim() || null,
           payment_instructions_es: instructionsEs.trim() || null,
         }),
@@ -75,7 +77,7 @@ export default function NewSaleForm({ onCreated }: { onCreated?: () => void }) {
       // navigation is slow or the person hits back.
       onCreated?.();
       setOpen(false);
-      router.push(`/admin/live/${json.sale.id}/catalog`);
+      router.push(`/admin/live/${json.sale.id}/${quickMode ? 'baskets' : 'catalog'}`);
     } catch {
       setError('Network trouble — the sale was not created. Try again.');
     } finally {
@@ -147,9 +149,21 @@ export default function NewSaleForm({ onCreated }: { onCreated?: () => void }) {
             inputMode="decimal"
             value={shipping}
             onChange={(e) => setShipping(e.target.value)}
+            disabled={quickMode}
           />
         </div>
       </div>
+
+      <label className="live__quickToggle" style={{ marginTop: 16 }}>
+        <input
+          type="checkbox"
+          checked={quickMode}
+          onChange={(e) => setQuickMode(e.target.checked)}
+        />
+        <span>
+          <b>{t.quickMode}</b> — {quickMode ? t.quickModeOn : t.quickModeOff}
+        </span>
+      </label>
 
       <div style={{ marginTop: 18 }}>
         <label className="live__label" htmlFor="sale-pay-en">

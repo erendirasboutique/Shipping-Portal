@@ -57,6 +57,28 @@ export default function BasketBoard({
     [baskets, openNumber]
   );
 
+  // Open a basket by number. In quick mode a basket may not exist yet, so
+  // create it first (idempotent) — otherwise the drawer opens with nothing
+  // to type a total into.
+  async function openBasket(n: number) {
+    const exists = baskets.some((b) => b.basket_number === n);
+    if (!exists && sale.quick_mode) {
+      setBusy(true);
+      try {
+        const res = await fetch(`/api/live/sales/${sale.id}/baskets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ basket_number: n, by: getOperator() }),
+        });
+        const json = await res.json();
+        if (res.ok && json.basket) replace(json.basket);
+      } finally {
+        setBusy(false);
+      }
+    }
+    setOpenNumber(n);
+  }
+
   function togglePick(basketId: string) {
     setPicked((prev) => {
       const next = new Set(prev);
@@ -270,7 +292,7 @@ export default function BasketBoard({
             onChange={(e) => setJump(e.target.value.replace(/\D/g, ''))}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && jump) {
-                setOpenNumber(Number(jump));
+                openBasket(Number(jump));
                 setJump('');
               }
             }}
@@ -306,7 +328,7 @@ export default function BasketBoard({
         <BasketGrid
           baskets={shown}
           selectedId={selected?.id ?? null}
-          onSelect={(n) => setOpenNumber(n)}
+          onSelect={(n) => openBasket(n)}
           selectMode={mergeMode}
           selectedIds={picked}
           onToggleSelect={togglePick}

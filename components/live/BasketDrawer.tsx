@@ -244,7 +244,39 @@ export default function BasketDrawer({
               </div>
             </section>
 
-            {/* items */}
+            {/* quick mode: type the all-in total instead of items */}
+            {sale.quick_mode ? (
+              <section className="drawer__sec">
+                <p className="live__label">{t.basketTotal}</p>
+                <input
+                  className="live__input live__mono drawer__total"
+                  defaultValue={
+                    basket.manual_total_cents != null
+                      ? (basket.manual_total_cents / 100).toFixed(2)
+                      : ''
+                  }
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  aria-label={t.basketTotal}
+                  onBlur={(e) => {
+                    const cents = parsePriceToCents(e.target.value);
+                    if (e.target.value.trim() === '') {
+                      if (basket.manual_total_cents != null) onPatch({ manual_total_cents: null });
+                      return;
+                    }
+                    if (cents === null) {
+                      e.target.value =
+                        basket.manual_total_cents != null
+                          ? (basket.manual_total_cents / 100).toFixed(2)
+                          : '';
+                      return;
+                    }
+                    if (cents !== basket.manual_total_cents) onPatch({ manual_total_cents: cents });
+                  }}
+                />
+                <p className="live__muted drawer__hint">{t.basketTotalHint}</p>
+              </section>
+            ) : (
             <section className="drawer__sec">
               <p className="live__label">
                 {t.items} <span className="live__mono">{basket.item_count}</span>
@@ -291,31 +323,36 @@ export default function BasketDrawer({
                 </ul>
               )}
             </section>
+            )}
 
             {/* money */}
             <section className="drawer__sec">
-              <div className="drawer__line">
-                <span className="live__muted">{t.subtotal}</span>
-                <span className="live__mono">{centsToDisplay(basket.subtotal_cents)}</span>
-              </div>
+              {!sale.quick_mode && (
+                <>
+                  <div className="drawer__line">
+                    <span className="live__muted">{t.subtotal}</span>
+                    <span className="live__mono">{centsToDisplay(basket.subtotal_cents)}</span>
+                  </div>
 
-              <div className="drawer__line">
-                <span className="live__muted">{t.shipping}</span>
-                <input
-                  className="live__input live__mono drawer__ship"
-                  defaultValue={(basket.shipping_cents / 100).toFixed(2)}
-                  inputMode="decimal"
-                  aria-label={t.shipping}
-                  onBlur={(e) => {
-                    const cents = parsePriceToCents(e.target.value);
-                    if (cents === null) {
-                      e.target.value = (basket.shipping_cents / 100).toFixed(2);
-                      return;
-                    }
-                    if (cents !== basket.shipping_cents) onPatch({ shipping_cents: cents });
-                  }}
-                />
-              </div>
+                  <div className="drawer__line">
+                    <span className="live__muted">{t.shipping}</span>
+                    <input
+                      className="live__input live__mono drawer__ship"
+                      defaultValue={(basket.shipping_cents / 100).toFixed(2)}
+                      inputMode="decimal"
+                      aria-label={t.shipping}
+                      onBlur={(e) => {
+                        const cents = parsePriceToCents(e.target.value);
+                        if (cents === null) {
+                          e.target.value = (basket.shipping_cents / 100).toFixed(2);
+                          return;
+                        }
+                        if (cents !== basket.shipping_cents) onPatch({ shipping_cents: cents });
+                      }}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="drawer__line drawer__line--total">
                 <span>{t.total}</span>

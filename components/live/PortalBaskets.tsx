@@ -39,6 +39,7 @@ type PortalBasket = {
 const copy = {
   en: {
     heading: 'Your basket',
+    liveSaleLine: 'Live sale',
     basket: 'Basket',
     from: 'From the live on',
     forming: 'Still adding',
@@ -63,6 +64,7 @@ const copy = {
   },
   es: {
     heading: 'Tu canasta',
+    liveSaleLine: 'Venta en vivo',
     basket: 'Canasta',
     from: 'Del live del',
     forming: 'Todavía agregando',
@@ -274,6 +276,15 @@ export default function PortalBaskets({
               {b.order_number && <p className="ob2__order">{b.order_number}</p>}
 
               <ul className="ob2__items">
+                {b.items.length === 0 && (
+                  <li className="ob2__item ob2__item--single">
+                    <span className="ob2__itemName">{t.liveSaleLine}</span>
+                    <span className="ob2__dots" aria-hidden="true" />
+                    <span className="ob2__itemPrice">
+                      {centsToDisplay(b.total_cents ?? 0, locale)}
+                    </span>
+                  </li>
+                )}
                 {b.items.map((i) => (
                   <li key={i.id} className="ob2__item">
                     {i.photo_url && (
