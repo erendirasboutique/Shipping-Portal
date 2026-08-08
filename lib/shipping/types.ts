@@ -9,7 +9,6 @@ export interface ToAddress {
   phone?: string;
   email?: string;
 }
-
 export interface ParcelInput {
   length: number;
   width: number;
@@ -17,14 +16,18 @@ export interface ParcelInput {
   weight_lb: number;
   weight_oz: number;
 }
-
 export interface ShipmentInput {
   to: ToAddress;
   parcel: ParcelInput;
   signature?: boolean;
   isReturn?: boolean;
+  /**
+   * A reference / note to print on the label (defaults to the EB order
+   * number upstream). Each provider maps this to its own field — Shippo
+   * prints it via transaction metadata.
+   */
+  reference?: string;
 }
-
 export interface RateOption {
   id: string;
   carrier: string;
@@ -34,12 +37,10 @@ export interface RateOption {
   delivery_days: number | null;
   retail_rate?: string | null;
 }
-
 export interface RatesResult {
   shipmentRef: string; // provider-side shipment id (or synthetic ref for PB)
   rates: RateOption[];
 }
-
 export interface PurchasedLabel {
   shipmentRef: string;
   transactionRef: string | null;
@@ -52,17 +53,20 @@ export interface PurchasedLabel {
   rate: number | null;
   currency: string;
 }
-
 export interface ShippingProvider {
   getRates(input: ShipmentInput): Promise<RatesResult>;
-  buy(args: { shipmentRef: string; rateId: string; input: ShipmentInput }): Promise<PurchasedLabel>;
+  buy(args: {
+    shipmentRef: string;
+    rateId: string;
+    input: ShipmentInput;
+    /** Reference to print on the label; forwarded from the buy route. */
+    reference?: string;
+  }): Promise<PurchasedLabel>;
   refund(args: { shipmentRef: string | null; transactionRef: string | null }): Promise<{ refund_status: string }>;
 }
-
 export function toOunces(p: ParcelInput) {
   return Number(p.weight_lb || 0) * 16 + Number(p.weight_oz || 0);
 }
-
 export function shipFromAddress() {
   return {
     name: process.env.SHIP_FROM_NAME!,
