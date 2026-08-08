@@ -47,6 +47,10 @@ export const shippoProvider: ShippingProvider = {
         extra: {
           ...(input.signature ? { signature_confirmation: "STANDARD" } : {}),
           ...(input.isReturn ? { is_return: true } : {}),
+          // Shippo prints `reference_1` in the label's reference area for
+          // carriers that support it (USPS/UPS/FedEx all do). Set it at the
+          // shipment level so the printed rate/label carries it.
+          ...(input.reference ? { reference_1: input.reference } : {}),
         },
         async: false,
       }),
@@ -68,13 +72,17 @@ export const shippoProvider: ShippingProvider = {
     };
   },
 
-  async buy({ shipmentRef, rateId }) {
+  async buy({ shipmentRef, rateId, reference }) {
     const t = await shippo("/transactions/", {
       method: "POST",
       body: JSON.stringify({
         rate: rateId,
         label_file_type: "PDF_4x6",
         async: false,
+        // `metadata` is Shippo's per-transaction reference. It prints on the
+        // label for carriers that support a reference field, and shows on the
+        // Shippo dashboard. Defaults upstream to the EB order number.
+        ...(reference ? { metadata: reference } : {}),
       }),
     });
 
