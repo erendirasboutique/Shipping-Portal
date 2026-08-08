@@ -34,6 +34,7 @@ const emptyForm = {
   notes: "",
   customer_id: null as string | null,
   basket_number: "" as string, // live-sale basket to link (optional)
+  reference: "" as string, // prints on the label + saved on the order
 };
 
 // Coerce anything (including "" or NaN) to a safe number so numeric
@@ -106,6 +107,9 @@ function CreateLabelInner() {
           notes: data.notes ?? "",
           customer_id: data.customer_id,
           basket_number: "", // drafts don't carry a basket number to restore
+          reference:
+            data.reference ??
+            (data.order_number != null ? `EB-${data.order_number}` : ""),
         });
       }
     })();
@@ -160,7 +164,8 @@ function CreateLabelInner() {
   // empty optional text stays null-friendly.
   function buildPayload() {
     // basket_number is a UI-only field for linking — it isn't a column on
-    // shipping_orders, so strip it out before writing the order.
+    // shipping_orders, so strip it out before writing the order. reference
+    // IS a column, so it stays in and gets saved.
     const { basket_number, ...orderFields } = form;
     return {
       ...orderFields,
@@ -228,6 +233,7 @@ function CreateLabelInner() {
             weight_oz: toNum(form.weight_oz),
           },
           signature: form.signature_confirmation,
+          reference: form.reference || undefined,
         }),
       });
       const data = await res.json();
@@ -251,7 +257,13 @@ function CreateLabelInner() {
       const res = await fetch("/api/labels/buy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: id, shipment_id: shipmentId, rate_id: rate.id, provider }),
+        body: JSON.stringify({
+          order_id: id,
+          shipment_id: shipmentId,
+          rate_id: rate.id,
+          provider,
+          reference: form.reference || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -360,6 +372,22 @@ function CreateLabelInner() {
               />
               <p className="mt-1 text-xs text-ink/50">
                 Links this shipment to that basket so tracking shows on the customer&#39;s portal.
+              </p>
+            </div>
+
+            {/* Reference — prints on the label and saves on the order. */}
+            <div className="mt-4">
+              <label className="label">
+                Reference # <span className="text-ink/40">(prints on label — optional)</span>
+              </label>
+              <input
+                className="input"
+                placeholder="EB-000"
+                value={form.reference}
+                onChange={(e) => set("reference", e.target.value)}
+              />
+              <p className="mt-1 text-xs text-ink/50">
+                Defaults to the order number. Edit it to print anything you like on the label.
               </p>
             </div>
 
