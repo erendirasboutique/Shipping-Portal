@@ -10,11 +10,12 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const provider = getProvider(body.provider);
-    const result = await provider.getRates({
-      to: body.to,
-      parcel: body.parcel,
-      signature: !!body.signature,
-    });
+   const result = await provider.getRates({
+  to: body.to,
+  parcel: body.parcel,
+  signature: body.signature,
+  reference: body.reference,   // ← add this line
+});
     return NextResponse.json({
       shipment_id: result.shipmentRef,
       rates: result.rates,
