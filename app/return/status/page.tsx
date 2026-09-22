@@ -251,7 +251,7 @@ export default function ReturnStatusPage() {
         </div>
 
         <div className="text-center">
-          <Image src="/logo2.png" alt="Erendira's Boutique" width={120} height={52} className="mx-auto h-auto w-28" />
+          <Image src="/EB_Logo_Fall BGBLANK.png" alt="Erendira's Boutique" width={120} height={52} className="mx-auto h-auto w-28" />
           <h1 className="mt-5 text-3xl">{t.title}</h1>
           <p className="mt-2 text-sm text-ink/70">{t.subtitle}</p>
         </div>
