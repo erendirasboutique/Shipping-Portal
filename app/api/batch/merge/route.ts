@@ -14,7 +14,7 @@ export const maxDuration = 60;
 
 async function fetchLogoBytes(origin: string): Promise<Uint8Array | null> {
   try {
-    const res = await fetch(`${origin}/logobw.png`, { cache: "force-cache" });
+    const res = await fetch(`${origin}/fallbw.png`, { cache: "force-cache" });
     if (!res.ok) return null;
     return new Uint8Array(await res.arrayBuffer());
   } catch {
