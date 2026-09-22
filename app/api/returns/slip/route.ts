@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 // ====== CONFIG ======
 const HEADING_FONT_FILE = "la-luxes-serif.ttf";
 const BODY_FONT_FILE = "recoleta-regular.ttf";
-const LOGO_FILE = "logo2.png";
+const LOGO_FILE = "EB_Logo_Fall BGBLANK.png";
 
 const RETURN_ADDRESS = [
   "Erendira's Boutique — Returns",
