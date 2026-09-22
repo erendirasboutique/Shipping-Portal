@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "Internal shipping portal for Erendira's Boutique",
   icons: {
     icon: "/favicon.ico",
-    apple: "/logo2.png",
+    apple: "/EB_Logo_Fall BGBLANK.png",
   },
   openGraph: {
     title: "Erendira's Boutique · Shipping Studio",
