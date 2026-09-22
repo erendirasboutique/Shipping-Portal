@@ -218,7 +218,7 @@ export default function PublicReturnPage() {
           </div>
 
           <Image
-            src="/logo2.png"
+            src="/EB_Logo_Fall BGBLANK.png"
             alt="Erendira&apos;s Boutique"
             width={190}
             height={82}
