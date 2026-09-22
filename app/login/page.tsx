@@ -128,7 +128,7 @@ function LoginInner() {
       <div className="grid w-full max-w-5xl items-stretch gap-8 lg:grid-cols-2">
         <div className="card flex flex-col justify-center !rounded-[1.5rem] border-2 !border-ink/70 bg-white px-8 py-10 shadow-[6px_6px_0_rgba(60,48,36,0.85)] sm:px-12">
           <Image
-            src="/logo2.png"
+            src="/EB_Logo_Fall BGBLANK.png"
             alt="Erendira&#8217;s Boutique"
             width={170}
             height={74}
