@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Shell from "@/components/Shell";
+import BarcodeScanner from "@/components/BarcodeScanner";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 function StatusPill({ status }: { status: string }) {
@@ -65,6 +66,24 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
+  const [scanning, setScanning] = useState(false);
+
+  // Scanned a label: find its order and open it.
+  const onScan = useCallback(
+    async function (code: string): Promise<string | null> {
+      try {
+        const res = await fetch("/api/scan/lookup?code=" + encodeURIComponent(code), { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || !data.order?.id) return data.error || "No order matches that label.";
+        setScanning(false);
+        router.push("/orders/" + data.order.id);
+        return null;
+      } catch {
+        return "Couldn't look that up. Check your connection and try again.";
+      }
+    },
+    [router]
+  );
 
   async function load() {
     const { data } = await supabase
@@ -159,16 +178,40 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="relative mt-5">
         <input
-          className="input !rounded-full"
+          className="input !rounded-full !pr-14"
           placeholder="Search name, EB number, tracking, city..."
           value={q}
           onChange={function (e) {
             setQ(e.target.value);
           }}
         />
+        <button
+          type="button"
+          onClick={function () {
+            setScanning(true);
+          }}
+          aria-label="Scan a label"
+          title="Scan a label"
+          className="absolute right-1.5 top-1/2 flex h-8 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-taupe text-cream transition-opacity hover:opacity-90 dark:text-[#26211b]"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" />
+            <path d="M8 9v6M11 9v6M14 9v6M16.5 9v6" />
+          </svg>
+        </button>
       </div>
+
+      {scanning && (
+        <BarcodeScanner
+          title="Scan to open order"
+          onCode={onScan}
+          onClose={function () {
+            setScanning(false);
+          }}
+        />
+      )}
 
       {groups.map(function (g) {
         return (
