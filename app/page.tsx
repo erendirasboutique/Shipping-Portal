@@ -58,6 +58,7 @@ export default function Dashboard() {
   ];
 
   const tiles = [
+    { href: "/packing", title: "Packing List", desc: "See what's packed and what's left this week", cta: "Open" },
     { href: "/scan", title: "Scan & Send", desc: "Scan packed labels, snap a photo, message the customer", cta: "Open" },
     { href: "/batch-print", title: "Batch Print", desc: "Combine selected purchased labels into one PDF", cta: "Open" },
     { href: "/customers", title: "Customers", desc: "Import CSV, edit addresses, merge duplicates", cta: "Manage" },

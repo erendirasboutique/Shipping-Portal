@@ -87,6 +87,41 @@ function grabFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement, band: boo
   return canvas;
 }
 
+// Where "Send to Messenger" opens. Customers who message the business Page
+// are answered from Business Suite; a personal profile uses Messenger.
+type AppTarget = "messenger" | "suite";
+const APP_NAMES: Record<AppTarget, string> = { messenger: "Messenger", suite: "Business Suite" };
+
+function appLink(target: AppTarget) {
+  const android = /android/i.test(navigator.userAgent);
+  if (target === "messenger") {
+    return android ? "intent://#Intent;scheme=fb-messenger;package=com.facebook.orca;end" : "fb-messenger://";
+  }
+  // Opens the Business Suite app when installed, otherwise the inbox in the browser.
+  return "https://business.facebook.com/latest/inbox/all";
+}
+
+// Photos have to be PNG to go on the phone's clipboard.
+function toPng(blob: Blob): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new window.Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d")?.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error("png"))), "image/png");
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("png"));
+    };
+    img.src = url;
+  });
+}
+
 // Prefer the shipping barcode when a label has several.
 function bestCode(values: string[]): string | null {
   const v = values.map((x) => (x || "").trim()).filter(Boolean);
@@ -148,6 +183,9 @@ export default function ScanPage() {
   const [savedBlob, setSavedBlob] = useState<Blob | null>(null);
   const [canShareFiles, setCanShareFiles] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [photoUploaded, setPhotoUploaded] = useState(false);
+  const [target, setTarget] = useState<AppTarget>("messenger");
+  const [photoCopied, setPhotoCopied] = useState<boolean | null>(null);
   const [sentCount, setSentCount] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -190,6 +228,8 @@ export default function ScanPage() {
             .catch(() => {});
         }
         setPhoto(null);
+        setPhotoUploaded(false);
+        setPhotoCopied(null);
         setPreview(null);
         setResult(null);
         setTyped("");
@@ -327,6 +367,16 @@ export default function ScanPage() {
     }
   }
 
+  // Opened from the Packing List with ?code=EB-123: go straight to that order.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (code) {
+      lookup(code);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Camera runs only on the scan screen.
   useEffect(() => {
     if (stage === "scan") startCamera();
@@ -346,8 +396,77 @@ export default function ScanPage() {
     setBusy("Preparing photo…");
     const blob = await compressPhoto(f);
     setPhoto(blob);
+    setPhotoUploaded(false);
     setPreview(URL.createObjectURL(blob));
     setBusy(null);
+    // Save it to the order right away, so sending later is instant.
+    if (found) {
+      try {
+        const fd = new FormData();
+        fd.append("orderId", found.order.id);
+        fd.append("mode", "save");
+        fd.append("photo", blob, "package.jpg");
+        const res = await fetch("/api/scan/send", { method: "POST", body: fd });
+        if (res.ok) setPhotoUploaded(true);
+      } catch {}
+    }
+  }
+
+  // Remember which app to open on this phone.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("scanSendTarget");
+      if (saved === "messenger" || saved === "suite") setTarget(saved);
+    } catch {}
+  }, []);
+
+  function chooseTarget(t: AppTarget) {
+    setTarget(t);
+    try {
+      localStorage.setItem("scanSendTarget", t);
+    } catch {}
+  }
+
+  // Copies the photo, marks the order as sent, and opens the app.
+  // Runs straight from the tap so the phone allows the copy.
+  function openApp() {
+    if (!found) return;
+    const blob = photo || savedBlob;
+    if (!blob) {
+      setError("Take a photo of the package first.");
+      return;
+    }
+    setError(null);
+    const link = appLink(target);
+
+    let copy: Promise<void>;
+    try {
+      const item = new ClipboardItem({ "image/png": toPng(blob) });
+      copy = navigator.clipboard.write([item]).then(
+        () => setPhotoCopied(true),
+        () => setPhotoCopied(false)
+      );
+    } catch {
+      setPhotoCopied(false);
+      copy = Promise.resolve();
+    }
+
+    // Tiny request, allowed to finish even as the app opens.
+    const fd = new FormData();
+    fd.append("orderId", found.order.id);
+    fd.append("mode", "shared");
+    if (photo && !photoUploaded) fd.append("photo", photo, "package.jpg");
+    fetch("/api/scan/send", { method: "POST", body: fd, keepalive: !(photo && !photoUploaded) }).catch(() => {});
+
+    setResult({ via: "opened" });
+    setSentCount((n) => n + 1);
+    setStage("done");
+
+    // Give the copy a moment to finish, then open the app.
+    const go = () => {
+      window.location.href = link;
+    };
+    Promise.race([copy, new Promise((res) => setTimeout(res, 700))]).then(go, go);
   }
 
   // Detect once whether this phone can share a photo to other apps.
@@ -369,7 +488,7 @@ export default function ScanPage() {
       const fd = new FormData();
       fd.append("orderId", found.order.id);
       fd.append("mode", mode);
-      if (photo) fd.append("photo", photo, "package.jpg");
+      if (photo && !photoUploaded) fd.append("photo", photo, "package.jpg");
       const res = await fetch("/api/scan/send", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Saving failed.");
@@ -381,6 +500,12 @@ export default function ScanPage() {
     } finally {
       setBusy(null);
     }
+  }
+
+  // Shares just the message text (Messenger drops text sent with a photo).
+  function shareText() {
+    if (!found) return;
+    navigator.share({ text: found.message }).catch(() => {});
   }
 
   function copyMessage() {
@@ -423,6 +548,8 @@ export default function ScanPage() {
     setError(null);
     setSavedBlob(null);
     setCopied(false);
+    setPhotoUploaded(false);
+    setPhotoCopied(null);
     lastCodeRef.current = null;
     setStage("scan");
   }
@@ -434,7 +561,10 @@ export default function ScanPage() {
     <div className="mx-auto min-h-screen w-full max-w-md px-4 pb-10 pt-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
-        <Link href="/" className="text-sm text-taupe">← Dashboard</Link>
+        <span className="flex gap-4">
+          <Link href="/" className="text-sm text-taupe">← Dashboard</Link>
+          <Link href="/packing" className="text-sm text-taupe">Packing list</Link>
+        </span>
         <Image src="/EB_Logo_Fall BGBLANK.png" alt="Erendira's Boutique" width={110} height={46} className="h-auto w-24" />
       </div>
       <div className="mt-4 flex items-end justify-between gap-3">
@@ -559,25 +689,39 @@ export default function ScanPage() {
             </button>
           </div>
 
+          <div>
+            <div className="mb-2 flex items-center justify-center gap-1 text-xs">
+              <span className="text-ink/60">Open in:</span>
+              {(["messenger", "suite"] as AppTarget[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => chooseTarget(t)}
+                  className={`rounded-full border px-3 py-1 ${
+                    target === t ? "border-taupe bg-taupe text-cream dark:text-[#26211b]" : "border-taupe/30 text-taupe"
+                  }`}
+                >
+                  {APP_NAMES[t]}
+                </button>
+              ))}
+            </div>
+            <button onClick={openApp} disabled={!!busy || !hasPhoto} className="btn-primary w-full !py-4 !text-base">
+              {busy || "Send to " + APP_NAMES[target]}
+            </button>
+            <p className="mt-2 text-center text-xs text-ink/60">
+              Copies the photo and opens {APP_NAMES[target]}. Open the customer&apos;s chat, press and hold the message box, and tap Paste.
+            </p>
+          </div>
+
           {canShareFiles ? (
-            <>
-              <button onClick={share} disabled={!!busy || !hasPhoto} className="btn-primary w-full !py-4 !text-base">
-                {busy || "Share to Messenger"}
-              </button>
-              <p className="-mt-2 text-center text-xs text-ink/60">
-                Pick Messenger (or Business Suite), then the customer&apos;s chat. The message is copied too, in case it doesn&apos;t show up. Paste it if needed.
-              </p>
-            </>
+            <button onClick={share} disabled={!!busy || !hasPhoto} className="btn-secondary w-full">
+              Share photo and message instead
+            </button>
           ) : (
-            <div className="card !rounded-[2rem] !p-5 text-sm text-ink/70">
-              <p>This browser can&apos;t share photos to apps. Save the photo and copy the message, send them in Messenger, then tap &quot;Mark as sent.&quot;</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {photoSrc && (
-                  <a href={photoSrc} download={"paquete-" + found.order.label + ".jpg"} className="btn-secondary">Save photo</a>
-                )}
-                <button onClick={copyMessage} className="btn-secondary">{copied ? "Copied" : "Copy message"}</button>
-                <button onClick={() => record("shared")} disabled={!!busy} className="btn-primary">Mark as sent</button>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {photoSrc && (
+                <a href={photoSrc} download={"paquete-" + found.order.label + ".jpg"} className="btn-secondary flex-1">Save photo</a>
+              )}
+              <button onClick={() => record("shared")} disabled={!!busy} className="btn-secondary flex-1">Mark as sent</button>
             </div>
           )}
 
@@ -603,12 +747,55 @@ export default function ScanPage() {
             </svg>
           </div>
           <p className="mt-4 font-heading text-3xl text-taupe">
-            {result.via === "shared" ? "Marked as sent" : result.via === "email" ? "Email sent" : "Photo saved"}
+            {result.via === "opened"
+              ? "Paste the photo"
+              : result.via === "shared"
+              ? "Marked as sent"
+              : result.via === "email"
+              ? "Email sent"
+              : "Photo saved"}
           </p>
           <p className="mt-1 text-sm text-ink/70">
             {found.order.label}
             {result.to ? " · " + result.to : ""}
           </p>
+          {result.via === "shared" && (
+            <div className="mt-5 space-y-3 text-left">
+              <p className="text-sm text-ink/80">
+                Messenger only sends the photo. The message is already copied: in the chat, press and hold the
+                message box and tap <span className="font-medium">Paste</span>.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={copyMessage} className="btn-secondary flex-1">{copied ? "Message copied" : "Copy message again"}</button>
+                {canShareFiles && (
+                  <button onClick={shareText} className="btn-secondary flex-1">Share message</button>
+                )}
+              </div>
+            </div>
+          )}
+          {result.via === "opened" && (
+            <div className="mt-5 space-y-3 text-left">
+              {photoCopied === false && (
+                <p className="rounded-2xl bg-[#fbf1dc] px-4 py-2.5 text-xs text-[#7a5a1e] dark:bg-transparent dark:text-[#e6c88f]">
+                  This phone didn&apos;t let the photo be copied. Use &quot;Share photo&quot; below instead.
+                </p>
+              )}
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-ink/80">
+                <li>In {APP_NAMES[target]}, open {found.order.name ? found.order.name.split(" ")[0] + "'s" : "the customer's"} chat.</li>
+                <li>Press and hold the message box, tap Paste, and send the photo.</li>
+                <li>Come back here, tap Copy message, and paste that too.</li>
+              </ol>
+              <div className="flex gap-2">
+                <button onClick={copyMessage} className="btn-secondary flex-1">{copied ? "Message copied" : "Copy message"}</button>
+                <button onClick={() => { window.location.href = appLink(target); }} className="btn-secondary flex-1">
+                  Open {APP_NAMES[target]}
+                </button>
+              </div>
+              {canShareFiles && (
+                <button onClick={share} className="btn-secondary w-full">Share photo</button>
+              )}
+            </div>
+          )}
           <button onClick={next} className="btn-primary mt-6 w-full !py-4 !text-base">Scan next package</button>
         </div>
       )}
