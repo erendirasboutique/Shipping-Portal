@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Rate = {
@@ -406,11 +407,28 @@ function CreateLabelInner() {
                 </div>
                 <div>
                   <label className="label">Street</label>
-                  <input className="input" value={form.to_street1} onChange={(e) => set("to_street1", e.target.value)} />
+                  <AddressAutocomplete
+                    value={form.to_street1}
+                    placeholder="Start typing an address"
+                    onChange={(v) => set("to_street1", v)}
+                    onSelect={(a) => {
+                      setForm((f) => ({
+                        ...f,
+                        to_street1: a.street1,
+                        to_street2: a.street2 || f.to_street2,
+                        to_city: a.city,
+                        to_state: a.state,
+                        to_zip: a.zip,
+                      }));
+                      setRates([]);
+                      setSelectedRate(null);
+                      setTimeout(function () { var el = document.getElementById("to_street2"); if (el) el.focus(); }, 0);
+                    }}
+                  />
                 </div>
                 <div>
                   <label className="label">Apt / Suite (optional)</label>
-                  <input className="input" value={form.to_street2} onChange={(e) => set("to_street2", e.target.value)} />
+                  <input id="to_street2" className="input" value={form.to_street2} onChange={(e) => set("to_street2", e.target.value)} />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-1">

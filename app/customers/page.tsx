@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import Shell from "@/components/Shell";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 const empty = {
@@ -284,9 +285,25 @@ function importCsv(file: File) {
               <div><label className="label">Phone</label>
                 <input className="input" value={editing.phone || ""} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} /></div>
               <div className="sm:col-span-2"><label className="label">Street</label>
-                <input className="input" value={editing.street1 || ""} onChange={(e) => setEditing({ ...editing, street1: e.target.value })} /></div>
+                <AddressAutocomplete
+                  value={editing.street1 || ""}
+                  placeholder="Start typing an address"
+                  onChange={(v) => setEditing((cur: any) => ({ ...cur, street1: v }))}
+                  onSelect={(a) => {
+                    setEditing((cur: any) => ({
+                      ...cur,
+                      street1: a.street1,
+                      street2: a.street2 || cur.street2,
+                      city: a.city,
+                      state: a.state,
+                      zip: a.zip,
+                      country: "US",
+                    }));
+                    setTimeout(function () { var el = document.getElementById("cust_street2"); if (el) el.focus(); }, 0);
+                  }}
+                /></div>
               <div className="sm:col-span-2"><label className="label">Apt / Suite</label>
-                <input className="input" value={editing.street2 || ""} onChange={(e) => setEditing({ ...editing, street2: e.target.value })} /></div>
+                <input id="cust_street2" className="input" value={editing.street2 || ""} onChange={(e) => setEditing({ ...editing, street2: e.target.value })} /></div>
               <div><label className="label">City</label>
                 <input className="input" value={editing.city || ""} onChange={(e) => setEditing({ ...editing, city: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">

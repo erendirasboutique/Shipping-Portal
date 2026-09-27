@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 const TAUPE = "#806a52";
 
@@ -304,11 +305,22 @@ export default function PublicReturnPage() {
                 </div>
                 <div>
                   <label className="label">{t.street}</label>
-                  <input className="input" value={form.street1} onChange={function (e) { set("street1", e.target.value); }} />
+                  <AddressAutocomplete
+                    value={form.street1}
+                    placeholder={lang === "es" ? "Empieza a escribir tu dirección" : "Start typing your address"}
+                    poweredBy={lang === "es" ? "Con tecnología de Google" : "Powered by Google"}
+                    onChange={function (v) { set("street1", v); }}
+                    onSelect={function (a) {
+                      setForm(function (f) {
+                        return { ...f, street1: a.street1, street2: a.street2 || f.street2, city: a.city, state: a.state, zip: a.zip };
+                      });
+                      setTimeout(function () { var el = document.getElementById("ret_street2"); if (el) el.focus(); }, 0);
+                    }}
+                  />
                 </div>
                 <div>
                   <label className="label">{t.apt}</label>
-                  <input className="input" value={form.street2} onChange={function (e) { set("street2", e.target.value); }} />
+                  <input id="ret_street2" className="input" value={form.street2} onChange={function (e) { set("street2", e.target.value); }} />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
