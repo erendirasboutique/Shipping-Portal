@@ -57,6 +57,8 @@ export async function GET(_req: Request, { params }: Ctx) {
           tracking_number: b.order?.tracking_number ?? b.tracking_number,
           carrier: b.order?.carrier ?? b.carrier,
           tracking_url: b.order?.tracking_url ?? null,
+          // Photo of the packed box, taken on Scan & Send.
+          package_photo_url: b.order?.package_photo_url ?? null,
           subtotal_cents: b.subtotal_cents,
           shipping_cents: b.shipping_cents,
           discount_cents: b.discount_cents,

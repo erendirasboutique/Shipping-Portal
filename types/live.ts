@@ -59,6 +59,7 @@ export interface LinkedOrder {
   tracking_number: string | null;
   tracking_url: string | null;
   carrier: string | null;
+  package_photo_url?: string | null;
 }
 
 /** A customer row as selected by CUSTOMER_SELECT in lib/live/schema.ts. */

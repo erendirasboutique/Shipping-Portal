@@ -135,7 +135,7 @@ export async function getBasketsForSale(saleId: string): Promise<BasketDetail[]>
     orderIds.length
       ? db
           .from(ORDERS_TABLE)
-          .select('id, order_number, status, tracking_number, tracking_url, carrier')
+          .select('id, order_number, status, tracking_number, tracking_url, carrier, package_photo_url')
           .in('id', orderIds)
       : Promise.resolve({ data: [], error: null } as any),
   ]);
@@ -355,7 +355,7 @@ export async function getBasketDetail(
   if (basket.data.order_id) {
     const o = await db
       .from(ORDERS_TABLE)
-      .select('id, order_number, status, tracking_number, tracking_url, carrier')
+      .select('id, order_number, status, tracking_number, tracking_url, carrier, package_photo_url')
       .eq('id', basket.data.order_id)
       .maybeSingle();
 

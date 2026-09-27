@@ -565,7 +565,29 @@ export default function OrderDetailPage() {
                   <dd className="whitespace-pre-wrap">{order.notes}</dd>
                 </>
               )}
+              {order.customer_notified_at && (
+                <>
+                  <dt className="text-taupe">Customer told</dt>
+                  <dd>
+                    {fmt(order.customer_notified_at)}
+                    {order.notified_via ? <span className="text-ink/50"> &middot; {order.notified_via}</span> : null}
+                  </dd>
+                </>
+              )}
             </dl>
+            {order.package_photo_url && (
+              <div className="mt-5">
+                <p className="label">Package photo</p>
+                <a href={order.package_photo_url} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={order.package_photo_url} alt="Package" className="w-full rounded-2xl border border-taupe/20 object-cover" style={{ maxHeight: 420 }} />
+                </a>
+                <p className="mt-1.5 text-xs text-ink/50">
+                  Packed {fmt(order.packed_at)}
+                  {order.packed_by ? " \u00b7 " + order.packed_by : ""}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

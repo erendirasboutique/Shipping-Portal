@@ -22,6 +22,7 @@ type PortalBasket = {
   order_number: string | null;
   tracking_number: string | null;
   tracking_url: string | null;
+  package_photo_url?: string | null;
   carrier: string | null;
   subtotal_cents: number | null;
   shipping_cents: number | null;
@@ -61,6 +62,7 @@ const copy = {
     each: 'each',
     tracking: 'Tracking',
     track: 'Track your package',
+    packagePhoto: 'Your package',
   },
   es: {
     heading: 'Tu canasta',
@@ -86,6 +88,7 @@ const copy = {
     each: 'c/u',
     tracking: 'Rastreo',
     track: 'Rastrea tu paquete',
+    packagePhoto: 'Tu paquete',
   },
 } as const;
 
@@ -351,6 +354,20 @@ export default function PortalBaskets({
                   {payingId === b.id ? t.payOpening : t.payCard}
                 </button>
                 {error && payingId === null && <p className="ob2__payErr">{error}</p>}
+              </div>
+            )}
+
+            {paid && b.package_photo_url && (
+              <div className="ob2__track">
+                <span className="ob2__trackLabel">{t.packagePhoto}</span>
+                <a href={b.package_photo_url} target="_blank" rel="noreferrer">
+                  <img
+                    src={b.package_photo_url}
+                    alt={t.packagePhoto}
+                    loading="lazy"
+                    style={{ width: '100%', maxHeight: 420, objectFit: 'cover', borderRadius: 8, marginTop: 6, display: 'block' }}
+                  />
+                </a>
               </div>
             )}
 
