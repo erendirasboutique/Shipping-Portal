@@ -108,14 +108,30 @@ export default function ScaleReader({ onWeight }: { onWeight: (totalOz: number) 
     };
   }, [attach]);
 
-  async function connect() {
+  // First show only USB scales (anything that reports itself as a standard
+  // USB scale, plus DYMO). If it's not there, show every USB device.
+  async function connect(showAll = false) {
     setErr(null);
     try {
-      const list = await (navigator as any).hid.requestDevice({ filters: [] });
+      const filters = showAll
+        ? []
+        : [{ usagePage: 0x8d }, { vendorId: 0x0922 }];
+      const list = await (navigator as any).hid.requestDevice({ filters });
       if (list && list[0]) await attach(list[0]);
+      else setErr(showAll ? "No device was picked." : "No scale was picked.");
     } catch {
-      setErr("No scale was picked.");
+      setErr(showAll ? "No device was picked." : "No scale was picked.");
     }
+  }
+
+  async function disconnect() {
+    try {
+      device?.close?.();
+      await device?.forget?.();
+    } catch {}
+    setDevice(null);
+    setReading(null);
+    lastApplied.current = null;
   }
 
   // Phones and Safari can't talk to USB scales; stay out of the way there.
@@ -146,7 +162,13 @@ export default function ScaleReader({ onWeight }: { onWeight: (totalOz: number) 
       {!device ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm text-ink/70">⚖️ USB scale</span>
-          <button onClick={connect} className="btn-secondary !px-4 !py-1.5 text-xs">Connect scale</button>
+          <button onClick={() => connect(false)} className="btn-secondary !px-4 !py-1.5 text-xs">Connect scale</button>
+          <p className="w-full text-[11px] text-ink/50">
+            Turn the scale on first.{" "}
+            <button onClick={() => connect(true)} className="text-taupe underline underline-offset-2">
+              Scale not in the list? Show all USB devices
+            </button>
+          </p>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
@@ -170,6 +192,9 @@ export default function ScaleReader({ onWeight }: { onWeight: (totalOz: number) 
               Use weight
             </button>
           )}
+          <button onClick={disconnect} className="text-[11px] text-taupe underline underline-offset-2">
+            Disconnect
+          </button>
         </div>
       )}
       {err && <p className="mt-2 text-xs text-red-700">{err}</p>}
