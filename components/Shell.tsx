@@ -13,6 +13,8 @@ const NAV = [
   { href: "/customers", label: "Customers", d: "M12 4l7 8-7 8-7-8z" },
   { href: "/returns", label: "Returns", d: "M12 5a7 7 0 1 1-7 7m0 0 3-3m-3 3-3-3" },
   { href: "/batch-print", label: "Batch Print", d: "M12 3a9 9 0 0 1 0 18z" },
+  { href: "/scan", label: "Scan & Send", d: "M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M7 12h10" },
+  { href: "/map", label: "Shipping Map", d: "M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z" },
 ];
 
 export default function Shell({ children }: { children: React.ReactNode }) {

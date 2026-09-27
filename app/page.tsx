@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Shell from "@/components/Shell";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import ShippingMap from "@/components/ShippingMap";
 
 const Flower = ({ className = "" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" className={className} aria-hidden>
@@ -57,6 +58,7 @@ export default function Dashboard() {
   ];
 
   const tiles = [
+    { href: "/scan", title: "Scan & Send", desc: "Scan packed labels, snap a photo, message the customer", cta: "Open" },
     { href: "/batch-print", title: "Batch Print", desc: "Combine selected purchased labels into one PDF", cta: "Open" },
     { href: "/customers", title: "Customers", desc: "Import CSV, edit addresses, merge duplicates", cta: "Manage" },
     { href: "/orders", title: "Orders", desc: "Review shipments, tracking, refunds, labels", cta: "View" },
@@ -161,6 +163,15 @@ export default function Dashboard() {
               </p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Shipping map */}
+      <div className="card mt-5 !rounded-[2rem] !p-8">
+        <p className="eyebrow">Where they went</p>
+        <h2 className="mt-1 text-5xl">Shipping Map</h2>
+        <div className="mt-6">
+          <ShippingMap compact />
         </div>
       </div>
     </Shell>
