@@ -61,10 +61,11 @@ export const easypost: ShippingProvider = {
     };
   },
 
-  async buy({ shipmentRef, rateId }) {
+  async buy({ shipmentRef, rateId, input }) {
+    const insure = input?.insurance && input.insurance > 0 ? Number(input.insurance).toFixed(2) : null;
     const b = await ep(`/shipments/${shipmentRef}/buy`, {
       method: "POST",
-      body: JSON.stringify({ rate: { id: rateId } }),
+      body: JSON.stringify({ rate: { id: rateId }, ...(insure ? { insurance: insure } : {}) }),
     });
     return {
       shipmentRef: b.id,

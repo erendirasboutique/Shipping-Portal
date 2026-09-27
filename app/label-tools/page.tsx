@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import Shell from "@/components/Shell";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import ChangeLabel from "@/components/ChangeLabel";
 
 type Order = {
   id: string;
@@ -37,6 +38,16 @@ type Order = {
   rts_reason: string | null;
   reshipped_to: string | null;
   reship_label: string | null;
+  provider: string | null;
+  insurance_amount: number | null;
+  label_history: any[] | null;
+  customer_notes: string | null;
+  notes: string | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  weight_lb: number | string | null;
+  weight_oz: number | string | null;
 };
 
 const RTS_REASONS = ["Bad address", "Unclaimed", "Refused", "Damaged in transit", "Other"];
@@ -63,6 +74,8 @@ export default function LabelToolsPage() {
   const [rtsReason, setRtsReason] = useState("");
   const [rtsNote, setRtsNote] = useState("");
   const [copied, setCopied] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [noteText, setNoteText] = useState("");
 
   const find = useCallback(async (code: string): Promise<string | null> => {
     try {
@@ -77,6 +90,8 @@ export default function LabelToolsPage() {
       setRtsReason("");
       setRtsNote("");
       setCopied(false);
+      setChangeOpen(false);
+      setNoteText("");
       return null;
     } catch {
       return "Couldn't look that up. Check your connection and try again.";
@@ -194,6 +209,23 @@ export default function LabelToolsPage() {
     }
   }
 
+  async function saveNote() {
+    if (!order || !noteText.trim()) return;
+    setBusy("note");
+    try {
+      const d = await post({ action: "note", orderId: order.id, note: noteText });
+      setOrder(d.order);
+      setNoteText("");
+      setMsg({
+        kind: "ok",
+        text: d.savedToCustomer ? "Note saved to the customer's profile and this order." : "Note saved to this order (no customer profile is linked).",
+      });
+    } catch (e: any) {
+      setMsg({ kind: "err", text: e.message });
+    }
+    setBusy(null);
+  }
+
   function customerMessage(o: Order) {
     const hi = firstName(o.to_name);
     const addr = [o.to_street1, o.to_street2, [o.to_city, o.to_state].filter(Boolean).join(", ") + " " + (o.to_zip || "")]
@@ -291,7 +323,34 @@ export default function LabelToolsPage() {
               <span className="rounded-full bg-sand/30 px-2.5 py-1 text-ink/70">Bought {when(order.created_at)}</span>
               {order.printed_at && <span className="rounded-full bg-sand/30 px-2.5 py-1 text-ink/70">Printed {when(order.printed_at)}</span>}
               {order.packed_at && <span className="rounded-full bg-sand/30 px-2.5 py-1 text-ink/70">Packed</span>}
+              {!!order.insurance_amount && (
+                <span className="rounded-full bg-sand/30 px-2.5 py-1 text-ink/70">Insured ${Number(order.insurance_amount).toFixed(0)}</span>
+              )}
             </div>
+
+            {Array.isArray(order.label_history) && order.label_history.length > 0 && (
+              <div className="mt-5">
+                <p className="label">Replaced labels</p>
+                <div className="space-y-1.5">
+                  {order.label_history
+                    .slice()
+                    .reverse()
+                    .map((h: any, i: number) => (
+                      <div key={i} className="rounded-2xl border border-taupe/15 px-3.5 py-2 text-xs text-ink/70">
+                        <span className="font-mono">{h.tracking_number}</span>
+                        {" · "}
+                        {[h.carrier, h.mail_class].filter(Boolean).join(" ")}
+                        {h.postage_amount != null ? " · $" + Number(h.postage_amount).toFixed(2) : ""}
+                        <br />
+                        Replaced {when(h.replaced_at)}
+                        {h.reason ? " (" + h.reason + ")" : ""}
+                        {" · refund: "}
+                        <span className={String(h.refund_status || "").startsWith("failed") ? "text-red-700" : ""}>{h.refund_status}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -308,12 +367,42 @@ export default function LabelToolsPage() {
               >
                 {busy === "void" ? "Voiding…" : refunded ? "Label already voided" : "Void label & refund"}
               </button>
+              {!changeOpen && (
+                <button onClick={() => setChangeOpen(true)} disabled={!!busy || refunded} className="btn-secondary w-full !py-3.5">
+                  Change service, weight or insurance
+                </button>
+              )}
               {!order.rts_at && !rtsOpen && (
                 <button onClick={() => setRtsOpen(true)} disabled={!!busy} className="btn-secondary w-full !py-3.5">
                   Package came back (returned to sender)
                 </button>
               )}
             </div>
+
+            {changeOpen && !refunded && (
+              <ChangeLabel
+                order={order}
+                onCancel={() => setChangeOpen(false)}
+                onDone={(updated, oldRefund) => {
+                  setOrder(updated);
+                  setChangeOpen(false);
+                  const failed = String(oldRefund || "").startsWith("failed");
+                  setMsg({
+                    kind: failed ? "err" : "ok",
+                    text:
+                      "New label bought: " +
+                      [updated.carrier, updated.mail_class].filter(Boolean).join(" ") +
+                      " · " +
+                      updated.tracking_number +
+                      ". Tap Reprint label to print it. " +
+                      (failed
+                        ? "The old label couldn't be voided automatically (" + oldRefund + "). Void it from the carrier's site."
+                        : "Old label voided (refund " + oldRefund + ").") +
+                      (updated.customer_notified_at ? " The customer already got the old tracking link, so send them the new one." : ""),
+                  });
+                }}
+              />
+            )}
             {!refunded && (
               <p className="mt-3 text-xs text-ink/50">
                 Carriers only refund labels that haven&apos;t been scanned by the post office, usually within 30 days.
@@ -393,6 +482,32 @@ export default function LabelToolsPage() {
                 </button>
               </div>
             )}
+
+            {/* Customer note */}
+            <div className="mt-5 border-t border-taupe/15 pt-5">
+              <p className="label">Note about this package</p>
+              <div className="flex gap-2">
+                <input
+                  className="input"
+                  placeholder="e.g. Left with neighbor, customer asked to hold"
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveNote();
+                  }}
+                />
+                <button onClick={saveNote} disabled={!!busy || !noteText.trim()} className="btn-secondary shrink-0">
+                  {busy === "note" ? "Saving…" : "Save"}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-ink/50">Saved with today&apos;s date and EB number on the customer&apos;s profile and this order.</p>
+              {order.customer_notes && (
+                <div className="mt-3 rounded-2xl bg-cream/70 px-3.5 py-2.5 text-xs text-ink/70 dark:bg-transparent dark:ring-1 dark:ring-taupe/20">
+                  <p className="mb-1 font-medium text-ink/80">Customer notes</p>
+                  <p className="whitespace-pre-line">{order.customer_notes.split("\n").slice(-4).join("\n")}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

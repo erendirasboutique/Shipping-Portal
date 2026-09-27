@@ -51,6 +51,9 @@ export const shippoProvider: ShippingProvider = {
           // carriers that support it (USPS/UPS/FedEx all do). Set it at the
           // shipment level so the printed rate/label carries it.
           ...(input.reference ? { reference_1: input.reference } : {}),
+          ...(input.insurance && input.insurance > 0
+            ? { insurance: { amount: Number(input.insurance).toFixed(2), currency: "USD", content: "Clothing and accessories" } }
+            : {}),
         },
         async: false,
       }),

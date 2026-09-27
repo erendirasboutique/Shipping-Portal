@@ -27,6 +27,8 @@ export interface ShipmentInput {
    * prints it via transaction metadata.
    */
   reference?: string;
+  /** Declared value in USD to insure the package for (EasyPost and Shippo). */
+  insurance?: number;
 }
 export interface RateOption {
   id: string;
