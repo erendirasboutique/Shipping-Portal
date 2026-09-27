@@ -477,6 +477,22 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
+      {order && order.rts_at && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#e6c88f]/60 bg-[#fdf8ee] px-4 py-3 text-sm dark:bg-transparent">
+          <span>
+            <span className="font-medium">Returned to sender</span>
+            {order.rts_reason ? ": " + order.rts_reason : ""}
+            <span className="text-ink/50"> &middot; {fmt(order.rts_at)}</span>
+          </span>
+          <a href="/label-tools" className="text-taupe underline underline-offset-2">Re-ship</a>
+        </div>
+      )}
+      {order && order.reship_of && (
+        <div className="mt-4 rounded-2xl bg-sand/25 px-4 py-3 text-sm text-ink/70">
+          This is a re-ship of a package that came back.{" "}
+          <a href={"/orders/" + order.reship_of} className="text-taupe underline underline-offset-2">See the original order</a>
+        </div>
+      )}
       {msg && (
         <p
           className="mt-4 cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm text-taupe"

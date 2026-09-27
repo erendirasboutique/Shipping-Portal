@@ -15,6 +15,7 @@ const NAV = [
   { href: "/batch-print", label: "Batch Print", d: "M12 3a9 9 0 0 1 0 18z" },
   { href: "/packing", label: "Packing List", d: "M5 4h14v16H5z M9 9l2 2 4-4 M9 15h6" },
   { href: "/scan", label: "Scan & Send", d: "M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M7 12h10" },
+  { href: "/label-tools", label: "Scan a Label", d: "M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M9 12h6" },
   { href: "/map", label: "Shipping Map", d: "M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z" },
 ];
 
