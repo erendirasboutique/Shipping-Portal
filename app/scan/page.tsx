@@ -12,7 +12,6 @@ import type { ChangeEvent } from "react";
 
 declare global {
   interface Window {
-    ZXing?: any;
     BarcodeDetector?: any;
   }
 }
@@ -35,25 +34,57 @@ type Found = {
 
 type Stage = "scan" | "found" | "done";
 
-const ZXING_SRC = "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js";
-let zxingPromise: Promise<void> | null = null;
+// iPhones don't have a built-in barcode reader, so this loads a strong
+// one (ZXing, compiled to WebAssembly) when needed. Android Chrome uses
+// its own built-in reader.
+const PONYFILL = "https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/es/ponyfill.min.js";
+const FORMATS = ["code_128", "data_matrix", "qr_code", "code_39", "pdf417"];
+let detectorPromise: Promise<any> | null = null;
 
-function loadZxing(): Promise<void> {
-  if (typeof window !== "undefined" && window.ZXing) return Promise.resolve();
-  if (!zxingPromise) {
-    zxingPromise = new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = ZXING_SRC;
-      s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => {
-        zxingPromise = null;
-        reject(new Error("Couldn't load the scanner."));
-      };
-      document.head.appendChild(s);
+function getDetector(): Promise<any> {
+  if (!detectorPromise) {
+    detectorPromise = (async () => {
+      const Native = typeof window !== "undefined" ? window.BarcodeDetector : undefined;
+      if (Native?.getSupportedFormats) {
+        try {
+          const supported: string[] = await Native.getSupportedFormats();
+          if (supported.includes("code_128")) {
+            return new Native({ formats: FORMATS.filter((f) => supported.includes(f)) });
+          }
+        } catch {}
+      }
+      // Loaded from the CDN at runtime (kept out of the app bundle).
+      const importFromUrl = new Function("u", "return import(u)") as (u: string) => Promise<any>;
+      const mod = await importFromUrl(PONYFILL);
+      return new mod.BarcodeDetector({ formats: FORMATS });
+    })().catch((e) => {
+      detectorPromise = null;
+      throw e;
     });
   }
-  return zxingPromise;
+  return detectorPromise;
+}
+
+// Copy the current video frame (or just the middle band where the label
+// barcode sits) onto a canvas for the reader.
+function grabFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement, band: boolean) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return null;
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+  if (band) {
+    sw = Math.round(vw * 0.94);
+    sh = Math.round(Math.min(vh, vw * 0.6));
+    sx = Math.round((vw - sw) / 2);
+    sy = Math.round((vh - sh) / 2);
+  }
+  const scale = Math.min(1, 1600 / sw);
+  canvas.width = Math.round(sw * scale);
+  canvas.height = Math.round(sh * scale);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true } as any) as CanvasRenderingContext2D | null;
+  if (!ctx) return null;
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas;
 }
 
 // Prefer the shipping barcode when a label has several.
@@ -122,7 +153,8 @@ export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const readerRef = useRef<any>(null);
+  const labelFileRef = useRef<HTMLInputElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const timerRef = useRef<number | null>(null);
   const activeRef = useRef(false);
   const lastCodeRef = useRef<{ code: string; at: number } | null>(null);
@@ -131,10 +163,6 @@ export default function ScanPage() {
     activeRef.current = false;
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = null;
-    try {
-      readerRef.current?.reset?.();
-    } catch {}
-    readerRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -194,75 +222,110 @@ export default function ScanPage() {
     const video = videoRef.current;
     if (!video) return;
     if (!navigator.mediaDevices?.getUserMedia) {
-      setCamError("This browser can't use the camera. Type the tracking or EB number below.");
+      setCamError("This browser can't use the camera. Use Photo of label, or type the number below.");
       return;
     }
     stopCamera();
     activeRef.current = true;
-    const constraints: MediaStreamConstraints = {
-      audio: false,
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    };
     try {
-      let formats: string[] = [];
-      if (window.BarcodeDetector?.getSupportedFormats) {
-        try {
-          formats = await window.BarcodeDetector.getSupportedFormats();
-        } catch {}
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      if (!activeRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
       }
-      if (formats.includes("code_128")) {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        if (!activeRef.current) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
+      streamRef.current = stream;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", "true");
+      video.muted = true;
+      await video.play();
+      setCameraOn(true);
+
+      // Ask for continuous autofocus where the phone supports it.
+      try {
+        const track: any = stream.getVideoTracks()[0];
+        const caps = track?.getCapabilities?.();
+        if (caps?.focusMode?.includes?.("continuous")) {
+          await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
         }
-        streamRef.current = stream;
-        video.srcObject = stream;
-        video.setAttribute("playsinline", "true");
-        await video.play();
-        setCameraOn(true);
-        const want = ["code_128", "data_matrix", "qr_code", "code_39", "pdf417"].filter((f) => formats.includes(f));
-        const detector = new window.BarcodeDetector({ formats: want });
-        const tick = async () => {
-          if (!activeRef.current) return;
-          try {
-            const codes = await detector.detect(video);
-            const best = bestCode((codes || []).map((c: any) => c.rawValue));
-            if (best) onCode(best);
-          } catch {}
-          if (activeRef.current) timerRef.current = window.setTimeout(tick, 220);
-        };
-        tick();
-      } else {
-        await loadZxing();
-        if (!activeRef.current) return;
-        const Z = window.ZXing;
-        const hints = new Map();
-        hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
-          Z.BarcodeFormat.CODE_128,
-          Z.BarcodeFormat.DATA_MATRIX,
-          Z.BarcodeFormat.QR_CODE,
-        ]);
-        hints.set(Z.DecodeHintType.TRY_HARDER, true);
-        const reader = new Z.BrowserMultiFormatReader(hints, 250);
-        readerRef.current = reader;
-        video.setAttribute("playsinline", "true");
-        await reader.decodeFromConstraints(constraints, video, (res: any) => {
-          if (res && activeRef.current) onCode(res.getText());
-        });
-        streamRef.current = (video.srcObject as MediaStream) || null;
-        setCameraOn(true);
+      } catch {}
+
+      let detector: any;
+      try {
+        detector = await getDetector();
+      } catch {
+        setCamError("The barcode reader couldn't load. Check your connection, or type the number below.");
+        return;
       }
+      if (!activeRef.current) return;
+
+      const canvas = canvasRef.current || document.createElement("canvas");
+      canvasRef.current = canvas;
+      let n = 0;
+      const tick = async () => {
+        if (!activeRef.current) return;
+        try {
+          // Mostly read the middle band (faster, sharper), sometimes the whole frame.
+          const frame = grabFrame(video, canvas, n++ % 3 !== 2);
+          if (frame) {
+            const codes = await detector.detect(frame);
+            const best = bestCode((codes || []).map((c: any) => c.rawValue));
+            if (best && activeRef.current) onCode(best);
+          }
+        } catch {}
+        if (activeRef.current) timerRef.current = window.setTimeout(tick, 150);
+      };
+      tick();
     } catch (e: any) {
       activeRef.current = false;
       const denied = e?.name === "NotAllowedError" || e?.name === "SecurityError";
       setCamError(
         denied
-          ? "Camera access is blocked. Allow the camera for this site in your browser settings, or type the number below."
-          : "Couldn't start the camera. Type the tracking or EB number below."
+          ? "Camera access is blocked. Allow the camera for this site in your browser settings, or use Photo of label."
+          : "Couldn't start the camera. Use Photo of label, or type the number below."
       );
     }
   }, [onCode, stopCamera]);
+
+  // Backup: read the barcode from a still photo (sharpest, always focused).
+  async function onLabelPhoto(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setBusy("Reading barcode…");
+    setError(null);
+    const url = URL.createObjectURL(f);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new window.Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error("decode"));
+        i.src = url;
+      });
+      const detector = await getDetector();
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const codes = await detector.detect(canvas);
+      const best = bestCode((codes || []).map((c: any) => c.rawValue));
+      if (!best) {
+        setError("Couldn't find a barcode in that photo. Get closer so the barcode fills the photo, and hold steady.");
+        setBusy(null);
+        return;
+      }
+      setBusy(null);
+      lookup(best);
+    } catch {
+      setError("Couldn't read that photo. Try again, or type the number below.");
+      setBusy(null);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
 
   // Camera runs only on the scan screen.
   useEffect(() => {
@@ -412,8 +475,12 @@ export default function ScanPage() {
             )}
           </div>
           <p className="mt-3 text-center text-sm text-ink/70">
-            Point at the big barcode on the label. It scans by itself.
+            Hold the phone about 6 inches away with the long barcode across the box. It scans by itself.
           </p>
+          <input ref={labelFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onLabelPhoto} />
+          <button onClick={() => labelFileRef.current?.click()} disabled={!!busy} className="btn-secondary mt-3 w-full">
+            Not scanning? Take a photo of the label
+          </button>
 
           <form
             className="mt-4 flex gap-2"
