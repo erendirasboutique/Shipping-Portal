@@ -485,7 +485,7 @@ function CreateLabelInner() {
               onWeight={(totalOz) => {
                 const lb = Math.floor(totalOz / 16);
                 const oz = Math.round((totalOz - lb * 16) * 10) / 10;
-                setForm((f) => ({ ...f, weight_lb: oz >= 16 ? lb + 1 : lb, weight_oz: oz >= 16 ? 0 : oz }));
+                setForm((f) => ({ ...f, weight_lb: String(oz >= 16 ? lb + 1 : lb), weight_oz: String(oz >= 16 ? 0 : oz) }));
                 setRates([]);
                 setSelectedRate(null);
               }}
