@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import ScaleReader from "@/components/ScaleReader";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Rate = {
@@ -480,6 +481,15 @@ function CreateLabelInner() {
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/50">oz</span>
               </div>
             </div>
+            <ScaleReader
+              onWeight={(totalOz) => {
+                const lb = Math.floor(totalOz / 16);
+                const oz = Math.round((totalOz - lb * 16) * 10) / 10;
+                setForm((f) => ({ ...f, weight_lb: oz >= 16 ? lb + 1 : lb, weight_oz: oz >= 16 ? 0 : oz }));
+                setRates([]);
+                setSelectedRate(null);
+              }}
+            />
             <button
               onClick={getRates}
               disabled={!canRate || busy !== null}

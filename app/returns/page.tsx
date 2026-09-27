@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Shell from "@/components/Shell";
+import BarcodeScanner from "@/components/BarcodeScanner";
+import ReceiveReturn, { conditionLabel } from "@/components/ReceiveReturn";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 function StatusPill({ status }: { status: string }) {
@@ -37,6 +39,40 @@ export default function ReturnsPage() {
     rates: RateOption[];
   } | null>(null);
   const [buyingRateId, setBuyingRateId] = useState<string | null>(null);
+
+  // Scan to receive
+  const [scanning, setScanning] = useState(false);
+  const [receiving, setReceiving] = useState<any | null>(null);
+
+  const onScanReturn = useCallback(async (code: string): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/returns/receive?code=" + encodeURIComponent(code), { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.request) return data.error || "No return matches that label.";
+      setScanning(false);
+      setReceiving(data.request);
+      return null;
+    } catch {
+      return "Couldn't look that up. Check your connection and try again.";
+    }
+  }, []);
+
+  function ReceivedInfo({ rr }: { rr: any }) {
+    if (!rr.received_at) return null;
+    return (
+      <div className="mt-1.5 flex items-center gap-2 text-xs text-ink/60">
+        {rr.receive_photo_url && (
+          <a href={rr.receive_photo_url} target="_blank" rel="noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={rr.receive_photo_url} alt="" className="h-8 w-8 rounded-lg object-cover" />
+          </a>
+        )}
+        <span>
+          {conditionLabel(rr.receive_condition)} · {new Date(rr.received_at).toLocaleDateString()}
+        </span>
+      </div>
+    );
+  }
 
   async function load() {
     const [{ data: reqs }, { data: cds }] = await Promise.all([
@@ -127,6 +163,11 @@ export default function ReturnsPage() {
         {rr.tracking_url && (
           <a href={rr.tracking_url} target="_blank" rel="noreferrer" className={`btn-secondary ${size}`}>Track</a>
         )}
+        {(rr.tracking_number || rr.received_at) && (
+          <button onClick={() => setReceiving(rr)} disabled={busy !== null} className={`btn-secondary ${size}`}>
+            {rr.received_at ? "Received ✓" : "Receive"}
+          </button>
+        )}
       </div>
     );
   }
@@ -142,6 +183,13 @@ export default function ReturnsPage() {
           <a href="/return-instructions-full.pdf" target="_blank" rel="noreferrer" className="btn-secondary text-center">
             Instructions · Full Page
           </a>
+          <button onClick={() => setScanning(true)} className="btn-secondary inline-flex items-center justify-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" />
+              <path d="M8 9v6M11 9v6M14 9v6M16.5 9v6" />
+            </svg>
+            Scan return
+          </button>
           <button onClick={generateCode} disabled={busy === "code"} className="btn-primary">
             {busy === "code" ? "Generating…" : "Generate return code"}
           </button>
@@ -173,7 +221,10 @@ export default function ReturnsPage() {
                 <p className="font-medium">{rr.from_name || "—"}</p>
                 <p className="text-xs text-ink/60">{[rr.from_city, rr.from_state].filter(Boolean).join(", ")}</p>
               </div>
-              <StatusPill status={rr.status} />
+              <div className="flex flex-col items-end">
+                <StatusPill status={rr.status} />
+                <ReceivedInfo rr={rr} />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
               <div>
@@ -191,7 +242,7 @@ export default function ReturnsPage() {
                 </div>
               )}
             </div>
-            {(rr.status === "submitted" || rr.label_url || rr.tracking_url) && <RequestActions rr={rr} mobile />}
+            {(rr.status === "submitted" || rr.label_url || rr.tracking_url || rr.tracking_number) && <RequestActions rr={rr} mobile />}
           </div>
         ))}
         {!requests.length && (
@@ -221,7 +272,10 @@ export default function ReturnsPage() {
                 </td>
                 <td className="table-td font-mono text-xs">{rr.return_code || "—"}</td>
                 <td className="table-td max-w-[200px] truncate">{rr.reason || "—"}</td>
-                <td className="table-td"><StatusPill status={rr.status} /></td>
+                <td className="table-td">
+                  <StatusPill status={rr.status} />
+                  <ReceivedInfo rr={rr} />
+                </td>
                 <td className="table-td font-mono text-xs">{rr.tracking_number || "—"}</td>
                 <td className="table-td">
                   <RequestActions rr={rr} />
@@ -288,6 +342,22 @@ export default function ReturnsPage() {
           </tbody>
         </table>
       </div>
+
+      {scanning && (
+        <BarcodeScanner title="Scan a return" onCode={onScanReturn} onClose={() => setScanning(false)} />
+      )}
+
+      {receiving && (
+        <ReceiveReturn
+          request={receiving}
+          onClose={() => setReceiving(null)}
+          onSaved={(updated) => {
+            setRequests((list) => list.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
+            setReceiving(null);
+            setMsg(`Return from ${updated.from_name || "customer"} marked received (${conditionLabel(updated.receive_condition)}).`);
+          }}
+        />
+      )}
 
       {/* Rate selection modal */}
       {rateModal && (
