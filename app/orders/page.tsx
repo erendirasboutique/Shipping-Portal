@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import Shell from "@/components/Shell";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { fetchAll } from "@/lib/fetchAll";
+
+// Only the columns this list shows, so loading every order stays quick.
+const LIST_COLUMNS =
+  "id, order_number, to_name, to_city, to_state, tracking_number, carrier, mail_class, postage_amount, status, print_status, created_at";
+
+// How many rows to draw at once; "Show more" draws the next batch.
+const PAGE = 250;
 
 function StatusPill({ status }: { status: string }) {
   if (status === "draft") {
@@ -67,6 +75,9 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [visible, setVisible] = useState(PAGE);
 
   // Scanned a label: find its order and open it.
   const onScan = useCallback(
@@ -85,13 +96,24 @@ export default function OrdersPage() {
     [router]
   );
 
+  // Loads every order (1,000 at a time), newest first.
   async function load() {
-    const { data } = await supabase
-      .from("shipping_orders")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    setOrders(data || []);
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await fetchAll(function (from, to) {
+        return supabase
+          .from("shipping_orders")
+          .select(LIST_COLUMNS)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to);
+      });
+      setOrders(rows);
+    } catch (e: any) {
+      setLoadError(e.message || "Couldn't load orders.");
+    }
+    setLoading(false);
   }
 
   useEffect(function () {
@@ -112,7 +134,15 @@ export default function OrdersPage() {
     [orders]
   );
 
-  const shown = orders.filter(function (o) {
+  // Start from the top again whenever the tab or search changes.
+  useEffect(
+    function () {
+      setVisible(PAGE);
+    },
+    [filter, q]
+  );
+
+  const matching = orders.filter(function (o) {
     if (filter === "draft" && o.status !== "draft") return false;
     if (filter === "refunded" && o.status !== "refunded") return false;
     if (filter === "to_print" && !(o.status === "purchased" && o.print_status === "not_printed")) return false;
@@ -124,6 +154,8 @@ export default function OrdersPage() {
     const eb = o.order_number != null ? ("eb-" + o.order_number) : "";
     return name.includes(s) || tn.includes(s) || city.includes(s) || eb.includes(s);
   });
+
+  const shown = matching.slice(0, visible);
 
   const groups = useMemo(
     function () {
@@ -255,9 +287,45 @@ export default function OrdersPage() {
           </div>
         );
       })}
-      {!groups.length && (
+      {matching.length > visible && (
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <button
+            onClick={function () {
+              setVisible(function (v) {
+                return v + PAGE;
+              });
+            }}
+            className="btn-secondary !px-6"
+          >
+            Show more
+          </button>
+          <p className="text-xs text-ink/50">
+            Showing {visible.toLocaleString()} of {matching.length.toLocaleString()}
+          </p>
+        </div>
+      )}
+
+      {loading && (
         <p className="mt-7 rounded-3xl border border-taupe/25 bg-white px-6 py-12 text-center text-sm text-ink/50">
-          No orders match. Create a label to get started.
+          Loading all orders…
+        </p>
+      )}
+      {loadError && (
+        <p className="mt-7 rounded-3xl bg-red-50 px-6 py-4 text-center text-sm text-red-700">
+          {loadError}{" "}
+          <button onClick={load} className="underline underline-offset-2">Try again</button>
+        </p>
+      )}
+      {!loading && !loadError && !groups.length && (
+        <p className="mt-7 rounded-3xl border border-taupe/25 bg-white px-6 py-12 text-center text-sm text-ink/50">
+          {orders.length ? "No orders match." : "No orders yet. Create a label to get started."}
+        </p>
+      )}
+      {!loading && orders.length > 0 && matching.length <= visible && (
+        <p className="mt-6 text-center text-xs text-ink/40">
+          {matching.length === orders.length
+            ? "All " + orders.length.toLocaleString() + " orders shown"
+            : matching.length.toLocaleString() + " of " + orders.length.toLocaleString() + " orders shown"}
         </p>
       )}
     </Shell>

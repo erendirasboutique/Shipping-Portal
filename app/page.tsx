@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Shell from "@/components/Shell";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { fetchAll } from "@/lib/fetchAll";
 import ShippingMap from "@/components/ShippingMap";
 
 const Flower = ({ className = "" }: { className?: string }) => (
@@ -32,7 +33,18 @@ export default function Dashboard() {
         supabase.from("shipping_orders").select("id", { count: "exact", head: true }).eq("status", "draft"),
         supabase.from("shipping_orders").select("id", { count: "exact", head: true })
           .eq("status", "purchased").eq("print_status", "not_printed"),
-        supabase.from("shipping_orders").select("postage_amount").not("postage_amount", "is", null),
+        // Every purchased label's postage (loaded 1,000 at a time; voided labels don't count).
+        fetchAll((from, to) =>
+          supabase
+            .from("shipping_orders")
+            .select("postage_amount, status")
+            .not("postage_amount", "is", null)
+            .order("id", { ascending: true })
+            .range(from, to)
+        ).then(
+          (rows) => ({ data: rows.filter((r: any) => r.status !== "refunded") }),
+          () => ({ data: [] as any[] })
+        ),
         supabase.from("shipping_orders").select("to_name, carrier, mail_class, created_at")
           .not("tracking_number", "is", null).order("created_at", { ascending: false }).limit(7),
       ]);
@@ -42,7 +54,7 @@ export default function Dashboard() {
         purchased: purchased.count ?? 0,
         drafts: drafts.count ?? 0,
         queue: queue.count ?? 0,
-        postage: (postageRows.data ?? []).reduce((s, r) => s + Number(r.postage_amount || 0), 0),
+        postage: (postageRows.data ?? []).reduce((s: number, r: any) => s + Number(r.postage_amount || 0), 0),
       });
       setRecent(recentRows.data ?? []);
     })();

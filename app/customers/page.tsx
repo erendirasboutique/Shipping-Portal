@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import Shell from "@/components/Shell";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { fetchAll } from "@/lib/fetchAll";
 
 const empty = {
   name: "", email: "", phone: "", street1: "", street2: "",
@@ -64,12 +65,17 @@ export default function CustomersPage() {
   const [ordersLoading, setOrdersLoading] = useState(false);
 
   async function load() {
-    const { data } = await supabase
-      .from("shipping_customers")
-      .select("*")
-      .eq("archived", false)
-      .order("name");
-    setCustomers(data ?? []);
+    // Every customer, loaded 1,000 at a time (a plain select stops at 1,000).
+    const data = await fetchAll((from, to) =>
+      supabase
+        .from("shipping_customers")
+        .select("*")
+        .eq("archived", false)
+        .order("name")
+        .order("id")
+        .range(from, to)
+    ).catch(() => [] as any[]);
+    setCustomers(data);
   }
   useEffect(() => {
     load();
