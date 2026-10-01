@@ -17,7 +17,9 @@ export async function GET(req: Request) {
   const days = Math.min(60, Math.max(1, Number(params.get("days")) || 7));
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-  let q = supabaseAdmin()
+  // Typed loosely on purpose: adding filters step by step makes the
+  // Supabase type checker loop forever ("excessively deep") on Vercel.
+  let q: any = supabaseAdmin()
     .from("shipping_orders")
     .select(
       "id, order_number, to_name, to_city, to_state, carrier, mail_class, tracking_number, status, refund_status, package_photo_url, packed_at, customer_notified_at, notified_via"

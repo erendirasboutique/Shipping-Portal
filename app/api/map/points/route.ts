@@ -27,7 +27,9 @@ export async function GET(req: Request) {
   // Page through everything (Supabase returns 1000 rows at a time).
   const rows: any[] = [];
   for (let from = 0; from < 50000; from += 1000) {
-    let q = admin
+    // Typed loosely on purpose: adding a filter afterwards makes the
+    // Supabase type checker loop forever ("excessively deep") on Vercel.
+    let q: any = admin
       .from("shipping_orders")
       .select("to_zip, to_city, to_state, status")
       .not("tracking_number", "is", null)
