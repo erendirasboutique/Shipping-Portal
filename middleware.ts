@@ -17,6 +17,8 @@ const PUBLIC_PATHS = [
   // Messenger link; a login wall here loses the sale.
   "/order",
   "/api/live/portal",
+  // Meta Muse connection. Every route checks the MUSE_API_TOKEN itself.
+  "/api/muse",
 ];
 
 // A v4 uuid, which is what portal_token is. Used to spot a bare token at
