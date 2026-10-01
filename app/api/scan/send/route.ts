@@ -4,6 +4,7 @@
 //   mode = "shared" → photo saved, marked as sent on Messenger
 //   mode = "email"  → photo saved, emailed to the customer
 //   mode = "save"   → photo saved only
+//   mode = "muse"   → photo saved, queued for Muse to send on Messenger
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -78,9 +79,22 @@ export async function POST(req: Request) {
     } else if (mode === "shared") {
       update.customer_notified_at = now;
       update.notified_via = "messenger";
+    } else if (mode === "muse") {
+      if (!photoUrl) return NextResponse.json({ error: "Take a photo of the package first." }, { status: 400 });
+      update.muse_status = "queued";
+      update.muse_queued_at = now;
+      update.muse_queued_by = user.email || null;
+      update.muse_flag_reason = null;
+      update.muse_updated_at = now;
     }
 
-    await admin.from("shipping_orders").update(update).eq("id", order.id);
+    const { error: upErr } = await admin.from("shipping_orders").update(update).eq("id", order.id);
+    if (upErr) {
+      const msg = /muse_/i.test(upErr.message)
+        ? "Send with Muse needs a database update. Run supabase/muse_queue.sql in Supabase."
+        : upErr.message;
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
     return NextResponse.json({ ok: true, via: mode, to, photoUrl });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Saving failed." }, { status: 500 });

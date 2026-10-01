@@ -27,7 +27,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const now = new Date().toISOString();
   const { error } = await admin
     .from("shipping_orders")
-    .update({ customer_notified_at: now, notified_via: "messenger (Muse)" })
+    .update({
+      customer_notified_at: now,
+      notified_via: "messenger (Muse)",
+      muse_status: "sent",
+      muse_flag_reason: null,
+      muse_updated_at: now,
+    })
     .eq("id", order.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, order_number: order.order_number != null ? "EB-" + order.order_number : null, sent_at: now });

@@ -25,6 +25,17 @@ export async function GET(req: Request) {
       );
     }
     const email = await customerEmail(admin, order);
+
+    // Muse queue status (skipped quietly if the Muse database update isn't in yet).
+    let muse: any = null;
+    {
+      const { data, error: museErr } = await admin
+        .from("shipping_orders")
+        .select("muse_status, muse_flag_reason, muse_queued_at")
+        .eq("id", order.id)
+        .maybeSingle();
+      if (!museErr) muse = data;
+    }
     return NextResponse.json({
       order: {
         id: order.id,
@@ -36,6 +47,9 @@ export async function GET(req: Request) {
         photo: order.package_photo_url,
         notifiedAt: order.customer_notified_at,
         notifiedVia: order.notified_via,
+        museStatus: muse?.muse_status || null,
+        museFlagReason: muse?.muse_flag_reason || null,
+        museQueuedAt: muse?.muse_queued_at || null,
       },
       message: packageMessage(order.to_name, order.tracking_number),
       email: emailConfigured() ? email : null,

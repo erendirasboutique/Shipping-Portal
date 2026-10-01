@@ -21,15 +21,21 @@ export async function GET(req: Request) {
     ? new Date(sinceParam).toISOString()
     : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabaseAdmin()
-    .from("shipping_orders")
-    .select(
-      "id, order_number, to_name, to_city, to_state, carrier, mail_class, tracking_number, status, refund_status, created_at, packed_at, packed_by, package_photo_url, customer_notified_at, notified_via"
-    )
-    .not("tracking_number", "is", null)
-    .gte("created_at", since)
-    .order("created_at", { ascending: true })
-    .limit(1000);
+  const base =
+    "id, order_number, to_name, to_city, to_state, carrier, mail_class, tracking_number, status, refund_status, created_at, packed_at, packed_by, package_photo_url, customer_notified_at, notified_via";
+  // Typed loosely: a column list built at runtime makes the Supabase type checker give up on Vercel.
+  const fetchRows = (columns: string): any =>
+    supabaseAdmin()
+      .from("shipping_orders")
+      .select(columns)
+      .not("tracking_number", "is", null)
+      .gte("created_at", since)
+      .order("created_at", { ascending: true })
+      .limit(1000);
+
+  // Include the Muse queue status when that database update is in; otherwise carry on without it.
+  let { data, error }: { data: any[] | null; error: any } = await fetchRows(base + ", muse_status, muse_flag_reason");
+  if (error && /muse_/i.test(error.message)) ({ data, error } = await fetchRows(base));
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

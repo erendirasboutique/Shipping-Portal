@@ -13,9 +13,10 @@ export async function GET(req: Request) {
       title: "Erendira's Boutique Shipping Portal",
       version: "1.0.0",
       description:
-        "Packages packed and photographed at Erendira's Boutique. Use it to send each customer their package photo and tracking message on Messenger, and to look up a customer's shipments. " +
-        "Always send the photo first, then the message text exactly as given. If a customer's Messenger chat can't be matched to exactly one person, skip that package and report it. " +
-        "After sending, mark the package as sent so it's never sent twice.",
+        "Packages packed and photographed at Erendira's Boutique. The 'queued' list holds packages the business owner already approved for sending by tapping 'Send with Muse'. " +
+        "For each queued package: find the Messenger chat whose name matches customer_name. If exactly one chat matches, send the photo first, then the message text exactly as given, then call markPackageSent. " +
+        "If no chat matches, more than one matches, or sending fails, send nothing for that package: call flagPackage with the reason and move on. Never guess who the customer is. " +
+        "When asked to work through the queue, finish every package and then report how many were sent and how many were flagged.",
     },
     servers: [{ url: base }],
     components: {
@@ -37,6 +38,9 @@ export async function GET(req: Request) {
             already_sent: { type: "boolean" },
             sent_at: { type: "string", nullable: true },
             sent_via: { type: "string", nullable: true },
+            muse_status: { type: "string", nullable: true, description: "queued, sent, or flagged" },
+            flag_reason: { type: "string", nullable: true },
+            queued_at: { type: "string", nullable: true },
           },
         },
       },
@@ -47,13 +51,14 @@ export async function GET(req: Request) {
         get: {
           operationId: "listPackages",
           summary: "List photographed packages",
-          description: "Packages that were scanned and photographed. By default only ones whose customer hasn't been messaged yet.",
+          description: "Packages that were scanned and photographed. By default, the ones queued for Muse to send.",
           parameters: [
             {
               name: "status",
               in: "query",
               required: false,
-              schema: { type: "string", enum: ["to_send", "sent", "all"], default: "to_send" },
+              description: "queued = approved by the owner and waiting for Muse (use this one); flagged = Muse couldn't send; to_send = any photographed package not sent yet",
+              schema: { type: "string", enum: ["queued", "flagged", "to_send", "sent", "all"], default: "queued" },
             },
             {
               name: "days",
@@ -93,6 +98,30 @@ export async function GET(req: Request) {
             "200": { description: "Recorded (or it was already recorded)" },
             "404": { description: "No package with that id" },
           },
+        },
+      },
+      "/api/muse/packages/{id}/flag": {
+        post: {
+          operationId: "flagPackage",
+          summary: "Flag a package that couldn't be sent",
+          description: "Call this instead of sending when the customer's Messenger chat can't be matched to exactly one person, or the send failed. Staff will send it by hand.",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["reason"],
+                  properties: {
+                    reason: { type: "string", enum: ["not_found", "multiple_matches", "send_failed", "other"] },
+                    note: { type: "string", description: "Short detail, e.g. which names matched" },
+                  },
+                },
+              },
+            },
+          },
+          responses: { "200": { description: "Flagged" }, "404": { description: "No package with that id" } },
         },
       },
       "/api/muse/orders": {

@@ -27,6 +27,9 @@ type Found = {
     photo: string | null;
     notifiedAt: string | null;
     notifiedVia: string | null;
+    museStatus?: string | null;
+    museFlagReason?: string | null;
+    museQueuedAt?: string | null;
   };
   message: string;
   email: string | null;
@@ -480,9 +483,9 @@ export default function ScanPage() {
   }, []);
 
   // Save the photo on the order and record how the customer was told.
-  async function record(mode: "shared" | "email" | "save") {
+  async function record(mode: "shared" | "email" | "save" | "muse") {
     if (!found) return;
-    setBusy(mode === "email" ? "Sending email…" : "Saving…");
+    setBusy(mode === "email" ? "Sending email…" : mode === "muse" ? "Adding to Muse queue…" : "Saving…");
     setError(null);
     try {
       const fd = new FormData();
@@ -656,6 +659,18 @@ export default function ScanPage() {
                 Already sent by {found.order.notifiedVia || "message"} on {timeAgo(found.order.notifiedAt)}.
               </p>
             )}
+            {!found.order.notifiedAt && found.order.museStatus === "queued" && (
+              <p className="mt-3 rounded-2xl bg-sand/30 px-4 py-2.5 text-xs text-ink/70">
+                Waiting for Muse to send it
+                {found.order.museQueuedAt ? " (queued " + timeAgo(found.order.museQueuedAt) + ")" : ""}. Sending it yourself now is fine too; Muse will skip it.
+              </p>
+            )}
+            {!found.order.notifiedAt && found.order.museStatus === "flagged" && (
+              <p className="mt-3 rounded-2xl bg-red-50 px-4 py-2.5 text-xs text-red-700">
+                <span className="font-medium">Muse couldn&apos;t send this one</span>
+                {found.order.museFlagReason ? ": " + found.order.museFlagReason : ""}. Send it yourself below.
+              </p>
+            )}
           </div>
 
           <div className="card !rounded-[2rem] !p-5">
@@ -712,6 +727,19 @@ export default function ScanPage() {
             </p>
           </div>
 
+          <div>
+            <button
+              onClick={() => record("muse")}
+              disabled={!!busy || !hasPhoto || !!found.order.notifiedAt}
+              className="btn-secondary w-full !py-3.5 !text-base"
+            >
+              {found.order.museStatus === "queued" ? "Queued for Muse ✓" : "Send with Muse"}
+            </button>
+            <p className="mt-1.5 text-center text-xs text-ink/60">
+              Muse sends the photo and message for you. If it can&apos;t find them on Messenger, it flags the package here.
+            </p>
+          </div>
+
           {canShareFiles ? (
             <button onClick={share} disabled={!!busy || !hasPhoto} className="btn-secondary w-full">
               Share photo and message instead
@@ -747,7 +775,9 @@ export default function ScanPage() {
             </svg>
           </div>
           <p className="mt-4 font-heading text-3xl text-taupe">
-            {result.via === "opened"
+            {result.via === "muse"
+              ? "Queued for Muse"
+              : result.via === "opened"
               ? "Paste the photo"
               : result.via === "shared"
               ? "Marked as sent"
@@ -759,6 +789,12 @@ export default function ScanPage() {
             {found.order.label}
             {result.to ? " · " + result.to : ""}
           </p>
+          {result.via === "muse" && (
+            <p className="mt-4 text-sm text-ink/70">
+              Muse will send the photo and message next time it runs. Anything it can&apos;t match shows up as
+              <span className="font-medium"> flagged</span> on the Packing List.
+            </p>
+          )}
           {result.via === "shared" && (
             <div className="mt-5 space-y-3 text-left">
               <p className="text-sm text-ink/80">

@@ -22,10 +22,12 @@ type Row = {
   package_photo_url: string | null;
   customer_notified_at: string | null;
   notified_via: string | null;
+  muse_status?: string | null;
+  muse_flag_reason?: string | null;
 };
 
 type Range = "week" | "today" | "14d";
-type Filter = "todo" | "packed" | "all";
+type Filter = "todo" | "packed" | "flagged" | "all";
 
 function sinceFor(range: Range) {
   const d = new Date();
@@ -108,13 +110,17 @@ export default function PackingPage() {
   const all = rows || [];
   const packedCount = all.filter((o) => o.packed_at).length;
   const sentCount = all.filter((o) => o.customer_notified_at).length;
+  const isFlagged = (o: Row) => o.muse_status === "flagged" && !o.customer_notified_at;
+  const flaggedCount = all.filter(isFlagged).length;
   const total = all.length;
   const pct = total ? Math.round((packedCount / total) * 100) : 0;
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
     return all
-      .filter((o) => (filter === "todo" ? !o.packed_at : filter === "packed" ? !!o.packed_at : true))
+      .filter((o) =>
+        filter === "todo" ? !o.packed_at : filter === "packed" ? !!o.packed_at : filter === "flagged" ? isFlagged(o) : true
+      )
       .filter((o) =>
         !s
           ? true
@@ -170,13 +176,28 @@ export default function PackingPage() {
           )}
         </div>
 
+        {flaggedCount > 0 && filter !== "flagged" && (
+          <button
+            onClick={() => setFilter("flagged")}
+            className="mt-5 w-full rounded-2xl bg-red-50 px-4 py-3 text-left text-sm text-red-700"
+          >
+            <span className="font-medium">
+              Muse couldn&apos;t send {flaggedCount} package{flaggedCount === 1 ? "" : "s"}.
+            </span>{" "}
+            Tap to see them and send by hand.
+          </button>
+        )}
+
         {/* Filter + search */}
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          {([
-            ["todo", "To pack", rows ? total - packedCount : null],
-            ["packed", "Packed", rows ? packedCount : null],
-            ["all", "All", rows ? total : null],
-          ] as [Filter, string, number | null][]).map(([id, text, n]) => (
+          {(
+            [
+              ["todo", "To pack", rows ? total - packedCount : null],
+              ["packed", "Packed", rows ? packedCount : null],
+              ...(flaggedCount > 0 || filter === "flagged" ? [["flagged", "Muse flagged", flaggedCount] as [Filter, string, number | null]] : []),
+              ["all", "All", rows ? total : null],
+            ] as [Filter, string, number | null][]
+          ).map(([id, text, n]) => (
             <button
               key={id}
               onClick={() => setFilter(id)}
@@ -264,6 +285,14 @@ export default function PackingPage() {
                     {sent && (
                       <span className="rounded-full bg-sand/30 px-2 py-0.5 text-taupe">
                         Sent{o.notified_via ? " · " + o.notified_via : ""}
+                      </span>
+                    )}
+                    {!sent && o.muse_status === "queued" && (
+                      <span className="rounded-full bg-sand/30 px-2 py-0.5 text-ink/70">Queued for Muse</span>
+                    )}
+                    {isFlagged(o) && (
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-700">
+                        Muse flagged{o.muse_flag_reason ? ": " + o.muse_flag_reason : ""}
                       </span>
                     )}
                     {packed && !o.package_photo_url && (
