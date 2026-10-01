@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { findOrderByCode, customerEmail, orderLabel } from "@/lib/scanLookup";
-import { packageMessage, emailConfigured } from "@/lib/notify";
+import { emailConfigured } from "@/lib/notify";
+import { shippingNotice } from "@/lib/shipNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,13 @@ export async function GET(req: Request) {
       );
     }
     const email = await customerEmail(admin, order);
+
+    // Full address + label date for the shipping notification.
+    const { data: full } = await admin
+      .from("shipping_orders")
+      .select("to_name, to_street1, to_street2, to_city, to_state, to_zip, carrier, mail_class, tracking_number, created_at")
+      .eq("id", order.id)
+      .maybeSingle();
 
     // Muse queue status (skipped quietly if the Muse database update isn't in yet).
     let muse: any = null;
@@ -51,7 +59,7 @@ export async function GET(req: Request) {
         museFlagReason: muse?.muse_flag_reason || null,
         museQueuedAt: muse?.muse_queued_at || null,
       },
-      message: packageMessage(order.to_name, order.tracking_number),
+      message: shippingNotice(full || order),
       email: emailConfigured() ? email : null,
     });
   } catch (e: any) {

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Shell from "@/components/Shell";
+import { shippingNotice } from "@/lib/shipNotice";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 function orderLabel(o: any) {
@@ -273,28 +274,8 @@ export default function OrderDetailPage() {
 
   function copyNotification() {
     if (!order) return;
-    const carrier = order.carrier || "the shipping carrier";
-    const shipDate = new Date(order.updated_at || order.created_at || Date.now()).toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-    const addressParts = [];
-    if (order.to_street1) addressParts.push(order.to_street1);
-    if (order.to_street2) addressParts.push(order.to_street2);
-    addressParts.push(order.to_city + ", " + order.to_state + " " + order.to_zip);
-    const address = addressParts.join("\n");
-    const tn = order.tracking_number || "";
-    const text =
-      "A package was shipped to you via " + carrier + " and will be delivered to:\n\n" +
-      (order.to_name || "") + "\n" +
-      address + "\n\n" +
-      "Shipment Date: " + shipDate + "\n" +
-      "Mail Class: " + (order.mail_class || "") + "\n" +
-      "Tracking Number: " + tn + "\n\n" +
-      "Check the package status:\n" +
-      "https://track.erendirasboutique.com/?tracking=" + tn + "\n\n" +
-      "For questions about this package, please contact us or " + carrier + ".";
+    // Same text Scan & Send and Muse send (lib/shipNotice.ts).
+    const text = shippingNotice(order);
     navigator.clipboard.writeText(text);
     setMsg("Notification copied to clipboard.");
     setActionsOpen(false);

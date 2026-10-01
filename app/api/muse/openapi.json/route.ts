@@ -33,7 +33,7 @@ export async function GET(req: Request) {
             tracking_number: { type: "string" },
             tracking_link: { type: "string" },
             photo_url: { type: "string", description: "Public link to the photo of the packed package" },
-            message: { type: "string", description: "Bilingual (Spanish then English) message to send after the photo" },
+            message: { type: "string", description: "Shipping notification (carrier, address, ship date, mail class, tracking link) to send after the photo, exactly as written" },
             packed_at: { type: "string", format: "date-time" },
             already_sent: { type: "boolean" },
             sent_at: { type: "string", nullable: true },

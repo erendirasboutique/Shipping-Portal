@@ -6,7 +6,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { museAuthorized, museDenied } from "@/lib/museAuth";
-import { packageMessage, trackingLink } from "@/lib/notify";
+import { trackingLink } from "@/lib/notify";
+import { shippingNotice } from "@/lib/shipNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
   let q: any = supabaseAdmin()
     .from("shipping_orders")
     .select(
-      "id, order_number, to_name, to_city, to_state, carrier, mail_class, tracking_number, status, refund_status, package_photo_url, packed_at, customer_notified_at, notified_via, muse_status, muse_flag_reason, muse_queued_at"
+      "id, order_number, to_name, to_street1, to_street2, to_city, to_state, to_zip, created_at, carrier, mail_class, tracking_number, status, refund_status, package_photo_url, packed_at, customer_notified_at, notified_via, muse_status, muse_flag_reason, muse_queued_at"
     )
     .not("package_photo_url", "is", null)
     .not("tracking_number", "is", null)
@@ -54,7 +55,7 @@ export async function GET(req: Request) {
       tracking_number: o.tracking_number,
       tracking_link: trackingLink(o.tracking_number),
       photo_url: o.package_photo_url,
-      message: packageMessage(o.to_name, o.tracking_number),
+      message: shippingNotice(o),
       packed_at: o.packed_at,
       already_sent: !!o.customer_notified_at,
       sent_at: o.customer_notified_at,
