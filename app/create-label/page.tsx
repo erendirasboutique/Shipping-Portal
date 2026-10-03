@@ -284,6 +284,7 @@ function CreateLabelInner() {
   const [error, setError] = useState<string | null>(null);
   const [packageType, setPackageType] = useState<PackageType>("box");
   const ratesRef = useRef<HTMLElement>(null);
+  const providerBeforeEnvelope = useRef<typeof provider>("shippo");
 
   // When rates arrive, glide down to them.
   useEffect(() => {
@@ -387,6 +388,14 @@ function CreateLabelInner() {
 
   function choosePackage(type: PackageType) {
     setPackageType(type);
+    // Letter postage is only set up through EasyPost; switching back to the box
+    // restores whichever provider you had before.
+    if (type === "envelope" && packageType !== "envelope") {
+      providerBeforeEnvelope.current = provider;
+      setProvider("easypost");
+    } else if (type === "box" && packageType === "envelope") {
+      setProvider(providerBeforeEnvelope.current);
+    }
     setForm((f) => ({ ...f, ...(type === "envelope" ? ENVELOPE_10 : MY_BOX) }));
     setRates([]);
     setSelectedRate(null);
@@ -822,7 +831,7 @@ function CreateLabelInner() {
               >
                 {envelopeTooHeavy
                   ? `Over ${LETTER_MAX_OZ} oz — this won't get the letter rate. USPS prices it as a large envelope, or switch to your box.`
-                  : `Letter rate covers up to ${LETTER_MAX_OZ} oz and ¼″ thick. Letters don't include tracking.`}
+                  : `Letter rate covers up to ${LETTER_MAX_OZ} oz and ¼″ thick. Letters don't include tracking. Envelopes ship through EasyPost.`}
               </p>
             )}
 
