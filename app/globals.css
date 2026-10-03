@@ -2,9 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 /* Licensed brand fonts — files live in public/fonts/. Missing files fall back to Georgia. */
+/* Heading font */
 @font-face {
-  font-family: "La Luxes Serif";
-  src: url("/fonts/la-luxes-serif.woff2") format("woff2");
+  font-family: "Beyna Elavani";
+  src: url("/fonts/BeynaElavani-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
   font-display: swap;
 }
 /* Body text font */
@@ -23,7 +26,9 @@
   --c-sand: 207 189 169;    /* everything else  #cfbda9 */
   --c-ink: 51 43 35;        /* body text        #332b23 */
   --c-surface: 255 255 255; /* cards, inputs    white   */
-  --font-laluxes: "La Luxes Serif";
+  --font-heading: "Beyna Elavani", Georgia, serif;
+  /* Old name kept so anything in tailwind.config still pointing at it gets Beyna too */
+  --font-laluxes: var(--font-heading);
   --font-body: "Cooper Lt BT", Georgia, serif;
   /* Old name kept so anything in tailwind.config still pointing at it gets Cooper too */
   --font-recoleta: var(--font-body);
@@ -44,6 +49,7 @@
   }
   h1, h2, h3 {
     @apply font-heading text-taupe;
+    font-family: var(--font-heading);
   }
 }
 
