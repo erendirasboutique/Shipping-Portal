@@ -22,6 +22,12 @@ const ALLOWED = ["USPS", "UPS", "FedEx"];
 
 export const shippoProvider: ShippingProvider = {
   async getRates(input: ShipmentInput) {
+    // Envelope (#10 letter) postage is set up through EasyPost. Stop here with a
+    // clear message instead of quoting the envelope as a small box.
+    if ((input.parcel as { package_type?: string }).package_type === "envelope") {
+      throw new Error("Envelope #10 letters ship through EasyPost — switch the provider to EasyPost.");
+    }
+
     const from = shipFromAddress();
     const shipment = await shippo("/shipments/", {
       method: "POST",
