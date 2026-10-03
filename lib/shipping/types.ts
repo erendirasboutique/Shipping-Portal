@@ -9,12 +9,18 @@ export interface ToAddress {
   phone?: string;
   email?: string;
 }
+export type PackageType = "box" | "envelope";
 export interface ParcelInput {
   length: number;
   width: number;
   height: number;
   weight_lb: number;
   weight_oz: number;
+  /**
+   * "envelope" = #10 envelope shipped as a USPS First-Class letter
+   * (EasyPost only). Missing or "box" = a regular package.
+   */
+  package_type?: PackageType;
 }
 export interface ShipmentInput {
   to: ToAddress;
@@ -68,6 +74,9 @@ export interface ShippingProvider {
 }
 export function toOunces(p: ParcelInput) {
   return Number(p.weight_lb || 0) * 16 + Number(p.weight_oz || 0);
+}
+export function isEnvelope(p: ParcelInput) {
+  return p.package_type === "envelope";
 }
 export function shipFromAddress() {
   return {
