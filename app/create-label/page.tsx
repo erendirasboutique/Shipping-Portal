@@ -601,7 +601,7 @@ function CreateLabelInner() {
         <div className="space-y-5">
           {/* 1. Ship to */}
           <section className="card !rounded-[2rem]">
-            <SectionTitle n={1}>Ship to</SectionTitle>
+            <SectionTitle n={1}>Ship To:</SectionTitle>
 
             {form.customer_id && form.to_name ? (
               <div className="mt-5 flex items-center gap-4 rounded-2xl border border-taupe/20 bg-cream/60 px-4 py-3">
