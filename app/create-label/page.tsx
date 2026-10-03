@@ -28,7 +28,7 @@ const LETTER_MAX_OZ = 3.5;
 type PackageType = "box" | "envelope";
 
 const PACKAGES: { id: PackageType; name: string; size: string }[] = [
-  { id: "box", name: "My box", size: "14 × 17 × 1 in" },
+  { id: "box", name: "My Packaging", size: "14 × 17 × 1 in" },
   { id: "envelope", name: "Envelope #10", size: "9½ × 4⅛ in · letter" },
 ];
 
