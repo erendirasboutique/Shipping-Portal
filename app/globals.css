@@ -7,22 +7,12 @@
   src: url("/fonts/la-luxes-serif.woff2") format("woff2");
   font-display: swap;
 }
+/* Body text font */
 @font-face {
-  font-family: "Recoleta";
-  src: url("/fonts/recoleta-regular.woff2") format("woff2");
+  font-family: "Cooper Lt BT";
+  src: url("/fonts/CooperLtBT-Regular.ttf") format("truetype");
   font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Recoleta";
-  src: url("/fonts/recoleta-regular.woff2") format("woff2");
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Recoleta";
-  src: url("/fonts/recoleta-regular.woff2") format("woff2");
-  font-weight: 600;
+  font-style: normal;
   font-display: swap;
 }
 
@@ -34,7 +24,9 @@
   --c-ink: 51 43 35;        /* body text        #332b23 */
   --c-surface: 255 255 255; /* cards, inputs    white   */
   --font-laluxes: "La Luxes Serif";
-  --font-recoleta: "Recoleta";
+  --font-body: "Cooper Lt BT", Georgia, serif;
+  /* Old name kept so anything in tailwind.config still pointing at it gets Cooper too */
+  --font-recoleta: var(--font-body);
 }
 .dark {
   /* Warm brown night theme */
@@ -48,6 +40,7 @@
 @layer base {
   body {
     @apply bg-cream text-ink;
+    font-family: var(--font-body);
   }
   h1, h2, h3 {
     @apply font-heading text-taupe;
