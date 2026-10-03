@@ -49,10 +49,98 @@ function findDuplicates(customers: any[]): DupeGroup[] {
   });
 }
 
+/* ---------- Small presentational helpers ---------- */
+
+function initials(name?: string) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const first = parts[0][0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+const AVATAR_TINTS = [
+  "bg-sand/60 text-taupe",
+  "bg-rose-100 text-rose-800",
+  "bg-amber-100 text-amber-800",
+  "bg-emerald-100 text-emerald-800",
+  "bg-sky-100 text-sky-800",
+  "bg-violet-100 text-violet-800",
+];
+
+function avatarTint(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_TINTS[h % AVATAR_TINTS.length];
+}
+
+function Avatar({ name, id, size = "md" }: { name?: string; id?: string; size?: "sm" | "md" | "lg" }) {
+  const dims = size === "lg" ? "h-12 w-12 text-base" : size === "sm" ? "h-8 w-8 text-xs" : "h-10 w-10 text-sm";
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${dims} ${avatarTint(id || name || "")}`}>
+      {initials(name)}
+    </span>
+  );
+}
+
+function location(c: any) {
+  return [c.city, c.state].filter(Boolean).join(", ");
+}
+
+function statusTone(status?: string) {
+  const s = (status || "").toLowerCase();
+  if (s.includes("deliver")) return "bg-emerald-100 text-emerald-800";
+  if (s.includes("ship") || s.includes("transit")) return "bg-sky-100 text-sky-800";
+  if (s.includes("cancel") || s.includes("void") || s.includes("return")) return "bg-rose-100 text-rose-800";
+  if (s.includes("label") || s.includes("pending") || s.includes("new")) return "bg-amber-100 text-amber-800";
+  return "bg-sand/40 text-taupe";
+}
+
+const Icon = {
+  search: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <circle cx="9" cy="9" r="6" /><path d="m14 14 4 4" strokeLinecap="round" />
+    </svg>
+  ),
+  close: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="M5 5l10 10M15 5 5 15" strokeLinecap="round" />
+    </svg>
+  ),
+  chevron: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="m8 5 5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  upload: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="M10 13V3m0 0L6 7m4-4 4 4M4 13v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  plus: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+      <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+    </svg>
+  ),
+  people: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-8 w-8">
+      <circle cx="9" cy="8" r="3.5" /><path d="M2.5 19c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5" strokeLinecap="round" />
+      <circle cx="17" cy="9" r="2.5" /><path d="M16 14.2c2.6.2 4.6 1.8 5.3 4.3" strokeLinecap="round" />
+    </svg>
+  ),
+};
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink/45">{children}</p>;
+}
+
+/* ---------- Page ---------- */
+
 export default function CustomersPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<any | null>(null); // customer object or {...empty} for new
   const [showMerge, setShowMerge] = useState(false);
@@ -76,11 +164,23 @@ export default function CustomersPage() {
         .range(from, to)
     ).catch(() => [] as any[]);
     setCustomers(data);
+    setLoaded(true);
   }
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Close whichever modal is open with Escape
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (editing) { setEditing(null); setLinkCopied(false); }
+      else if (showMerge) { setShowMerge(false); setMergeGroup(null); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing, showMerge]);
 
   const shown = customers.filter((c) => {
     if (!q.trim()) return true;
@@ -128,6 +228,11 @@ export default function CustomersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing?.id]);
 
+  function closeEditor() {
+    setEditing(null);
+    setLinkCopied(false);
+  }
+
   function copyPortalLink() {
     if (!editing?.portal_token) return;
     navigator.clipboard.writeText("https://my.erendirasboutique.com/account?t=" + editing.portal_token);
@@ -159,7 +264,8 @@ export default function CustomersPage() {
     setEditing(null);
     load();
   }
-function importCsv(file: File) {
+
+  function importCsv(file: File) {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -231,139 +337,287 @@ function importCsv(file: File) {
     load();
   }
 
+  const searching = q.trim().length > 0;
+
   return (
     <Shell>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl">Customers</h1>
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl">Customers</h1>
+          <p className="mt-1 text-sm text-ink/55">
+            {loaded
+              ? `${customers.length.toLocaleString()} customer${customers.length === 1 ? "" : "s"} in your directory`
+              : "Loading your directory…"}
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden"
-            onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])} />
-          <button onClick={() => fileRef.current?.click()} className="btn-secondary">Import CSV</button>
-          <button onClick={() => setShowMerge(true)} className="btn-secondary">
-            Find duplicates{dupes.length ? ` (${dupes.length})` : ""}
+            onChange={(e) => { if (e.target.files?.[0]) importCsv(e.target.files[0]); e.target.value = ""; }} />
+          <button onClick={() => fileRef.current?.click()} disabled={busy} className="btn-secondary inline-flex items-center gap-2">
+            {Icon.upload} Import CSV
           </button>
-          <button onClick={() => setEditing({ ...empty })} className="btn-primary">Add customer</button>
+          <button onClick={() => setShowMerge(true)} className="btn-secondary inline-flex items-center gap-2">
+            Find duplicates
+            {dupes.length > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{dupes.length}</span>
+            )}
+          </button>
+          <button onClick={() => setEditing({ ...empty })} className="btn-primary inline-flex items-center gap-2">
+            {Icon.plus} Add customer
+          </button>
         </div>
       </div>
 
-      {msg && <p className="mt-4 cursor-pointer rounded-xl bg-sand/30 px-4 py-3 text-sm text-taupe" onClick={() => setMsg(null)}>{msg}</p>}
+      {/* Flash message */}
+      {msg && (
+        <div className="mt-5 flex items-start justify-between gap-3 rounded-xl border border-sand/70 bg-sand/25 px-4 py-3 text-sm text-taupe">
+          <span>{msg}</span>
+          <button onClick={() => setMsg(null)} aria-label="Dismiss" className="shrink-0 rounded-md p-0.5 text-taupe/70 hover:bg-sand/50 hover:text-taupe">
+            {Icon.close}
+          </button>
+        </div>
+      )}
 
-      <input className="input mt-6 max-w-md" placeholder="Search customers…" value={q} onChange={(e) => setQ(e.target.value)} />
+      {/* Search */}
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-md">
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40">{Icon.search}</span>
+          <input
+            className="input !pl-10 !pr-9"
+            placeholder="Search by name, email, phone, city or ZIP"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {searching && (
+            <button onClick={() => setQ("")} aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink/40 hover:bg-sand/40 hover:text-ink/70">
+              {Icon.close}
+            </button>
+          )}
+        </div>
+        {searching && loaded && (
+          <span className="text-sm text-ink/55">{shown.length.toLocaleString()} match{shown.length === 1 ? "" : "es"}</span>
+        )}
+      </div>
 
-      <div className="card mt-4 overflow-x-auto !p-0">
-        <table className="w-full min-w-[640px]">
-          <thead className="border-b border-sand/60">
-            <tr>
-              <th className="table-th">Name</th>
-              <th className="table-th">Email</th>
-              <th className="table-th">Phone</th>
-              <th className="table-th">City</th>
-              <th className="table-th">ZIP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((c) => (
-              <tr key={c.id} onClick={() => setEditing(c)} className="cursor-pointer border-b border-sand/30 last:border-0 hover:bg-sand/15">
-                <td className="table-td font-medium">{c.name}</td>
-                <td className="table-td">{c.email || "—"}</td>
-                <td className="table-td">{c.phone || "—"}</td>
-                <td className="table-td">{[c.city, c.state].filter(Boolean).join(", ") || "—"}</td>
-                <td className="table-td">{c.zip || "—"}</td>
-              </tr>
+      {/* Directory */}
+      <div className="card mt-4 overflow-hidden !p-0">
+        {!loaded ? (
+          <ul className="divide-y divide-sand/30">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <li key={i} className="flex animate-pulse items-center gap-3 px-5 py-4">
+                <span className="h-10 w-10 rounded-full bg-sand/40" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-40 rounded bg-sand/50" />
+                  <div className="h-3 w-56 rounded bg-sand/30" />
+                </div>
+              </li>
             ))}
-            {!shown.length && (
-              <tr><td colSpan={5} className="table-td py-10 text-center text-ink/50">No customers yet. Add one or import a CSV.</td></tr>
+          </ul>
+        ) : !shown.length ? (
+          <div className="flex flex-col items-center px-6 py-16 text-center">
+            <span className="text-ink/30">{Icon.people}</span>
+            {searching ? (
+              <>
+                <p className="mt-3 font-medium">No customers match “{q.trim()}”</p>
+                <button onClick={() => setQ("")} className="mt-3 text-sm text-taupe underline underline-offset-2">Clear search</button>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 font-medium">No customers yet</p>
+                <p className="mt-1 text-sm text-ink/55">Add your first customer or import a CSV to get started.</p>
+                <div className="mt-5 flex gap-2">
+                  <button onClick={() => fileRef.current?.click()} className="btn-secondary">Import CSV</button>
+                  <button onClick={() => setEditing({ ...empty })} className="btn-primary">Add customer</button>
+                </div>
+              </>
             )}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <table className="hidden w-full md:table">
+              <thead className="border-b border-sand/60 bg-sand/10">
+                <tr>
+                  <th className="table-th">Customer</th>
+                  <th className="table-th">Phone</th>
+                  <th className="table-th">Location</th>
+                  <th className="table-th">ZIP</th>
+                  <th className="table-th w-10" />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((c) => (
+                  <tr key={c.id} onClick={() => setEditing(c)}
+                    className="group cursor-pointer border-b border-sand/30 transition-colors last:border-0 hover:bg-sand/15">
+                    <td className="table-td">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={c.name} id={c.id} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{c.name}</p>
+                          <p className="truncate text-sm text-ink/55">{c.email || <span className="text-ink/35">No email</span>}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="table-td whitespace-nowrap tabular-nums">{c.phone || <span className="text-ink/35">—</span>}</td>
+                    <td className="table-td">{location(c) || <span className="text-ink/35">—</span>}</td>
+                    <td className="table-td tabular-nums">{c.zip || <span className="text-ink/35">—</span>}</td>
+                    <td className="table-td text-ink/25 transition-colors group-hover:text-taupe">{Icon.chevron}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile list */}
+            <ul className="divide-y divide-sand/30 md:hidden">
+              {shown.map((c) => (
+                <li key={c.id}>
+                  <button onClick={() => setEditing(c)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-sand/15">
+                    <Avatar name={c.name} id={c.id} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{c.name}</p>
+                      <p className="truncate text-sm text-ink/55">
+                        {[c.email, location(c)].filter(Boolean).join(" · ") || "No contact info"}
+                      </p>
+                    </div>
+                    <span className="text-ink/25">{Icon.chevron}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
 
       {/* Add/Edit modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => { setEditing(null); setLinkCopied(false); }}>
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-cream p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl">{editing.id ? "Edit customer" : "Add customer"}</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2"><label className="label">Name</label>
-                <input className="input" value={editing.name || ""} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></div>
-              <div><label className="label">Email</label>
-                <input className="input" value={editing.email || ""} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></div>
-              <div><label className="label">Phone</label>
-                <input className="input" value={editing.phone || ""} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} /></div>
-              <div className="sm:col-span-2"><label className="label">Street</label>
-                <AddressAutocomplete
-                  value={editing.street1 || ""}
-                  placeholder="Start typing an address"
-                  onChange={(v) => setEditing((cur: any) => ({ ...cur, street1: v }))}
-                  onSelect={(a) => {
-                    setEditing((cur: any) => ({
-                      ...cur,
-                      street1: a.street1,
-                      street2: a.street2 || cur.street2,
-                      city: a.city,
-                      state: a.state,
-                      zip: a.zip,
-                      country: "US",
-                    }));
-                    setTimeout(function () { var el = document.getElementById("cust_street2"); if (el) el.focus(); }, 0);
-                  }}
-                /></div>
-              <div className="sm:col-span-2"><label className="label">Apt / Suite</label>
-                <input id="cust_street2" className="input" value={editing.street2 || ""} onChange={(e) => setEditing({ ...editing, street2: e.target.value })} /></div>
-              <div><label className="label">City</label>
-                <input className="input" value={editing.city || ""} onChange={(e) => setEditing({ ...editing, city: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="label">State</label>
-                  <input className="input" maxLength={2} value={editing.state || ""} onChange={(e) => setEditing({ ...editing, state: e.target.value.toUpperCase() })} /></div>
-                <div><label className="label">ZIP</label>
-                  <input className="input" value={editing.zip || ""} onChange={(e) => setEditing({ ...editing, zip: e.target.value })} /></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]" onClick={closeEditor}>
+          <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-cream shadow-xl" onClick={(e) => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="flex items-center gap-3 border-b border-sand/50 px-6 py-4">
+              {editing.id ? <Avatar name={editing.name} id={editing.id} size="lg" /> : null}
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-2xl">{editing.id ? editing.name || "Edit customer" : "Add customer"}</h2>
+                {editing.id && (
+                  <p className="truncate text-sm text-ink/55">{[editing.email, location(editing)].filter(Boolean).join(" · ") || "Edit details below"}</p>
+                )}
               </div>
-              <div className="sm:col-span-2"><label className="label">Notes</label>
-                <textarea className="input" rows={2} value={editing.notes || ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} /></div>
+              <button onClick={closeEditor} aria-label="Close" className="rounded-lg p-1.5 text-ink/50 hover:bg-sand/40 hover:text-ink">
+                {Icon.close}
+              </button>
             </div>
 
-            {editing.id && (
-              <div className="mt-5">
-                <p className="label">Orders{!ordersLoading && customerOrders.length ? ` (${customerOrders.length})` : ""}</p>
-                {ordersLoading && <p className="mt-1 text-sm text-ink/50">Looking up orders…</p>}
-                {!ordersLoading && !customerOrders.length && (
-                  <p className="mt-1 text-sm text-ink/50">No orders found for this customer yet.</p>
-                )}
-                {!ordersLoading && customerOrders.length > 0 && (
-                  <div className="mt-1 max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                    {customerOrders.map((o) => (
-                      <a
-                        key={o.id}
-                        href={"/orders/" + o.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-sand bg-white px-3.5 py-2.5 text-sm hover:bg-sand/20"
-                      >
-                        <span className="font-medium">
-                          {o.order_number != null ? "#EB-" + o.order_number : "#" + String(o.id).slice(0, 8).toUpperCase()}
-                        </span>
-                        <span className="text-ink/60">
-                          {new Date(o.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          {o.carrier ? " · " + o.carrier : ""}
-                        </span>
-                        <span className="pill bg-sand/40 text-taupe">{o.status}</span>
-                      </a>
-                    ))}
+            {/* Modal body */}
+            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+              <section>
+                <SectionTitle>Contact</SectionTitle>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2"><label className="label">Name</label>
+                    <input className="input" autoFocus={!editing.id} value={editing.name || ""} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></div>
+                  <div><label className="label">Email</label>
+                    <input className="input" type="email" value={editing.email || ""} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /></div>
+                  <div><label className="label">Phone</label>
+                    <input className="input" type="tel" value={editing.phone || ""} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} /></div>
+                </div>
+              </section>
+
+              <section>
+                <SectionTitle>Shipping address</SectionTitle>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2"><label className="label">Street</label>
+                    <AddressAutocomplete
+                      value={editing.street1 || ""}
+                      placeholder="Start typing an address"
+                      onChange={(v) => setEditing((cur: any) => ({ ...cur, street1: v }))}
+                      onSelect={(a) => {
+                        setEditing((cur: any) => ({
+                          ...cur,
+                          street1: a.street1,
+                          street2: a.street2 || cur.street2,
+                          city: a.city,
+                          state: a.state,
+                          zip: a.zip,
+                          country: "US",
+                        }));
+                        setTimeout(function () { var el = document.getElementById("cust_street2"); if (el) el.focus(); }, 0);
+                      }}
+                    /></div>
+                  <div className="sm:col-span-2"><label className="label">Apt / Suite <span className="font-normal text-ink/40">(optional)</span></label>
+                    <input id="cust_street2" className="input" value={editing.street2 || ""} onChange={(e) => setEditing({ ...editing, street2: e.target.value })} /></div>
+                  <div><label className="label">City</label>
+                    <input className="input" value={editing.city || ""} onChange={(e) => setEditing({ ...editing, city: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="label">State</label>
+                      <input className="input uppercase" maxLength={2} value={editing.state || ""} onChange={(e) => setEditing({ ...editing, state: e.target.value.toUpperCase() })} /></div>
+                    <div><label className="label">ZIP</label>
+                      <input className="input" inputMode="numeric" value={editing.zip || ""} onChange={(e) => setEditing({ ...editing, zip: e.target.value })} /></div>
                   </div>
-                )}
-              </div>
-            )}
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <button onClick={save} disabled={busy} className="btn-primary">{busy ? "Saving…" : "Save customer"}</button>
-              <button onClick={() => { setEditing(null); setLinkCopied(false); }} className="btn-secondary">Cancel</button>
-              {editing.id && editing.portal_token && (
-                <button onClick={copyPortalLink} className="btn-secondary ml-auto">
-                  {linkCopied ? "Copied!" : "Copy portal link"}
-                </button>
-              )}
+                </div>
+              </section>
+
+              <section>
+                <SectionTitle>Notes</SectionTitle>
+                <textarea className="input" rows={2} placeholder="Gift wrap preferences, sizing, anything worth remembering…"
+                  value={editing.notes || ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} />
+              </section>
+
               {editing.id && (
-                <button onClick={deleteCustomer} disabled={busy} className={`btn-secondary border-red-400/50 text-red-700 hover:bg-red-50 ${editing.portal_token ? "" : "ml-auto"}`}>
-                  {busy ? "…" : "Delete"}
+                <section>
+                  <SectionTitle>
+                    Orders{!ordersLoading && customerOrders.length ? ` · ${customerOrders.length}` : ""}
+                  </SectionTitle>
+                  {ordersLoading && (
+                    <div className="space-y-1.5">
+                      {[0, 1].map((i) => <div key={i} className="h-11 animate-pulse rounded-xl bg-sand/30" />)}
+                    </div>
+                  )}
+                  {!ordersLoading && !customerOrders.length && (
+                    <p className="rounded-xl border border-dashed border-sand px-4 py-4 text-center text-sm text-ink/50">
+                      No orders found for this customer yet.
+                    </p>
+                  )}
+                  {!ordersLoading && customerOrders.length > 0 && (
+                    <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                      {customerOrders.map((o) => (
+                        <a
+                          key={o.id}
+                          href={"/orders/" + o.id}
+                          className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-sand bg-white px-3.5 py-2.5 text-sm transition-colors hover:border-taupe/40 hover:bg-sand/10"
+                        >
+                          <span className="font-medium tabular-nums">
+                            {o.order_number != null ? "#EB-" + o.order_number : "#" + String(o.id).slice(0, 8).toUpperCase()}
+                          </span>
+                          <span className="truncate text-ink/55">
+                            {new Date(o.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            {o.carrier ? " · " + o.carrier : ""}
+                          </span>
+                          <span className={`pill capitalize ${statusTone(o.status)}`}>{String(o.status || "").replace(/_/g, " ")}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex flex-wrap items-center gap-2 border-t border-sand/50 bg-cream px-6 py-4">
+              {editing.id && (
+                <button onClick={deleteCustomer} disabled={busy}
+                  className="rounded-xl px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50">
+                  Delete
                 </button>
               )}
+              {editing.id && editing.portal_token && (
+                <button onClick={copyPortalLink} className="rounded-xl px-3 py-2 text-sm font-medium text-taupe hover:bg-sand/40">
+                  {linkCopied ? "✓ Link copied" : "Copy portal link"}
+                </button>
+              )}
+              <div className="ml-auto flex gap-2">
+                <button onClick={closeEditor} className="btn-secondary">Cancel</button>
+                <button onClick={save} disabled={busy} className="btn-primary">{busy ? "Saving…" : editing.id ? "Save changes" : "Add customer"}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -371,47 +625,88 @@ function importCsv(file: File) {
 
       {/* Merge modal */}
       {showMerge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => { setShowMerge(false); setMergeGroup(null); }}>
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-cream p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl">Merge duplicates</h2>
-            {!mergeGroup ? (
-              <>
-                <p className="mt-2 text-sm text-ink/70">
-                  Possible duplicates found by matching email, phone, name + ZIP, or address.
-                  Merged duplicates are archived — never deleted — and their orders move to the main customer.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-[2px]" onClick={() => { setShowMerge(false); setMergeGroup(null); }}>
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-cream shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 border-b border-sand/50 px-6 py-4">
+              {mergeGroup && (
+                <button onClick={() => setMergeGroup(null)} aria-label="Back" className="rounded-lg p-1.5 text-ink/50 hover:bg-sand/40 hover:text-ink">
+                  <span className="block rotate-180">{Icon.chevron}</span>
+                </button>
+              )}
+              <div className="flex-1">
+                <h2 className="text-2xl">{mergeGroup ? "Pick the main record" : "Merge duplicates"}</h2>
+                <p className="text-sm text-ink/55">
+                  {mergeGroup
+                    ? "The others are archived and their orders move to the one you keep."
+                    : `${dupes.length} possible duplicate group${dupes.length === 1 ? "" : "s"}`}
                 </p>
-                <div className="mt-4 space-y-3">
-                  {dupes.map((g) => (
-                    <button key={g.key} onClick={() => { setMergeGroup(g); setPrimaryId(g.customers[0].id); }}
-                      className="block w-full rounded-xl border border-sand bg-white p-4 text-left hover:bg-sand/20">
-                      <p className="pill bg-sand/40 text-taupe">{g.reason}</p>
-                      <p className="mt-2 text-sm">{g.customers.map((c) => c.name).join("  ·  ")}</p>
-                    </button>
-                  ))}
-                  {!dupes.length && <p className="text-sm text-ink/60">No duplicates detected. Nice and tidy.</p>}
+              </div>
+              <button onClick={() => { setShowMerge(false); setMergeGroup(null); }} aria-label="Close" className="rounded-lg p-1.5 text-ink/50 hover:bg-sand/40 hover:text-ink">
+                {Icon.close}
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {!mergeGroup ? (
+                <>
+                  <p className="text-sm text-ink/65">
+                    Matched by email, phone, name + ZIP, or address. Merged duplicates are archived — never deleted.
+                  </p>
+                  <div className="mt-4 space-y-2.5">
+                    {dupes.map((g) => (
+                      <button key={g.key} onClick={() => { setMergeGroup(g); setPrimaryId(g.customers[0].id); }}
+                        className="group flex w-full items-center gap-4 rounded-xl border border-sand bg-white p-4 text-left transition-colors hover:border-taupe/40 hover:bg-sand/10">
+                        <div className="flex -space-x-2">
+                          {g.customers.slice(0, 3).map((c) => (
+                            <span key={c.id} className="rounded-full ring-2 ring-white"><Avatar name={c.name} id={c.id} size="sm" /></span>
+                          ))}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{g.customers.map((c) => c.name).join("  ·  ")}</p>
+                          <span className="pill mt-1 inline-block bg-amber-100 text-amber-800">{g.reason}</span>
+                        </div>
+                        <span className="text-ink/25 group-hover:text-taupe">{Icon.chevron}</span>
+                      </button>
+                    ))}
+                    {!dupes.length && (
+                      <div className="rounded-xl border border-dashed border-sand px-4 py-10 text-center">
+                        <p className="font-medium">No duplicates detected</p>
+                        <p className="mt-1 text-sm text-ink/55">Nice and tidy.</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  {mergeGroup.customers.map((c) => {
+                    const selected = primaryId === c.id;
+                    return (
+                      <label key={c.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${selected ? "border-taupe bg-sand/20 ring-1 ring-taupe/30" : "border-sand bg-white hover:bg-sand/10"}`}>
+                        <input type="radio" className="mt-3 accent-taupe" checked={selected} onChange={() => setPrimaryId(c.id)} />
+                        <Avatar name={c.name} id={c.id} />
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-2 font-medium">
+                            {c.name}
+                            {selected && <span className="pill bg-taupe text-cream">Keep</span>}
+                          </p>
+                          <p className="text-sm text-ink/60">{[c.email, c.phone].filter(Boolean).join(" · ") || "No contact info"}</p>
+                          <p className="text-sm text-ink/60">{[c.street1, c.city, c.state, c.zip].filter(Boolean).join(", ") || "No address"}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
-              </>
-            ) : (
-              <>
-                <p className="mt-2 text-sm text-ink/70">Choose which record to keep as the main customer:</p>
-                <div className="mt-4 space-y-2">
-                  {mergeGroup.customers.map((c) => (
-                    <label key={c.id} className={`block cursor-pointer rounded-xl border p-4 ${primaryId === c.id ? "border-taupe bg-sand/20" : "border-sand bg-white"}`}>
-                      <input type="radio" className="mr-2 accent-taupe" checked={primaryId === c.id} onChange={() => setPrimaryId(c.id)} />
-                      <span className="font-medium">{c.name}</span>
-                      <span className="ml-2 text-sm text-ink/60">
-                        {[c.email, c.phone, [c.street1, c.city, c.state, c.zip].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-5 flex gap-2">
-                  <button onClick={merge} disabled={busy} className="btn-primary">
-                    {busy ? "Merging…" : "Merge into selected"}
-                  </button>
-                  <button onClick={() => setMergeGroup(null)} className="btn-secondary">Back</button>
-                </div>
-              </>
+              )}
+            </div>
+
+            {mergeGroup && (
+              <div className="flex justify-end gap-2 border-t border-sand/50 px-6 py-4">
+                <button onClick={() => setMergeGroup(null)} className="btn-secondary">Back</button>
+                <button onClick={merge} disabled={busy} className="btn-primary">
+                  {busy ? "Merging…" : `Merge ${mergeGroup.customers.length - 1} into selected`}
+                </button>
+              </div>
             )}
           </div>
         </div>
