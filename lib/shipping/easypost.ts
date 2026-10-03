@@ -21,20 +21,33 @@ const ALLOWED = ["USPS", "UPS", "UPSDAP", "FedEx", "FedExDefault"];
 const cleanCarrier = (c: string) =>
   c.startsWith("UPS") ? "UPS" : c.startsWith("FedEx") ? "FedEx" : c;
 
+// The create-label page sends package_type: "envelope" for a #10 envelope.
+const isEnvelope = (input: ShipmentInput) =>
+  (input.parcel as { package_type?: string }).package_type === "envelope";
+
 export const easypost: ShippingProvider = {
   async getRates(input: ShipmentInput) {
+    const envelope = isEnvelope(input);
+
     const shipment = await ep("/shipments", {
       method: "POST",
       body: JSON.stringify({
         shipment: {
           to_address: { ...input.to, country: input.to.country || "US" },
           from_address: shipFromAddress(),
-          parcel: {
-            length: input.parcel.length,
-            width: input.parcel.width,
-            height: input.parcel.height,
-            weight: toOunces(input.parcel),
-          },
+          parcel: envelope
+            ? {
+                // USPS First-Class letter: EasyPost uses its own letter
+                // dimensions, so only the weight (in ounces) is sent.
+                predefined_package: "Letter",
+                weight: toOunces(input.parcel),
+              }
+            : {
+                length: input.parcel.length,
+                width: input.parcel.width,
+                height: input.parcel.height,
+                weight: toOunces(input.parcel),
+              },
           options: {
             label_format: "PDF",
             label_size: "4x6",
@@ -47,7 +60,8 @@ export const easypost: ShippingProvider = {
     return {
       shipmentRef: shipment.id,
       rates: (shipment.rates || [])
-        .filter((r: any) => ALLOWED.includes(r.carrier))
+        // Letters only go by USPS.
+        .filter((r: any) => (envelope ? r.carrier === "USPS" : ALLOWED.includes(r.carrier)))
         .sort((a: any, b: any) => Number(a.rate) - Number(b.rate))
         .map((r: any) => ({
           id: r.id,
