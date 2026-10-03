@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -19,6 +19,18 @@ type Rate = {
 
 // Your everyday package. New labels start with this size.
 const MY_BOX = { length: 14, width: 17, height: 1 };
+
+// Standard #10 business envelope (9½ × 4⅛ in). Ships as a USPS letter.
+const ENVELOPE_10 = { length: 9.5, width: 4.125, height: 0.25 };
+// USPS letter-rate limit; heavier envelopes are priced as flats.
+const LETTER_MAX_OZ = 3.5;
+
+type PackageType = "box" | "envelope";
+
+const PACKAGES: { id: PackageType; name: string; size: string }[] = [
+  { id: "box", name: "My box", size: "14 × 17 × 1 in" },
+  { id: "envelope", name: "Envelope #10", size: "9½ × 4⅛ in · letter" },
+];
 
 // Shown in the "From" corner of the label preview. Edit to match your return address.
 const FROM_LINES = ["ERENDIRA'S BOUTIQUE"];
@@ -105,11 +117,14 @@ function LabelPreview({
   form,
   rate,
   signature,
+  envelope,
 }: {
   form: typeof emptyForm;
   rate: Rate | null;
   signature: boolean;
+  envelope: boolean;
 }) {
+  if (envelope) return <EnvelopePreview form={form} rate={rate} />;
   const weight = formatWeight(form.weight_lb, form.weight_oz);
   const hasAddress = !!(form.to_name || form.to_street1);
   const cityLine = [form.to_city, [form.to_state, form.to_zip].filter(Boolean).join(" ")]
@@ -201,6 +216,52 @@ function LabelPreview({
   );
 }
 
+/* ---------- Envelope preview (#10, label printed on the envelope) ---------- */
+
+function EnvelopePreview({ form, rate }: { form: typeof emptyForm; rate: Rate | null }) {
+  const hasAddress = !!(form.to_name || form.to_street1);
+  const cityLine = [form.to_city, [form.to_state, form.to_zip].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div className="relative aspect-[9.5/4.125] w-full overflow-hidden rounded-sm bg-[#fdfbf7] shadow-[0_1px_2px_rgba(0,0,0,.06),0_12px_30px_-8px_rgba(80,60,40,.25)] ring-1 ring-ink/10">
+      <div className="flex h-full flex-col p-3 font-mono text-[9px] uppercase leading-snug text-ink">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            {FROM_LINES.map((l) => (
+              <div key={l}>{l}</div>
+            ))}
+          </div>
+          <div className="flex h-11 w-16 flex-col items-center justify-center border border-ink/60 text-center text-[7px] leading-tight">
+            <span className="font-sans font-bold">{rate ? "USPS" : "POSTAGE"}</span>
+            <span>{rate ? `$${rate.rate}` : "AFTER RATE"}</span>
+          </div>
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          {hasAddress ? (
+            <div className="text-[11px] font-semibold leading-[1.35]">
+              <div>{form.to_name}</div>
+              {form.to_street1 && <div>{form.to_street1}</div>}
+              {form.to_street2 && <div>{form.to_street2}</div>}
+              {cityLine && <div>{cityLine}</div>}
+            </div>
+          ) : (
+            <div className="w-1/2 space-y-1.5">
+              <div className="h-2 w-3/5 rounded bg-ink/10" />
+              <div className="h-2 w-4/5 rounded bg-ink/10" />
+              <div className="h-2 w-2/3 rounded bg-ink/10" />
+            </div>
+          )}
+        </div>
+        <div className="flex items-end justify-between text-[8px] text-ink/50">
+          <span>{form.reference ? `Ref ${form.reference}` : ""}</span>
+          <span>First-Class letter · no tracking</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Page ---------- */
 
 function CreateLabelInner() {
@@ -221,6 +282,16 @@ function CreateLabelInner() {
   const [oneClick, setOneClick] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [packageType, setPackageType] = useState<PackageType>("box");
+  const ratesRef = useRef<HTMLElement>(null);
+
+  // When rates arrive, glide down to them.
+  useEffect(() => {
+    if (!rates.length) return;
+    requestAnimationFrame(() =>
+      ratesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    );
+  }, [rates]);
 
   useEffect(() => {
     if (!draftId) return;
@@ -252,6 +323,13 @@ function CreateLabelInner() {
             data.reference ??
             (data.order_number != null ? `EB-${data.order_number}` : ""),
         });
+        // A draft saved with envelope dimensions reopens as an envelope.
+        if (
+          Number(data.length) === ENVELOPE_10.length &&
+          Number(data.width) === ENVELOPE_10.width
+        ) {
+          setPackageType("envelope");
+        }
       }
     })();
   }, [draftId, supabase]);
@@ -303,6 +381,13 @@ function CreateLabelInner() {
 
   function resetToMyBox() {
     setForm((f) => ({ ...f, ...MY_BOX }));
+    setRates([]);
+    setSelectedRate(null);
+  }
+
+  function choosePackage(type: PackageType) {
+    setPackageType(type);
+    setForm((f) => ({ ...f, ...(type === "envelope" ? ENVELOPE_10 : MY_BOX) }));
     setRates([]);
     setSelectedRate(null);
   }
@@ -378,6 +463,10 @@ function CreateLabelInner() {
             height: toNum(form.height),
             weight_lb: toNum(form.weight_lb),
             weight_oz: toNum(form.weight_oz),
+            // Tells /api/rates to ask the carrier for letter (envelope) rates.
+            // EasyPost calls this predefined_package: "Letter".
+            package_type: packageType,
+            ...(packageType === "envelope" ? { predefined_package: "Letter" } : {}),
           },
           signature: form.signature_confirmation,
           reference: form.reference || undefined,
@@ -464,10 +553,13 @@ function CreateLabelInner() {
   // What the preview shows: the picked rate, otherwise the cheapest one.
   const previewRate = selectedRate ?? sortedRates[0] ?? null;
 
+  const isEnvelope = packageType === "envelope";
   const isMyBox =
     toNum(form.length) === MY_BOX.length &&
     toNum(form.width) === MY_BOX.width &&
     toNum(form.height) === MY_BOX.height;
+  const totalOz = toNum(form.weight_lb) * 16 + toNum(form.weight_oz);
+  const envelopeTooHeavy = isEnvelope && totalOz > LETTER_MAX_OZ;
 
   const addressSummary = [
     form.to_street1,
@@ -657,39 +749,61 @@ function CreateLabelInner() {
           <section className="card !rounded-[2rem]">
             <SectionTitle n={2}>Package</SectionTitle>
 
-            <div
-              className={`mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 px-5 py-4 ${
-                isMyBox ? "border-taupe/60 bg-cream/60" : "border-sand bg-white"
-              }`}
-            >
-              <div>
-                <p className="font-semibold">{isMyBox ? "My box" : "Custom size"}</p>
-                <p className="text-sm text-ink/60">
-                  {toNum(form.length)} × {toNum(form.width)} × {toNum(form.height)} in
-                </p>
-              </div>
-              {isMyBox ? (
-                <span className="rounded-full bg-taupe/10 px-3 py-1 text-xs font-medium text-taupe">Default</span>
-              ) : (
-                <button onClick={resetToMyBox} className="text-sm text-taupe underline underline-offset-2">
-                  Reset to my box (14 × 17 × 1)
-                </button>
-              )}
+            {/* Package type */}
+            <div className="mt-5 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Package type">
+              {PACKAGES.map((p) => {
+                const active = packageType === p.id;
+                const label = p.id === "box" && active && !isMyBox ? "Custom box" : p.name;
+                return (
+                  <button
+                    key={p.id}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => choosePackage(p.id)}
+                    className={`rounded-2xl border-2 px-4 py-3.5 text-left transition-colors ${
+                      active ? "border-taupe/70 bg-cream/70" : "border-taupe/15 bg-white hover:border-taupe/40"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">{label}</span>
+                      <span
+                        className={`h-4 w-4 shrink-0 rounded-full border-2 ${
+                          active ? "border-taupe bg-taupe shadow-[inset_0_0_0_2px_#fff]" : "border-taupe/30"
+                        }`}
+                      />
+                    </span>
+                    <span className="mt-0.5 block text-sm text-ink/60">
+                      {p.id === "box" && active && !isMyBox
+                        ? `${toNum(form.length)} × ${toNum(form.width)} × ${toNum(form.height)} in`
+                        : p.size}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+            {packageType === "box" && !isMyBox && (
+              <button onClick={resetToMyBox} className="mt-2 text-sm text-taupe underline underline-offset-2">
+                Reset to my box (14 × 17 × 1)
+              </button>
+            )}
 
-            <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-5">
-              <div>
-                <label className="label">Length</label>
-                <input type="number" className="input text-center" value={form.length} onChange={(e) => set("length", Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="label">Width</label>
-                <input type="number" className="input text-center" value={form.width} onChange={(e) => set("width", Number(e.target.value))} />
-              </div>
-              <div>
-                <label className="label">Height</label>
-                <input type="number" className="input text-center" value={form.height} onChange={(e) => set("height", Number(e.target.value))} />
-              </div>
+            <div className={`mt-5 grid gap-3 ${isEnvelope ? "grid-cols-2" : "grid-cols-3 sm:grid-cols-5"}`}>
+              {!isEnvelope && (
+                <>
+                  <div>
+                    <label className="label">Length</label>
+                    <input type="number" className="input text-center" value={form.length} onChange={(e) => set("length", Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label">Width</label>
+                    <input type="number" className="input text-center" value={form.width} onChange={(e) => set("width", Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label">Height</label>
+                    <input type="number" className="input text-center" value={form.height} onChange={(e) => set("height", Number(e.target.value))} />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="label">Pounds</label>
                 <input type="number" min={0} className="input text-center" value={form.weight_lb} onChange={(e) => set("weight_lb", Number(e.target.value))} />
@@ -699,6 +813,18 @@ function CreateLabelInner() {
                 <input type="number" min={0} step={0.1} className="input text-center" value={form.weight_oz} onChange={(e) => set("weight_oz", Number(e.target.value))} />
               </div>
             </div>
+
+            {isEnvelope && (
+              <p
+                className={`mt-3 rounded-2xl px-4 py-3 text-sm ${
+                  envelopeTooHeavy ? "bg-amber-50 text-amber-900" : "bg-cream/70 text-ink/70"
+                }`}
+              >
+                {envelopeTooHeavy
+                  ? `Over ${LETTER_MAX_OZ} oz — this won't get the letter rate. USPS prices it as a large envelope, or switch to your box.`
+                  : `Letter rate covers up to ${LETTER_MAX_OZ} oz and ¼″ thick. Letters don't include tracking.`}
+              </p>
+            )}
 
             {/* Scale — fills pounds/ounces automatically */}
             <div className="mt-4">
@@ -728,7 +854,7 @@ function CreateLabelInner() {
           </section>
 
           {/* 3. Shipping method */}
-          <section className="card !rounded-[2rem]">
+          <section ref={ratesRef} className="card scroll-mt-6 !rounded-[2rem]">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <SectionTitle n={3}>Shipping method</SectionTitle>
               {rates.length > 0 && (
@@ -811,10 +937,15 @@ function CreateLabelInner() {
         <aside className="space-y-5 xl:sticky xl:top-6">
           <section className="card !rounded-[2rem]">
             <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="text-2xl">Label preview</h2>
-              <span className="text-xs text-ink/50">4 × 6</span>
+              <h2 className="text-2xl">{isEnvelope ? "Envelope preview" : "Label preview"}</h2>
+              <span className="text-xs text-ink/50">{isEnvelope ? "#10 envelope" : "4 × 6"}</span>
             </div>
-            <LabelPreview form={form} rate={previewRate} signature={form.signature_confirmation} />
+            <LabelPreview
+              form={form}
+              rate={previewRate}
+              signature={form.signature_confirmation}
+              envelope={isEnvelope}
+            />
           </section>
 
           <section className="card space-y-4 !rounded-[2rem]">
