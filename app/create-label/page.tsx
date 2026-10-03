@@ -17,6 +17,12 @@ type Rate = {
   retail_rate?: string | null;
 };
 
+// Your everyday package. New labels start with this size.
+const MY_BOX = { length: 14, width: 17, height: 1 };
+
+// Shown in the "From" corner of the label preview. Edit to match your return address.
+const FROM_LINES = ["ERENDIRA'S BOUTIQUE"];
+
 const emptyForm = {
   to_name: "",
   to_street1: "",
@@ -27,9 +33,9 @@ const emptyForm = {
   to_country: "US",
   to_phone: "",
   to_email: "",
-  length: 14,
-  width: 17,
-  height: 1,
+  length: MY_BOX.length,
+  width: MY_BOX.width,
+  height: MY_BOX.height,
   weight_lb: "",
   weight_oz: "",
   signature_confirmation: false,
@@ -63,6 +69,139 @@ function CarrierMark({ carrier }: { carrier: string }) {
     </span>
   );
 }
+
+// Big service letter in the corner of a real USPS label (P, G, E, F…)
+function serviceLetter(service?: string, carrier?: string) {
+  const s = (service || "").toLowerCase();
+  if (s.includes("express")) return "E";
+  if (s.includes("priority")) return "P";
+  if (s.includes("ground")) return "G";
+  if (s.includes("first")) return "F";
+  if (s.includes("media")) return "M";
+  return (carrier || "").charAt(0).toUpperCase() || "–";
+}
+
+function formatWeight(lb: unknown, oz: unknown) {
+  const l = toNum(lb);
+  const o = toNum(oz);
+  if (!l && !o) return "";
+  return [l ? `${l} LB` : "", o ? `${o} OZ` : ""].filter(Boolean).join(" ");
+}
+
+function SectionTitle({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-3 text-2xl">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-taupe/10 font-heading text-lg text-taupe">
+        {n}
+      </span>
+      {children}
+    </h2>
+  );
+}
+
+/* ---------- Label preview (4×6) ---------- */
+
+function LabelPreview({
+  form,
+  rate,
+  signature,
+}: {
+  form: typeof emptyForm;
+  rate: Rate | null;
+  signature: boolean;
+}) {
+  const weight = formatWeight(form.weight_lb, form.weight_oz);
+  const hasAddress = !!(form.to_name || form.to_street1);
+  const cityLine = [form.to_city, [form.to_state, form.to_zip].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(" ");
+  const letter = rate ? serviceLetter(rate.service, rate.carrier) : "";
+  const muted = "text-ink/25";
+
+  return (
+    <div className="mx-auto w-full max-w-[300px]">
+      <div className="relative aspect-[4/6] overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(0,0,0,.06),0_12px_30px_-8px_rgba(80,60,40,.25)] ring-1 ring-ink/10">
+        <div className="flex h-full flex-col font-mono text-[10px] leading-snug text-ink">
+          {/* Service band */}
+          <div className="flex items-stretch border-b-[3px] border-ink">
+            <div className="flex w-[34%] items-center justify-center border-r-[3px] border-ink py-2">
+              <span className={`font-sans text-5xl font-black leading-none ${letter ? "" : muted}`}>
+                {letter || "?"}
+              </span>
+            </div>
+            <div className="flex flex-1 flex-col justify-center gap-0.5 px-2.5 py-2">
+              <span className={`font-sans text-[11px] font-bold uppercase leading-tight ${rate ? "" : muted}`}>
+                {rate ? `${rate.carrier} ${rate.service}` : "Pick a rate"}
+              </span>
+              {rate && <span className="text-[9px] text-ink/60">${rate.rate}</span>}
+            </div>
+          </div>
+
+          {/* From + meta */}
+          <div className="flex justify-between gap-2 px-3 pt-2.5">
+            <div className="uppercase">
+              {FROM_LINES.map((l) => (
+                <div key={l}>{l}</div>
+              ))}
+            </div>
+            <div className="text-right uppercase">
+              <div className={weight ? "" : muted}>{weight || "0 OZ"}</div>
+              <div className="text-ink/60">
+                {toNum(form.length)}×{toNum(form.width)}×{toNum(form.height)} IN
+              </div>
+            </div>
+          </div>
+
+          {/* Ship to */}
+          <div className="flex flex-1 flex-col justify-center px-3">
+            <div className="mb-1 font-sans text-[9px] font-bold uppercase tracking-widest text-ink/50">Ship to</div>
+            {hasAddress ? (
+              <div className="pl-3 text-[12.5px] font-semibold uppercase leading-[1.35]">
+                <div>{form.to_name || "—"}</div>
+                {form.to_street1 && <div>{form.to_street1}</div>}
+                {form.to_street2 && <div>{form.to_street2}</div>}
+                {cityLine && <div>{cityLine}</div>}
+              </div>
+            ) : (
+              <div className="space-y-1.5 pl-3">
+                <div className="h-2.5 w-3/5 rounded bg-ink/10" />
+                <div className="h-2.5 w-4/5 rounded bg-ink/10" />
+                <div className="h-2.5 w-2/3 rounded bg-ink/10" />
+              </div>
+            )}
+          </div>
+
+          {/* Extras */}
+          <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+            {form.reference && (
+              <span className="rounded border border-ink/30 px-1.5 py-0.5 uppercase">Ref {form.reference}</span>
+            )}
+            {signature && (
+              <span className="rounded bg-ink px-1.5 py-0.5 font-sans font-bold uppercase text-white">
+                Signature
+              </span>
+            )}
+          </div>
+
+          {/* Barcode placeholder */}
+          <div className="border-t-[3px] border-ink px-3 pb-3 pt-2 text-center">
+            <div className="font-sans text-[9px] font-bold uppercase tracking-widest">Tracking #</div>
+            <div
+              className="mx-auto mt-1.5 h-12 w-full opacity-15"
+              style={{
+                background:
+                  "repeating-linear-gradient(90deg,#000 0 2px,transparent 2px 4px,#000 4px 5px,transparent 5px 8px,#000 8px 11px,transparent 11px 13px)",
+              }}
+            />
+            <div className="mt-1 text-[9px] text-ink/50">Barcode added when you buy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Page ---------- */
 
 function CreateLabelInner() {
   const router = useRouter();
@@ -100,9 +239,9 @@ function CreateLabelInner() {
           to_country: data.to_country ?? "US",
           to_phone: data.to_phone ?? "",
           to_email: data.to_email ?? "",
-          length: data.length ?? 14,
-          width: data.width ?? 17,
-          height: data.height ?? 1,
+          length: data.length ?? MY_BOX.length,
+          width: data.width ?? MY_BOX.width,
+          height: data.height ?? MY_BOX.height,
           weight_lb: data.weight_lb ?? "",
           weight_oz: data.weight_oz ?? "",
           signature_confirmation: data.signature_confirmation ?? false,
@@ -158,6 +297,12 @@ function CreateLabelInner() {
 
   function set(key: string, value: any) {
     setForm((f) => ({ ...f, [key]: value }));
+    setRates([]);
+    setSelectedRate(null);
+  }
+
+  function resetToMyBox() {
+    setForm((f) => ({ ...f, ...MY_BOX }));
     setRates([]);
     setSelectedRate(null);
   }
@@ -253,8 +398,7 @@ function CreateLabelInner() {
     setError(null);
     setBusy(rate.id);
     try {
-      // saveDraft now throws the real Supabase error if it fails,
-      // so we no longer mask it with a generic message.
+      // saveDraft throws the real Supabase error if it fails.
       const id = await saveDraft(true);
       const res = await fetch("/api/labels/buy", {
         method: "POST",
@@ -306,360 +450,459 @@ function CreateLabelInner() {
     form.to_name && form.to_street1 && form.to_city && form.to_state && form.to_zip &&
     (Number(form.weight_lb) > 0 || Number(form.weight_oz) > 0);
 
-  const carriers = Array.from(new Set(rates.map((r) => r.carrier)));
+  const sortedRates = useMemo(() => [...rates].sort((a, b) => Number(a.rate) - Number(b.rate)), [rates]);
+  const cheapestId = sortedRates[0]?.id;
+  const fastestId = useMemo(() => {
+    const withDays = sortedRates.filter((r) => r.delivery_days != null);
+    return withDays.length
+      ? withDays.reduce((min, r) =>
+          (r.delivery_days as number) < (min.delivery_days as number) ? r : min
+        ).id
+      : null;
+  }, [sortedRates]);
+
+  // What the preview shows: the picked rate, otherwise the cheapest one.
+  const previewRate = selectedRate ?? sortedRates[0] ?? null;
+
+  const isMyBox =
+    toNum(form.length) === MY_BOX.length &&
+    toNum(form.width) === MY_BOX.width &&
+    toNum(form.height) === MY_BOX.height;
+
+  const addressSummary = [
+    form.to_street1,
+    form.to_street2,
+    [form.to_city, [form.to_state, form.to_zip].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Shell>
-      {/* One-click toggle */}
-      <div className="mb-5 flex items-center gap-3">
+      {/* Header */}
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <h1 className="text-4xl">Create a label</h1>
         <button
-          onClick={() => setOneClick(!oneClick)}
-          aria-pressed={oneClick}
-          className={`relative h-7 w-12 rounded-full transition-colors ${oneClick ? "bg-taupe" : "bg-sand/60"}`}
+          onClick={() => saveDraft().catch((e: any) => setError(e.message))}
+          disabled={busy !== null}
+          className="btn-secondary"
         >
-          <span
-            className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${oneClick ? "left-6" : "left-1"}`}
-          />
+          {busy === "draft" ? "Saving…" : orderId ? "Update draft" : "Save draft"}
         </button>
-        <span className="font-heading text-xl text-taupe">
-          One-Click Purchase {oneClick ? "On" : "Off"}
-        </span>
       </div>
 
       {error && (
         <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_1.3fr_0.9fr]">
-        {/* Column 1: address + packaging */}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        {/* ---------- Left: steps ---------- */}
         <div className="space-y-5">
-          <div className="card !rounded-[2rem]">
-            <h2 className="text-center text-2xl">1. 📍 Address Information</h2>
-            <div className="relative mt-5">
-              <input
-                className="input"
-                placeholder="Search Existing Customers 👤"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {results.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-taupe/20 bg-white shadow-lg">
-                  {results.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => pickCustomer(c)}
-                      className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream"
-                    >
-                      <span className="font-medium">{c.name}</span>
-                      <span className="ml-2 text-ink/60">
-                        {[c.city, c.state].filter(Boolean).join(", ")}
-                      </span>
-                    </button>
-                  ))}
+          {/* 1. Ship to */}
+          <section className="card !rounded-[2rem]">
+            <SectionTitle n={1}>Ship to</SectionTitle>
+
+            {form.customer_id && form.to_name ? (
+              <div className="mt-5 flex items-center gap-4 rounded-2xl border border-taupe/20 bg-cream/60 px-4 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sand/60 font-semibold text-taupe">
+                  {form.to_name
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .map((p) => p[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{form.to_name}</p>
+                  <p className="truncate text-sm text-ink/60">{addressSummary || "No address on file"}</p>
                 </div>
-              )}
-            </div>
+                <button
+                  onClick={() => {
+                    set("customer_id", null);
+                    setSearch("");
+                  }}
+                  className="shrink-0 text-sm text-taupe underline underline-offset-2"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div className="relative mt-5">
+                <input
+                  className="input"
+                  placeholder="Search existing customers by name, email or phone"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {results.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-taupe/20 bg-white shadow-lg">
+                    {results.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => pickCustomer(c)}
+                        className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream"
+                      >
+                        <span className="font-medium">{c.name}</span>
+                        <span className="ml-2 text-ink/60">
+                          {[c.city, c.state].filter(Boolean).join(", ")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Live-sale basket link (optional) */}
-            <div className="mt-4">
-              <label className="label">
-                Basket # <span className="text-ink/40">(from this week&#39;s live — optional)</span>
-              </label>
-              <input
-                className="input"
-                inputMode="numeric"
-                placeholder="e.g. 12"
-                value={form.basket_number}
-                onChange={(e) => set("basket_number", e.target.value.replace(/\D/g, ""))}
-              />
-              <p className="mt-1 text-xs text-ink/50">
-                Links this shipment to that basket so tracking shows on the customer&#39;s portal.
-              </p>
-            </div>
-
-            {/* Reference — prints on the label and saves on the order. */}
-            <div className="mt-4">
-              <label className="label">
-                Reference # <span className="text-ink/40">(prints on label — optional)</span>
-              </label>
-              <input
-                className="input"
-                placeholder="EB-000"
-                value={form.reference}
-                onChange={(e) => set("reference", e.target.value)}
-              />
-              <p className="mt-1 text-xs text-ink/50">
-                Defaults to the order number. Edit it to print anything you like on the label.
-              </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">
+                  Basket # <span className="text-ink/40">(optional)</span>
+                </label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  placeholder="e.g. 12"
+                  value={form.basket_number}
+                  onChange={(e) => set("basket_number", e.target.value.replace(/\D/g, ""))}
+                />
+                <p className="mt-1 text-xs text-ink/50">From this week&#39;s live — shows tracking on their portal.</p>
+              </div>
+              <div>
+                <label className="label">
+                  Reference # <span className="text-ink/40">(prints on label)</span>
+                </label>
+                <input
+                  className="input"
+                  placeholder="EB-000"
+                  value={form.reference}
+                  onChange={(e) => set("reference", e.target.value)}
+                />
+                <p className="mt-1 text-xs text-ink/50">Defaults to the order number.</p>
+              </div>
             </div>
 
             {!manual ? (
               <button
                 onClick={() => setManual(true)}
-                className="mt-4 w-full text-center text-sm text-taupe underline underline-offset-2"
+                className="mt-4 text-sm text-taupe underline underline-offset-2"
               >
-                Enter Address Manually
+                Enter address manually
               </button>
             ) : (
-              <div className="mt-4 grid gap-3">
-                <div>
-                  <label className="label">Name</label>
-                  <input className="input" value={form.to_name} onChange={(e) => set("to_name", e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Street</label>
-                  <AddressAutocomplete
-                    value={form.to_street1}
-                    placeholder="Start typing an address"
-                    onChange={(v) => set("to_street1", v)}
-                    onSelect={(a) => {
-                      setForm((f) => ({
-                        ...f,
-                        to_street1: a.street1,
-                        to_street2: a.street2 || f.to_street2,
-                        to_city: a.city,
-                        to_state: a.state,
-                        to_zip: a.zip,
-                      }));
-                      setRates([]);
-                      setSelectedRate(null);
-                      setTimeout(function () { var el = document.getElementById("to_street2"); if (el) el.focus(); }, 0);
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="label">Apt / Suite (optional)</label>
-                  <input id="to_street2" className="input" value={form.to_street2} onChange={(e) => set("to_street2", e.target.value)} />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-1">
-                    <label className="label">City</label>
-                    <input className="input" value={form.to_city} onChange={(e) => set("to_city", e.target.value)} />
+              <details className="group mt-4" open={!form.customer_id}>
+                <summary className="cursor-pointer select-none text-sm text-taupe underline underline-offset-2">
+                  {form.customer_id ? "Edit address details" : "Address details"}
+                </summary>
+                <div className="mt-4 grid gap-3">
+                  <div>
+                    <label className="label">Name</label>
+                    <input className="input" value={form.to_name} onChange={(e) => set("to_name", e.target.value)} />
                   </div>
                   <div>
-                    <label className="label">State</label>
-                    <input className="input" maxLength={2} value={form.to_state} onChange={(e) => set("to_state", e.target.value.toUpperCase())} />
+                    <label className="label">Street</label>
+                    <AddressAutocomplete
+                      value={form.to_street1}
+                      placeholder="Start typing an address"
+                      onChange={(v) => set("to_street1", v)}
+                      onSelect={(a) => {
+                        setForm((f) => ({
+                          ...f,
+                          to_street1: a.street1,
+                          to_street2: a.street2 || f.to_street2,
+                          to_city: a.city,
+                          to_state: a.state,
+                          to_zip: a.zip,
+                        }));
+                        setRates([]);
+                        setSelectedRate(null);
+                        setTimeout(function () { var el = document.getElementById("to_street2"); if (el) el.focus(); }, 0);
+                      }}
+                    />
                   </div>
                   <div>
-                    <label className="label">ZIP</label>
-                    <input className="input" value={form.to_zip} onChange={(e) => set("to_zip", e.target.value)} />
+                    <label className="label">Apt / Suite (optional)</label>
+                    <input id="to_street2" className="input" value={form.to_street2} onChange={(e) => set("to_street2", e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="label">City</label>
+                      <input className="input" value={form.to_city} onChange={(e) => set("to_city", e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">State</label>
+                      <input className="input" maxLength={2} value={form.to_state} onChange={(e) => set("to_state", e.target.value.toUpperCase())} />
+                    </div>
+                    <div>
+                      <label className="label">ZIP</label>
+                      <input className="input" inputMode="numeric" value={form.to_zip} onChange={(e) => set("to_zip", e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Phone</label>
+                      <input className="input" type="tel" value={form.to_phone} onChange={(e) => set("to_phone", e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">Email</label>
+                      <input className="input" type="email" value={form.to_email} onChange={(e) => set("to_email", e.target.value)} />
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="label">Phone</label>
-                    <input className="input" value={form.to_phone} onChange={(e) => set("to_phone", e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">Email</label>
-                    <input className="input" value={form.to_email} onChange={(e) => set("to_email", e.target.value)} />
-                  </div>
-                </div>
-              </div>
+              </details>
             )}
-          </div>
+          </section>
 
-          <div className="card !rounded-[2rem]">
-            <h2 className="text-center text-2xl">2. Choose Packaging</h2>
-            <div className="mt-5 rounded-2xl border-2 border-taupe/60 bg-cream/50 px-5 py-4 text-center font-medium">
-             📦 Box / My Packaging
-            </div>
-            <div className="mt-5 flex items-center gap-3">
-              <span className="w-24 shrink-0 text-sm font-medium">Dimensions</span>
-              <input type="number" className="input !px-2 text-center" value={form.length} onChange={(e) => set("length", Number(e.target.value))} />
-              <input type="number" className="input !px-2 text-center" value={form.width} onChange={(e) => set("width", Number(e.target.value))} />
-              <input type="number" className="input !px-2 text-center" value={form.height} onChange={(e) => set("height", Number(e.target.value))} />
-            </div>
-            <div className="mt-3 flex items-center gap-3">
-              <span className="w-24 shrink-0 text-sm font-medium">Weight</span>
-              <div className="relative flex-1">
-                <input type="number" min={0} className="input !px-2 text-center" value={form.weight_lb} onChange={(e) => set("weight_lb", Number(e.target.value))} />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/50">lbs</span>
+          {/* 2. Package */}
+          <section className="card !rounded-[2rem]">
+            <SectionTitle n={2}>Package</SectionTitle>
+
+            <div
+              className={`mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 px-5 py-4 ${
+                isMyBox ? "border-taupe/60 bg-cream/60" : "border-sand bg-white"
+              }`}
+            >
+              <div>
+                <p className="font-semibold">{isMyBox ? "My box" : "Custom size"}</p>
+                <p className="text-sm text-ink/60">
+                  {toNum(form.length)} × {toNum(form.width)} × {toNum(form.height)} in
+                </p>
               </div>
-              <div className="relative flex-1">
-                <input type="number" min={0} step={0.1} className="input !px-2 text-center" value={form.weight_oz} onChange={(e) => set("weight_oz", Number(e.target.value))} />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/50">oz</span>
+              {isMyBox ? (
+                <span className="rounded-full bg-taupe/10 px-3 py-1 text-xs font-medium text-taupe">Default</span>
+              ) : (
+                <button onClick={resetToMyBox} className="text-sm text-taupe underline underline-offset-2">
+                  Reset to my box (14 × 17 × 1)
+                </button>
+              )}
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-5">
+              <div>
+                <label className="label">Length</label>
+                <input type="number" className="input text-center" value={form.length} onChange={(e) => set("length", Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Width</label>
+                <input type="number" className="input text-center" value={form.width} onChange={(e) => set("width", Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Height</label>
+                <input type="number" className="input text-center" value={form.height} onChange={(e) => set("height", Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Pounds</label>
+                <input type="number" min={0} className="input text-center" value={form.weight_lb} onChange={(e) => set("weight_lb", Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Ounces</label>
+                <input type="number" min={0} step={0.1} className="input text-center" value={form.weight_oz} onChange={(e) => set("weight_oz", Number(e.target.value))} />
               </div>
             </div>
-            <ScaleReader
-              onWeight={(totalOz) => {
-                const lb = Math.floor(totalOz / 16);
-                const oz = Math.round((totalOz - lb * 16) * 10) / 10;
-                setForm((f) => ({ ...f, weight_lb: String(oz >= 16 ? lb + 1 : lb), weight_oz: String(oz >= 16 ? 0 : oz) }));
-                setRates([]);
-                setSelectedRate(null);
-              }}
-            />
+
+            {/* Scale — fills pounds/ounces automatically */}
+            <div className="mt-4">
+              <ScaleReader
+                onWeight={(totalOz) => {
+                  const lb = Math.floor(totalOz / 16);
+                  const oz = Math.round((totalOz - lb * 16) * 10) / 10;
+                  setForm((f) => ({ ...f, weight_lb: String(oz >= 16 ? lb + 1 : lb), weight_oz: String(oz >= 16 ? 0 : oz) }));
+                  setRates([]);
+                  setSelectedRate(null);
+                }}
+              />
+            </div>
+
             <button
               onClick={getRates}
               disabled={!canRate || busy !== null}
               className="btn-primary mt-6 w-full !py-3"
             >
-              {busy === "rates" ? "Getting Rates…" : "Get Rates"}
+              {busy === "rates" ? "Getting rates…" : rates.length ? "Refresh rates" : "Get rates"}
             </button>
             {!canRate && (
               <p className="mt-3 text-center text-xs text-ink/50">
                 Enter a full address and a weight above 0.
               </p>
             )}
-          </div>
+          </section>
+
+          {/* 3. Shipping method */}
+          <section className="card !rounded-[2rem]">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <SectionTitle n={3}>Shipping method</SectionTitle>
+              {rates.length > 0 && (
+                <span className="text-sm text-ink/50">
+                  {oneClick ? "One-click is on — clicking a rate buys it" : "Pick a rate, then buy on the right"}
+                </span>
+              )}
+            </div>
+
+            {rates.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-taupe/25 px-6 py-10 text-center">
+                <svg viewBox="0 0 64 48" className="mx-auto w-20 text-sand" aria-hidden>
+                  <rect x="8" y="14" width="28" height="20" rx="2" fill="currentColor" opacity="0.5" />
+                  <rect x="14" y="8" width="16" height="10" rx="2" fill="currentColor" />
+                  <circle cx="16" cy="40" r="4" fill="currentColor" />
+                  <path d="M44 34h12M44 28h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <p className="mx-auto mt-3 max-w-xs text-sm text-ink/60">
+                  Add the address and weight, then get rates to see your shipping options here.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {sortedRates.map((r) => {
+                  const active = selectedRate?.id === r.id;
+                  const retail =
+                    r.retail_rate && Number(r.retail_rate) > Number(r.rate)
+                      ? Number(r.retail_rate).toFixed(2)
+                      : null;
+                  return (
+                    <div key={r.id} className="relative">
+                      {r.id === cheapestId && (
+                        <span className="absolute -top-2.5 left-4 z-10 rounded-full border border-taupe/40 bg-cream px-2.5 py-0.5 text-[10px] font-medium text-taupe">
+                          Recommended
+                        </span>
+                      )}
+                      {r.id === fastestId && r.id !== cheapestId && (
+                        <span className="absolute -top-2.5 left-4 z-10 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-medium text-amber-800">
+                          Fastest
+                        </span>
+                      )}
+                      <button
+                        onClick={() => onRateClick(r)}
+                        disabled={busy !== null}
+                        className={`w-full rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${
+                          active
+                            ? "border-taupe bg-taupe/10 ring-1 ring-taupe/30"
+                            : "border-taupe/20 bg-white hover:border-taupe/50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs text-ink/50">
+                            {r.delivery_days
+                              ? `${r.delivery_days} Day${r.delivery_days === 1 ? "" : "s"}`
+                              : "Estimate n/a"}
+                          </p>
+                          <CarrierMark carrier={r.carrier} />
+                        </div>
+                        <p className="mt-1 text-sm font-semibold leading-snug">{r.service}</p>
+                        <div className="mt-2 flex items-baseline justify-between gap-2">
+                          {retail ? (
+                            <span className="text-sm text-ink/40 line-through">${retail}</span>
+                          ) : (
+                            <span />
+                          )}
+                          <span className="font-heading text-2xl text-taupe">
+                            {busy === r.id ? "Buying…" : `$${r.rate}`}
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </div>
 
-        {/* Column 2: shipping method */}
-        <div className="card !rounded-[2rem]">
-          <h2 className="text-center text-2xl">3. Choose Shipping Method</h2>
-
-          {rates.length === 0 ? (
-            <div className="mt-14 text-center">
-              <svg viewBox="0 0 64 48" className="mx-auto w-24 text-sand" aria-hidden>
-                <rect x="8" y="14" width="28" height="20" rx="2" fill="currentColor" opacity="0.5" />
-                <rect x="14" y="8" width="16" height="10" rx="2" fill="currentColor" />
-                <circle cx="16" cy="40" r="4" fill="currentColor" />
-                <path d="M44 34h12M44 28h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <p className="mx-auto mt-4 max-w-[220px] text-sm text-ink/60">
-                Enter destination info and get rates to see shipping options.
-              </p>
+        {/* ---------- Right: preview + buy ---------- */}
+        <aside className="space-y-5 xl:sticky xl:top-6">
+          <section className="card !rounded-[2rem]">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="text-2xl">Label preview</h2>
+              <span className="text-xs text-ink/50">4 × 6</span>
             </div>
-          ) : (
-            <div className="mt-5">
-              <p className="font-heading text-xl text-taupe">Best Rates</p>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {(() => {
-                  const sorted = [...rates].sort((a, b) => Number(a.rate) - Number(b.rate));
-                  const cheapestId = sorted[0]?.id;
-                  const withDays = sorted.filter((r) => r.delivery_days != null);
-                  const fastestId = withDays.length
-                    ? withDays.reduce((min, r) =>
-                        (r.delivery_days as number) < (min.delivery_days as number) ? r : min
-                      ).id
-                    : null;
-                  return sorted.map((r) => {
-                    const active = selectedRate?.id === r.id;
-                    const retail =
-                      r.retail_rate && Number(r.retail_rate) > Number(r.rate)
-                        ? Number(r.retail_rate).toFixed(2)
-                        : null;
-                    return (
-                      <div key={r.id} className="relative">
-                        {r.id === cheapestId && (
-                          <span className="absolute -top-2.5 left-4 z-10 rounded-full border border-taupe/40 bg-cream px-2.5 py-0.5 text-[10px] font-medium text-taupe">
-                            Recommended
-                          </span>
-                        )}
-                        {r.id === fastestId && r.id !== cheapestId && (
-                          <span className="absolute -top-2.5 left-4 z-10 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-medium text-amber-800">
-                            Fastest
-                          </span>
-                        )}
-                        <button
-                          onClick={() => onRateClick(r)}
-                          disabled={busy !== null}
-                          className={`w-full rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${
-                            active
-                              ? "border-taupe bg-taupe/10"
-                              : "border-taupe/20 bg-white hover:border-taupe/50"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-xs text-ink/50">
-                              {r.delivery_days
-                                ? `${r.delivery_days} Day${r.delivery_days === 1 ? "" : "s"}`
-                                : "Estimate n/a"}
-                            </p>
-                            <CarrierMark carrier={r.carrier} />
-                          </div>
-                          <p className="mt-1 text-sm font-semibold leading-snug">{r.service}</p>
-                          <div className="mt-2 flex items-baseline justify-between gap-2">
-                            {retail ? (
-                              <span className="text-sm text-ink/40 line-through">${retail}</span>
-                            ) : (
-                              <span />
-                            )}
-                            <span className="font-heading text-2xl text-taupe">
-                              {busy === r.id ? "Buying…" : `$${r.rate}`}
-                            </span>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
+            <LabelPreview form={form} rate={previewRate} signature={form.signature_confirmation} />
+          </section>
 
-              {!oneClick && (
+          <section className="card space-y-4 !rounded-[2rem]">
+            <div>
+              <label className="label">Shipping provider</label>
+              <select
+                className="input"
+                value={provider}
+                onChange={(e) => { setProvider(e.target.value as any); setRates([]); setSelectedRate(null); }}
+              >
+                <option value="shippo">Shippo</option>
+                <option value="easypost">EasyPost</option>
+                <option value="easyship">EasyShip</option>
+                <option value="shipstation">ShipStation</option>
+              </select>
+            </div>
+
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-taupe"
+                checked={form.signature_confirmation}
+                onChange={(e) => set("signature_confirmation", e.target.checked)}
+              />
+              Require signature
+            </label>
+
+            <div>
+              <label className="label">Order notes</label>
+              <textarea
+                className="input"
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+
+            <div className="h-px bg-taupe/15" />
+
+            {/* One-click toggle */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setOneClick(!oneClick)}
+                aria-pressed={oneClick}
+                aria-label="One-click purchase"
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${oneClick ? "bg-taupe" : "bg-sand/60"}`}
+              >
+                <span
+                  className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${oneClick ? "left-6" : "left-1"}`}
+                />
+              </button>
+              <div className="text-sm">
+                <p className="font-medium">One-click purchase {oneClick ? "on" : "off"}</p>
+                <p className="text-xs text-ink/50">
+                  {oneClick ? "Clicking a rate buys the label right away." : "Pick a rate, then press Buy."}
+                </p>
+              </div>
+            </div>
+
+            {!oneClick && (
+              <>
+                <div className="flex items-baseline justify-between text-lg">
+                  <span>Total</span>
+                  <span className="font-heading text-2xl text-taupe">
+                    {selectedRate ? `$${selectedRate.rate}` : "—"}
+                  </span>
+                </div>
                 <button
                   onClick={() => selectedRate && buy(selectedRate)}
                   disabled={!selectedRate || busy !== null}
-                  className="btn-primary mt-5 w-full !py-3"
+                  className="btn-primary w-full !py-3"
                 >
                   {selectedRate
                     ? busy === selectedRate.id
                       ? "Buying…"
-                      : `Buy ${selectedRate.carrier} ${selectedRate.service} — $${selectedRate.rate}`
-                    : "Select a rate above"}
+                      : `Buy ${selectedRate.carrier} ${selectedRate.service}`
+                    : rates.length
+                      ? "Select a rate"
+                      : "Get rates first"}
                 </button>
-              )}
-              {oneClick && (
-                <p className="mt-4 text-center text-xs text-ink/50">
-                  One-click is on — clicking a rate buys the label immediately.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+              </>
+            )}
 
-        {/* Column 3: additional options */}
-        <div className="card h-fit !rounded-[2rem]">
-          <h2 className="text-2xl">Additional Options</h2>
-
-          <div className="mt-5">
-            <label className="label">Shipping Provider</label>
-            <select
-              className="input"
-              value={provider}
-              onChange={(e) => { setProvider(e.target.value as any); setRates([]); setSelectedRate(null); }}
-            >
-              <option value="shippo">Shippo</option>
-              <option value="easypost">EasyPost</option>
-              <option value="easyship">EasyShip</option>
-              <option value="shipstation">ShipStation</option>
-            </select>
-          </div>
-
-          <label className="mt-5 flex items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-taupe"
-              checked={form.signature_confirmation}
-              onChange={(e) => set("signature_confirmation", e.target.checked)}
-            />
-            Require Signature ✍️
-          </label>
-
-          <div className="mt-5">
-            <label className="label">Order Notes 📝 </label>
-            <textarea
-              className="input"
-              rows={3}
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            />
-          </div>
-
-          <div className="my-5 h-px bg-taupe/15" />
-
-          <button
-            onClick={() => saveDraft().catch((e: any) => setError(e.message))}
-            disabled={busy !== null}
-            className="btn-secondary w-full"
-          >
-            {busy === "draft" ? "Saving…" : orderId ? "Update Draft" : "Save Draft"}
-          </button>
-          <p className="mt-3 text-xs leading-relaxed text-ink/50">
-            Drafts can be continued later from the Orders page.
-          </p>
-        </div>
+            <p className="text-xs leading-relaxed text-ink/50">
+              Drafts can be continued later from the Orders page.
+            </p>
+          </section>
+        </aside>
       </div>
     </Shell>
   );
