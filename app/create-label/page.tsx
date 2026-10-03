@@ -865,7 +865,7 @@ function CreateLabelInner() {
           {/* 3. Shipping method */}
           <section ref={ratesRef} className="card scroll-mt-6 !rounded-[2rem]">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <SectionTitle n={3}>Shipping method</SectionTitle>
+              <SectionTitle n={3}>Shipping Method</SectionTitle>
               {rates.length > 0 && (
                 <span className="text-sm text-ink/50">
                   {oneClick ? "One-click is on — clicking a rate buys it" : "Pick a rate, then buy on the right"}
