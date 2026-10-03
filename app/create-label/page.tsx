@@ -946,8 +946,8 @@ function CreateLabelInner() {
         <aside className="space-y-5 xl:sticky xl:top-6">
           <section className="card !rounded-[2rem]">
             <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="text-2xl">{isEnvelope ? "Envelope preview" : "Label preview"}</h2>
-              <span className="text-xs text-ink/50">{isEnvelope ? "#10 envelope" : "4 × 6"}</span>
+              <h2 className="text-2xl">{isEnvelope ? "Envelope Preview" : "Label Preview"}</h2>
+              <span className="text-xs text-ink/50">{isEnvelope ? "#10 Envelope" : "4 × 6"}</span>
             </div>
             <LabelPreview
               form={form}
