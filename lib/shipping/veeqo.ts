@@ -143,6 +143,10 @@ export const veeqo: ShippingProvider = {
             dimension_unit: "in",
           },
         ],
+        // Veeqo requires a reference. Use the order's reference (EB-123) when
+        // the rates route passes one through, otherwise a unique fallback.
+        customer_reference:
+          String((input as any).reference || "").trim() || "EB-" + Date.now().toString(36).toUpperCase(),
         seller_display_name: from.company || from.name,
         include_unavailable_quotes: false,
       }),
