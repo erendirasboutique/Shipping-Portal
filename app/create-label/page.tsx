@@ -68,6 +68,14 @@ const CARRIER_COLORS: Record<string, string> = {
   UPS: "bg-[#351c15] text-[#ffb500]",
   USPS: "bg-[#333366] text-white",
   FedEx: "bg-[#4d148c] text-[#ff6600]",
+  Amazon: "bg-[#232f3e] text-[#ff9900]",
+  OnTrac: "bg-[#003a70] text-[#f7a800]",
+};
+
+// Short badge text for carriers whose names don't shorten cleanly.
+const CARRIER_SHORT: Record<string, string> = {
+  Amazon: "AMZN",
+  OnTrac: "ONTRC",
 };
 
 function CarrierMark({ carrier }: { carrier: string }) {
@@ -77,7 +85,7 @@ function CarrierMark({ carrier }: { carrier: string }) {
         CARRIER_COLORS[carrier] || "bg-taupe/15 text-taupe"
       }`}
     >
-      {carrier.toUpperCase().slice(0, 5)}
+      {CARRIER_SHORT[carrier] || carrier.toUpperCase().slice(0, 5)}
     </span>
   );
 }
@@ -275,7 +283,7 @@ function CreateLabelInner() {
   const [manual, setManual] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
-  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation" | "easyship">("shippo");
+  const [provider, setProvider] = useState<"easypost" | "shippo" | "shipstation" | "easyship" | "veeqo">("shippo");
   const [rates, setRates] = useState<Rate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
@@ -969,6 +977,7 @@ function CreateLabelInner() {
                 <option value="easypost">EasyPost</option>
                 <option value="easyship">EasyShip</option>
                 <option value="shipstation">ShipStation</option>
+                <option value="veeqo">Veeqo (Amazon Shipping, OnTrac)</option>
               </select>
             </div>
 
