@@ -146,7 +146,7 @@ export const veeqo: ShippingProvider = {
         // Veeqo requires a reference. Use the order's reference (EB-123) when
         // the rates route passes one through, otherwise a unique fallback.
         customer_reference:
-          String((input as any).reference || "").trim() || "EB-" + Date.now().toString(36).toUpperCase(),
+          String(input.reference || "").trim() || "EB-" + Date.now().toString(36).toUpperCase(),
         seller_display_name: from.company || from.name,
         include_unavailable_quotes: false,
       }),
@@ -174,10 +174,13 @@ export const veeqo: ShippingProvider = {
     return { shipmentRef: data.remote_shipment_id, rates };
   },
 
-  async buy({ shipmentRef, rateId }) {
+  async buy({ shipmentRef, rateId, input, reference }) {
     const [quoteId, sigValue] = rateId.split("|");
     const shipment: any = { remote_shipment_id: shipmentRef, rate_id: quoteId };
     if (sigValue) shipment[SIG_KEY] = sigValue;
+    // Print the order reference (EB-123) on the label.
+    const ref = String(reference || (input && input.reference) || "").trim();
+    if (ref) shipment.custom_messages = ["Ref " + ref];
 
     const data = await veeqoFetch("/shipping/api/v1/shipments", {
       method: "POST",
