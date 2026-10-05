@@ -385,6 +385,24 @@ export default function ScanPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep the phone's status bar (top strip) the boutique cream color on this page.
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    const created = !meta;
+    const before = meta?.content;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    meta.content = getComputedStyle(document.body).backgroundColor || "#f6f4f1";
+    return () => {
+      if (!meta) return;
+      if (created) meta.remove();
+      else if (before !== undefined) meta.content = before;
+    };
+  }, []);
+
   // Camera runs only on the scan screen.
   useEffect(() => {
     if (stage === "scan") startCamera();
@@ -617,7 +635,9 @@ export default function ScanPage() {
   // ---------- Scan: full-screen camera with a bottom panel ----------
   if (stage === "scan") {
     return (
-      <div className="fixed inset-0 overflow-hidden bg-black text-white">
+      <div className="fixed inset-0 bg-cream">
+      {/* Camera sits below the phone's status bar so that strip stays cream, not black */}
+      <div className="absolute inset-x-0 bottom-0 overflow-hidden rounded-t-[28px] bg-black text-white" style={{ top: "env(safe-area-inset-top)" }}>
         <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" muted playsInline />
 
         {/* Scan frame; the dimmed area around it comes from the big shadow */}
@@ -645,7 +665,7 @@ export default function ScanPage() {
         )}
 
         {/* Top bar */}
-        <header className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(14px, env(safe-area-inset-top))" }}>
+        <header className="absolute inset-x-4 flex items-center justify-between" style={{ top: 14 }}>
           <Link href="/" aria-label="Back to dashboard" className="grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white backdrop-blur">
             <Ico d={ICON.back} />
           </Link>
@@ -708,6 +728,7 @@ export default function ScanPage() {
             </Link>
           </div>
         </section>
+      </div>
       </div>
     );
   }
