@@ -7,6 +7,10 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 
 const ui = Figtree({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
+// Every merged PDF is kept in this Supabase Storage bucket and listed in this table.
+const BATCH_BUCKET = "label-batches";
+const BATCH_TABLE = "print_batches";
+
 const PRINT_ICON =
   "M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z";
 
@@ -50,9 +54,10 @@ function Kbd({ children }: { children: React.ReactNode }) {
 
 export default function BatchPrintPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const [tab, setTab] = useState<"queue" | "history">("queue");
+  const [tab, setTab] = useState<"queue" | "history" | "saved">("queue");
   const [queue, setQueue] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -60,7 +65,7 @@ export default function BatchPrintPage() {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
   async function load() {
-    const [{ data: q }, { data: h }] = await Promise.all([
+    const [{ data: q }, { data: h }, { data: b }] = await Promise.all([
       supabase
         .from("shipping_orders")
         .select("*")
@@ -74,9 +79,11 @@ export default function BatchPrintPage() {
         .eq("print_status", "printed")
         .order("printed_at", { ascending: false })
         .limit(200),
+      (supabase as any).from(BATCH_TABLE).select("*").order("created_at", { ascending: false }).limit(200),
     ]);
     setQueue(q ?? []);
     setHistory(h ?? []);
+    setBatches(b ?? []);
     setSelected(new Set());
   }
   useEffect(() => {
@@ -125,7 +132,7 @@ export default function BatchPrintPage() {
     setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
   }
 
-  async function printSelected(ids: string[], markPrinted = true) {
+  async function printSelected(ids: string[], markPrinted = true, reprint = false) {
     if (!ids.length || busy) return;
     setBusy("print");
     setMsg(null);
@@ -136,12 +143,67 @@ export default function BatchPrintPage() {
         body: JSON.stringify({ order_ids: ids, mark_printed: markPrinted }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      sendToPrinter(await res.blob());
+      const blob = await res.blob();
+      sendToPrinter(blob);
+      const saved = await saveBatch(blob, ids, reprint);
+      if (!saved) setMsg("Printed, but the PDF copy couldn't be saved to Saved PDFs.");
       load();
     } catch (e: any) {
       setMsg(e.message);
     }
     setBusy(null);
+  }
+
+  // Keeps a copy of the merged PDF so it can be reopened later from Saved PDFs.
+  async function saveBatch(blob: Blob, ids: string[], reprint: boolean) {
+    try {
+      const orders = [...queue, ...history].filter((o) => ids.includes(o.id));
+      const now = new Date();
+      const day = now.toLocaleDateString("en-CA"); // YYYY-MM-DD, local time
+      const time = now.toLocaleTimeString("en-GB").replace(/:/g, "");
+      const path = `${day}/${day}_${time}_${ids.length}-labels.pdf`;
+      const { error: upErr } = await supabase.storage
+        .from(BATCH_BUCKET)
+        .upload(path, blob, { contentType: "application/pdf", upsert: false });
+      if (upErr) throw upErr;
+      const { data: userData } = await supabase.auth.getUser();
+      const { error: rowErr } = await (supabase as any).from(BATCH_TABLE).insert({
+        file_path: path,
+        label_count: ids.length,
+        order_ids: ids.map(String),
+        customer_names: orders.map((o) => o.to_name).filter(Boolean),
+        reprint,
+        created_by: userData.user?.email ?? null,
+      });
+      if (rowErr) throw rowErr;
+      return true;
+    } catch (e) {
+      console.error("Saving batch PDF failed", e);
+      return false;
+    }
+  }
+
+  async function openBatch(b: any) {
+    const { data, error } = await supabase.storage.from(BATCH_BUCKET).createSignedUrl(b.file_path, 60 * 60);
+    if (error || !data) return setMsg(error?.message ?? "Couldn't open that PDF.");
+    const win = window.open(data.signedUrl, "_blank");
+    if (!win) setMsg("Pop-up blocked — allow pop-ups for this site to open PDFs.");
+  }
+
+  async function printBatch(b: any) {
+    setBusy(b.id);
+    const { data, error } = await supabase.storage.from(BATCH_BUCKET).download(b.file_path);
+    setBusy(null);
+    if (error || !data) return setMsg(error?.message ?? "Couldn't load that PDF.");
+    sendToPrinter(data);
+  }
+
+  async function downloadBatch(b: any) {
+    const { data, error } = await supabase.storage
+      .from(BATCH_BUCKET)
+      .createSignedUrl(b.file_path, 60 * 60, { download: b.file_path.split("/").pop() });
+    if (error || !data) return setMsg(error?.message ?? "Couldn't download that PDF.");
+    window.location.href = data.signedUrl;
   }
 
   async function markUnprinted(order: any) {
@@ -193,7 +255,7 @@ export default function BatchPrintPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-4xl">Batch Print</h1>
             <div role="tablist" className="flex gap-1 rounded-xl bg-[#ece5dd] p-1 dark:bg-[#2a211b]">
-              {(["queue", "history"] as const).map((t) => (
+              {(["queue", "history", "saved"] as const).map((t) => (
                 <button
                   key={t}
                   role="tab"
@@ -205,7 +267,7 @@ export default function BatchPrintPage() {
                       : "text-[#6f6156] dark:text-[#b8a796]"
                   }`}
                 >
-                  {t === "queue" ? `To print · ${queue.length}` : "History"}
+                  {t === "queue" ? `To print · ${queue.length}` : t === "history" ? "History" : "Saved PDFs"}
                 </button>
               ))}
             </div>
@@ -261,6 +323,43 @@ export default function BatchPrintPage() {
                 </div>
               )}
             </div>
+          ) : tab === "saved" ? (
+            <div className="flex flex-col gap-2.5">
+              {batches.map((b) => {
+                const names: string[] = b.customer_names ?? [];
+                const preview = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3} more` : "");
+                return (
+                  <div key={b.id} className="flex flex-wrap items-center gap-3.5 rounded-2xl bg-white px-4 py-3 shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#efe6dc] text-[#6f5c49] dark:bg-[#3a2f27] dark:text-[#c9ab8a]">
+                      <Icon d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M9 13h6M9 17h6" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <b className="text-[15px] font-semibold">
+                        {b.label_count} label{b.label_count === 1 ? "" : "s"} · {shortDate(b.created_at)}
+                        {b.reprint && <span className="ml-2 rounded-md bg-[#f1ebe4] px-1.5 py-0.5 text-[11px] font-semibold text-[#6f5c49] dark:bg-[#2e251e] dark:text-[#c9ab8a]">Reprint</span>}
+                      </b>
+                      <span className="truncate text-[13px] text-[#6f6156] dark:text-[#b8a796]">{preview || "—"}</span>
+                    </span>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => openBatch(b)} className="h-9 rounded-lg border border-[#e3d9ce] bg-white px-3 text-[13px] font-semibold hover:border-[#957f67] dark:border-[#3a2f27] dark:bg-transparent">
+                        Open
+                      </button>
+                      <button onClick={() => printBatch(b)} disabled={busy !== null} className="h-9 rounded-lg border border-[#e3d9ce] bg-white px-3 text-[13px] font-semibold hover:border-[#957f67] disabled:opacity-50 dark:border-[#3a2f27] dark:bg-transparent">
+                        {busy === b.id ? "…" : "Print"}
+                      </button>
+                      <button onClick={() => downloadBatch(b)} aria-label="Download PDF" title="Download" className="grid h-9 w-9 place-items-center rounded-lg border border-[#e3d9ce] bg-white text-[#6f5c49] hover:border-[#957f67] dark:border-[#3a2f27] dark:bg-transparent dark:text-[#c9ab8a]">
+                        <Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {!batches.length && (
+                <div className="rounded-2xl bg-white px-4 py-12 text-center text-[#8a7b6d] shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
+                  No saved PDFs yet. Every batch you print from now on will show up here.
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex flex-col gap-2.5">
               {history.map((o) => (
@@ -278,7 +377,7 @@ export default function BatchPrintPage() {
                   <span className="hidden font-mono text-xs text-[#4a3d33] md:inline dark:text-[#d6c9bb]">{o.tracking_number}</span>
                   <div className="flex gap-1.5">
                     <button
-                      onClick={() => printSelected([o.id], false)}
+                      onClick={() => printSelected([o.id], false, true)}
                       disabled={busy !== null}
                       className="h-9 rounded-lg border border-[#e3d9ce] bg-white px-3 text-[13px] font-semibold hover:border-[#957f67] disabled:opacity-50 dark:border-[#3a2f27] dark:bg-transparent"
                     >
