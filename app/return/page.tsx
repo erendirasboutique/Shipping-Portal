@@ -40,7 +40,7 @@ const T = {
     language: "Language",
     returns: "Returns",
     homeTitle: "Returns & Exchanges",
-    homeSub: "Enter the return code from your email or text to get started.",
+    homeSub: "Enter the return code provided by Erendira's Boutique to get started.",
     codeLabel: "Return code",
     missingCode: "Enter your return code.",
     notFound: "That return code wasn't found.",
@@ -61,12 +61,11 @@ const T = {
     stepLabel: "Prepaid label",
     addrTitle: "Your shipping address",
     addrSub:
-      "Add the address you're shipping your return from. We'll email you a prepaid USPS label for it.",
+      "Add the address you're shipping your return from. We'll prepare your prepaid USPS label, then you can print it from the return status page with your code.",
     contact: "Contact",
     shipping: "Shipping address",
     fullName: "Full name",
     email: "Email",
-    emailHint: "your label is sent here",
     phone: "Phone",
     optional: "(optional)",
     street: "Street address",
@@ -96,9 +95,9 @@ const T = {
     change: "Change",
     differentCode: "Use a different code",
     nextTitle: "What happens next",
-    next1: "Your prepaid USPS label arrives by email.",
-    next2: "Pack your item, attach the label and send it with USPS.",
-    next3: "Check your return status anytime with your code.",
+    next1: "We prepare your prepaid USPS label.",
+    next2: "When it's ready, print it from the return status page using your code.",
+    next3: "Pack your item, attach the label and send it with USPS.",
     questionsTitle: "Questions?",
     questionsSub: "Message us on Messenger",
     received: "Request received",
@@ -110,7 +109,7 @@ const T = {
     language: "Idioma",
     returns: "Devoluciones",
     homeTitle: "Devoluciones y Cambios",
-    homeSub: "Ingresa el código de devolución de tu correo o mensaje para comenzar.",
+    homeSub: "Ingresa el código de devolución proporcionado por Erendira's Boutique para comenzar.",
     codeLabel: "Código de devolución",
     missingCode: "Ingresa tu código de devolución.",
     notFound: "No se encontró ese código de devolución.",
@@ -131,12 +130,11 @@ const T = {
     stepLabel: "Etiqueta prepagada",
     addrTitle: "Tu dirección de envío",
     addrSub:
-      "Agrega la dirección desde donde enviarás tu devolución. Te enviaremos por correo una etiqueta prepagada de USPS.",
+      "Agrega la dirección desde donde enviarás tu devolución. Prepararemos tu etiqueta prepagada de USPS y podrás imprimirla en la página de estado con tu código.",
     contact: "Contacto",
     shipping: "Dirección de envío",
     fullName: "Nombre completo",
     email: "Correo electrónico",
-    emailHint: "aquí te enviamos tu etiqueta",
     phone: "Teléfono",
     optional: "(opcional)",
     street: "Dirección",
@@ -166,9 +164,9 @@ const T = {
     change: "Cambiar",
     differentCode: "Usar otro código",
     nextTitle: "Qué sigue",
-    next1: "Tu etiqueta prepagada de USPS llega por correo electrónico.",
-    next2: "Empaca tu artículo, pega la etiqueta y envíalo con USPS.",
-    next3: "Consulta el estado de tu devolución en cualquier momento con tu código.",
+    next1: "Preparamos tu etiqueta prepagada de USPS.",
+    next2: "Cuando esté lista, imprímela en la página de estado de tu devolución con tu código.",
+    next3: "Empaca tu artículo, pega la etiqueta y envíalo con USPS.",
     questionsTitle: "¿Preguntas?",
     questionsSub: "Escríbenos por Messenger",
     received: "Solicitud recibida",
@@ -655,7 +653,7 @@ export default function PublicReturnPage() {
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
                 <div className="flex min-w-0 flex-col gap-2">
                   <label htmlFor="ret_email" className={labelCls}>
-                    {t.email} <span className={hintCls}>— {t.emailHint}</span>
+                    {t.email}
                   </label>
                   <input
                     id="ret_email"
@@ -833,9 +831,9 @@ export default function PublicReturnPage() {
             <div className="rounded-[20px] bg-white p-6 shadow-[0_2px_4px_rgba(59,48,38,0.05)]">
               <h2 className="font-body mb-4 text-xl">{t.nextTitle}</h2>
               <ul className="flex flex-col gap-4 text-sm leading-relaxed text-[#7A6A57]">
-                <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><MailIcon /></span>{t.next1}</li>
-                <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><BoxIcon /></span>{t.next2}</li>
-                <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><ClockIcon /></span>{t.next3}</li>
+                <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><ClockIcon /></span>{t.next1}</li>
+                <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><MailIcon /></span>{t.next2}</li>
+                <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><BoxIcon /></span>{t.next3}</li>
               </ul>
             </div>
 
