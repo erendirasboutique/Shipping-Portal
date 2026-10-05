@@ -5,7 +5,6 @@
 // 3) Share the photo + tracking message to the customer on Messenger from
 //    the phone's share button (or email it).
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
@@ -190,6 +189,8 @@ export default function ScanPage() {
   const [target, setTarget] = useState<AppTarget>("messenger");
   const [photoCopied, setPhotoCopied] = useState<boolean | null>(null);
   const [sentCount, setSentCount] = useState(0);
+  const [torchOk, setTorchOk] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -208,6 +209,8 @@ export default function ScanPage() {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setCameraOn(false);
+    setTorchOk(false);
+    setTorchOn(false);
   }, []);
 
   const lookup = useCallback(
@@ -293,6 +296,8 @@ export default function ScanPage() {
         if (caps?.focusMode?.includes?.("continuous")) {
           await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
         }
+        // Flashlight button shows only on phones that allow it (most Androids).
+        setTorchOk(!!caps?.torch);
       } catch {}
 
       let detector: any;
@@ -543,6 +548,18 @@ export default function ScanPage() {
       });
   }
 
+  async function toggleTorch() {
+    const track: any = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const on = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: on }] });
+      setTorchOn(on);
+    } catch {
+      setTorchOk(false);
+    }
+  }
+
   function next() {
     setFound(null);
     setPhoto(null);
@@ -559,281 +576,369 @@ export default function ScanPage() {
 
   const hasPhoto = !!(photo || savedBlob || found?.order.photo);
   const photoSrc = preview || found?.order.photo || null;
+  const firstName = found?.order.name ? found.order.name.split(" ")[0] : null;
+  const initials = (found?.order.name || "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
-  return (
-    <div className="mx-auto min-h-screen w-full max-w-md px-4 pb-10 pt-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex gap-4">
-          <Link href="/" className="text-sm text-taupe">← Dashboard</Link>
-          <Link href="/packing" className="text-sm text-taupe">Packing list</Link>
-        </span>
-        <Image src="/EB_Logo_Fall BGBLANK.png" alt="Erendira's Boutique" width={110} height={46} className="h-auto w-24" />
-      </div>
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Packing day</p>
-          <h1 className="text-4xl leading-tight">Scan &amp; Send</h1>
-        </div>
-        {sentCount > 0 && (
-          <span className="pill !normal-case !tracking-normal !text-xs">{sentCount} sent</span>
-        )}
-      </div>
+  const ICON = {
+    back: "M15 18l-6-6 6-6",
+    close: "M6 6l12 12M18 6 6 18",
+    torch: "M8 2h8v5l-2 3v12h-4V10L8 7zM8 7h8M12 14v2",
+    search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.3-4.3",
+    camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+    list: "M9 4h6v3H9zM9 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-3M9 14l2 2 4-4",
+    check: "M5 12l5 5L20 7",
+    scan: "M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10",
+    send: "M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13",
+    copy: "M9 9h11v11H9zM5 15H4V4h11v1",
+  };
+  const Ico = ({ d, size = 20, w = 1.9 }: { d: string; size?: number; w?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
 
-      {error && (
-        <div className="mt-4 rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-      )}
+  const softBtn =
+    "flex h-[50px] items-center justify-center gap-2 rounded-[14px] border border-[#e3d9ce] bg-white px-4 text-[15px] text-ink disabled:opacity-50 dark:border-[#3a2f27] dark:bg-[#1f1914] dark:text-[#f1e9e0]";
+  const bigBtn =
+    "flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#2f261f] text-base text-white disabled:opacity-50 dark:bg-[#c9ab8a] dark:text-[#2a211b]";
 
-      {/* ---------- Scan ---------- */}
-      {stage === "scan" && (
-        <div className="card mt-4 !rounded-[2rem] !p-4">
-          <div className="relative overflow-hidden rounded-[1.5rem] bg-black" style={{ aspectRatio: "3 / 4" }}>
-            <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
-            {cameraOn && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="h-[34%] w-[86%] rounded-2xl border-2 border-white/90" style={{ boxShadow: "0 0 0 9999px rgba(0,0,0,0.35)" }} />
-              </div>
-            )}
-            {!cameraOn && !camError && (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-white/80">Starting camera…</div>
-            )}
-            {camError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-white/90">
-                <p>{camError}</p>
-                <button onClick={startCamera} className="btn-secondary !py-2">Try again</button>
-              </div>
-            )}
-            {busy && (
-              <div className="absolute inset-x-0 bottom-0 bg-black/60 py-3 text-center text-sm text-white">{busy}</div>
-            )}
+  const errorBox = error && (
+    <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {error}
+    </div>
+  );
+
+  // ---------- Scan: full-screen camera with a bottom panel ----------
+  if (stage === "scan") {
+    return (
+      <div className="fixed inset-0 overflow-hidden bg-black text-white">
+        <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover" muted playsInline />
+
+        {/* Scan frame; the dimmed area around it comes from the big shadow */}
+        {cameraOn && (
+          <div className="pointer-events-none absolute left-1/2 top-[42%] w-[88%] max-w-[420px] -translate-x-1/2 -translate-y-1/2" style={{ height: "min(52vw, 230px)" }}>
+            <div className="absolute inset-0 rounded-[22px]" style={{ boxShadow: "0 0 0 9999px rgba(10,8,7,0.55)" }} />
+            <span className="absolute left-0 top-0 h-9 w-9 rounded-tl-[22px] border-l-4 border-t-4 border-white" />
+            <span className="absolute right-0 top-0 h-9 w-9 rounded-tr-[22px] border-r-4 border-t-4 border-white" />
+            <span className="absolute bottom-0 left-0 h-9 w-9 rounded-bl-[22px] border-b-4 border-l-4 border-white" />
+            <span className="absolute bottom-0 right-0 h-9 w-9 rounded-br-[22px] border-b-4 border-r-4 border-white" />
+            <span className="eb-scanline absolute inset-x-4 h-0.5 rounded bg-[#e9c79f] shadow-[0_0_12px_2px_rgba(233,199,159,0.7)]" />
+            <p className="absolute inset-x-0 -bottom-10 text-center text-[15px] text-white/90">Line up the long barcode inside the frame</p>
           </div>
-          <p className="mt-3 text-center text-sm text-ink/70">
-            Hold the phone about 6 inches away with the long barcode across the box. It scans by itself.
-          </p>
-          <input ref={labelFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onLabelPhoto} />
-          <button onClick={() => labelFileRef.current?.click()} disabled={!!busy} className="btn-secondary mt-3 w-full">
-            Not scanning? Take a photo of the label
-          </button>
+        )}
+        <style>{`@keyframes ebScan{0%,100%{top:10%}50%{top:88%}}.eb-scanline{animation:ebScan 2.4s ease-in-out infinite}`}</style>
 
+        {!cameraOn && !camError && (
+          <div className="absolute inset-0 grid place-items-center pb-56 text-sm text-white/80">Starting camera…</div>
+        )}
+        {camError && (
+          <div className="absolute inset-x-6 top-1/3 flex flex-col items-center gap-3 text-center text-[15px] text-white/90">
+            <p>{camError}</p>
+            <button onClick={startCamera} className="h-11 rounded-xl bg-white/15 px-5 text-sm text-white">Try again</button>
+          </div>
+        )}
+
+        {/* Top bar */}
+        <header className="absolute inset-x-4 flex items-center justify-between" style={{ top: "max(14px, env(safe-area-inset-top))" }}>
+          <Link href="/" aria-label="Back to dashboard" className="grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white backdrop-blur">
+            <Ico d={ICON.back} />
+          </Link>
+          <div className="flex flex-col items-center">
+            <span className="font-heading text-xl leading-tight">Scan &amp; Send</span>
+            <span className="text-xs text-white/70">{sentCount > 0 ? `${sentCount} sent this session` : "Packing day"}</span>
+          </div>
+          {torchOk ? (
+            <button onClick={toggleTorch} aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"} aria-pressed={torchOn} className={`grid h-11 w-11 place-items-center rounded-full backdrop-blur ${torchOn ? "bg-white text-[#2f261f]" : "bg-white/15 text-white"}`}>
+              <Ico d={ICON.torch} size={19} />
+            </button>
+          ) : (
+            <span className="h-11 w-11" />
+          )}
+        </header>
+
+        {busy && (
+          <div className="absolute inset-x-0 top-[62%] flex justify-center">
+            <span className="rounded-full bg-black/70 px-4 py-2 text-sm text-white">{busy}</span>
+          </div>
+        )}
+
+        {/* Bottom panel */}
+        <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3.5 rounded-t-[28px] bg-[#fbf9f6] px-5 pt-3 text-ink dark:bg-[#1a1511] dark:text-[#f1e9e0]" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+          <span className="mx-auto h-[5px] w-10 rounded-full bg-[#d9cec2] dark:bg-[#3a2f27]" />
+          {errorBox}
           <form
-            className="mt-4 flex gap-2"
+            className="flex gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               lookup(typed);
             }}
           >
-            <input
-              className="input"
-              placeholder="Or type tracking or EB-123"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              inputMode="text"
-              autoCapitalize="characters"
-            />
-            <button type="submit" className="btn-secondary shrink-0 !px-4" disabled={!typed.trim() || !!busy}>
+            <label className="flex h-[50px] min-w-0 flex-1 items-center gap-2 rounded-[14px] border border-[#e3d9ce] bg-white px-3.5 text-[#8a7b6d] dark:border-[#3a2f27] dark:bg-[#1f1914]">
+              <Ico d={ICON.search} size={18} w={1.8} />
+              <input
+                className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-[#a89a8c] dark:text-[#f1e9e0]"
+                placeholder="Tracking # or EB-123"
+                aria-label="Tracking number or order number"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                inputMode="text"
+                autoCapitalize="characters"
+                enterKeyHint="search"
+              />
+            </label>
+            <button type="submit" disabled={!typed.trim() || !!busy} className="h-[50px] shrink-0 rounded-[14px] bg-[#2f261f] px-5 text-[15px] text-white disabled:opacity-40 dark:bg-[#c9ab8a] dark:text-[#2a211b]">
               Find
             </button>
           </form>
-        </div>
-      )}
+          <input ref={labelFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onLabelPhoto} />
+          <div className="grid grid-cols-2 gap-2.5">
+            <button onClick={() => labelFileRef.current?.click()} disabled={!!busy} className={softBtn}>
+              <span className="text-[#6f5c49] dark:text-[#c9ab8a]"><Ico d={ICON.camera} size={18} w={1.8} /></span>
+              Photo of label
+            </button>
+            <Link href="/packing" className={softBtn}>
+              <span className="text-[#6f5c49] dark:text-[#c9ab8a]"><Ico d={ICON.list} size={18} w={1.8} /></span>
+              Packing list
+            </Link>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
-      {/* ---------- Found ---------- */}
+  // ---------- Found & Done: light pages ----------
+  return (
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-4 bg-cream px-5 text-ink dark:bg-[#15110e] dark:text-[#f1e9e0]" style={{ paddingTop: "max(16px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+      <header className="flex items-center justify-between">
+        <button onClick={next} aria-label={stage === "found" ? "Not this one, scan again" : "Back to scanning"} className="grid h-11 w-11 place-items-center rounded-full border border-[#ebe3da] bg-white dark:border-[#3a2f27] dark:bg-[#1f1914]">
+          <Ico d={stage === "found" ? ICON.close : ICON.back} />
+        </button>
+        <span className="rounded-full bg-[#ece5dd] px-3 py-1.5 text-[13px] text-[#6f5c49] dark:bg-[#2a211b] dark:text-[#c9ab8a]">
+          {stage === "found" ? "Step 2 · Photo & send" : sentCount > 0 ? `${sentCount} sent this session` : "Done"}
+        </span>
+        <span className="h-11 w-11" />
+      </header>
+
       {stage === "found" && found && (
-        <div className="mt-4 space-y-4">
-          <div className="card !rounded-[2rem] !p-5">
-            <div className="flex items-start justify-between gap-3">
+        <>
+          {/* Who it's for */}
+          <section className="flex flex-col gap-3 rounded-[22px] border border-[#ebe3da] bg-white p-4 dark:border-[#3a2f27] dark:bg-[#1f1914]">
+            <span className="flex items-center gap-2 text-[13.5px] text-[#2f6b43] dark:text-[#8fc79f]">
+              <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-[#dcefe2] dark:bg-[#22382a]"><Ico d={ICON.check} size={13} w={3} /></span>
+              Label found
+            </span>
+            <div className="flex items-center gap-3.5">
+              <span className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl bg-[#efe6dc] text-[17px] text-[#6f5c49] dark:bg-[#3a2f27] dark:text-[#c9ab8a]">{initials}</span>
               <div className="min-w-0">
-                <p className="eyebrow">{found.order.label}</p>
-                <p className="mt-1 truncate font-heading text-3xl text-taupe">{found.order.name || "Customer"}</p>
-                <p className="text-sm text-ink/70">{found.order.place}</p>
+                <p className="truncate font-heading text-[26px] leading-tight">{found.order.name || "Customer"}</p>
+                <p className="truncate text-sm text-[#6f6156] dark:text-[#b8a796]">
+                  {found.order.label}
+                  {found.order.place ? " · " + found.order.place : ""}
+                </p>
               </div>
-              <button onClick={next} className="shrink-0 text-sm text-taupe underline underline-offset-2">Not this one</button>
             </div>
             {found.order.tracking && (
-              <p className="mt-3 break-all rounded-2xl bg-cream px-3 py-2 font-mono text-xs text-ink/70 dark:bg-transparent">
-                {found.order.carrier ? found.order.carrier + " · " : ""}{found.order.tracking}
+              <p className="break-all rounded-xl bg-[#f6f1eb] px-3 py-2 font-mono text-xs text-[#4a3d33] dark:bg-[#251e18] dark:text-[#d6c9bb]">
+                {found.order.carrier ? found.order.carrier + " · " : ""}
+                {found.order.tracking}
               </p>
             )}
             {found.order.notifiedAt && (
-              <p className="mt-3 rounded-2xl bg-[#fbf1dc] px-4 py-2.5 text-xs text-[#7a5a1e] dark:bg-transparent dark:text-[#e6c88f]">
+              <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e] dark:bg-[#2e2617] dark:text-[#e6c88f]">
                 Already sent by {found.order.notifiedVia || "message"} on {timeAgo(found.order.notifiedAt)}.
               </p>
             )}
             {!found.order.notifiedAt && found.order.museStatus === "queued" && (
-              <p className="mt-3 rounded-2xl bg-sand/30 px-4 py-2.5 text-xs text-ink/70">
+              <p className="rounded-xl bg-[#f1ebe4] px-3.5 py-2.5 text-[13px] text-[#6f6156] dark:bg-[#2a211b] dark:text-[#b8a796]">
                 Waiting for Muse to send it
                 {found.order.museQueuedAt ? " (queued " + timeAgo(found.order.museQueuedAt) + ")" : ""}. Sending it yourself now is fine too; Muse will skip it.
               </p>
             )}
             {!found.order.notifiedAt && found.order.museStatus === "flagged" && (
-              <p className="mt-3 rounded-2xl bg-red-50 px-4 py-2.5 text-xs text-red-700">
-                <span className="font-medium">Muse couldn&apos;t send this one</span>
+              <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">
+                Muse couldn&apos;t send this one
                 {found.order.museFlagReason ? ": " + found.order.museFlagReason : ""}. Send it yourself below.
               </p>
             )}
-          </div>
+          </section>
 
-          <div className="card !rounded-[2rem] !p-5">
-            <p className="label">Package photo</p>
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPhotoPicked} />
-            {photoSrc ? (
-              <div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photoSrc} alt="Package" className="w-full rounded-[1.5rem] object-cover" style={{ maxHeight: 420 }} />
-                <button onClick={() => fileRef.current?.click()} className="btn-secondary mt-3 w-full">Retake photo</button>
-              </div>
-            ) : (
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="flex w-full flex-col items-center justify-center gap-2 rounded-[1.5rem] border-2 border-dashed border-taupe/40 bg-cream/60 py-12 text-taupe dark:bg-transparent"
-              >
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
-                  <circle cx="12" cy="13" r="3.5" />
-                </svg>
-                <span className="text-base">Take package photo</span>
+          {errorBox}
+
+          {/* Package photo */}
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPhotoPicked} />
+          {photoSrc ? (
+            <section className="relative overflow-hidden rounded-[22px] bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photoSrc} alt="Package" className="w-full object-cover" style={{ maxHeight: 380 }} />
+              <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 flex h-10 items-center gap-2 rounded-full bg-black/60 px-4 text-sm text-white backdrop-blur">
+                <Ico d={ICON.camera} size={16} w={1.8} />
+                Retake
               </button>
-            )}
-          </div>
-
-          <div className="card !rounded-[2rem] !p-5">
-            <p className="label">Message</p>
-            <p className="whitespace-pre-line rounded-2xl bg-cream/70 px-4 py-3 text-sm text-ink/80 dark:bg-transparent dark:ring-1 dark:ring-taupe/20">{found.message}</p>
-            <button onClick={copyMessage} className="mt-2 text-sm text-taupe underline underline-offset-2">
-              {copied ? "Message copied" : "Copy message"}
+            </section>
+          ) : (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={!!busy}
+              className="flex h-[230px] w-full flex-col items-center justify-center gap-4 rounded-[22px] bg-[radial-gradient(110%_80%_at_50%_40%,#4a3f36_0%,#221c18_70%)] text-white"
+            >
+              <span className="grid h-[76px] w-[76px] place-items-center rounded-full border-4 border-white p-1">
+                <span className="block h-full w-full rounded-full bg-white" />
+              </span>
+              <span className="text-base">{busy || "Take a photo of the box"}</span>
             </button>
-          </div>
+          )}
 
-          <div>
-            <div className="mb-2 flex items-center justify-center gap-1 text-xs">
-              <span className="text-ink/60">Open in:</span>
+          {/* Send */}
+          <section className="flex flex-col gap-2.5">
+            <div role="radiogroup" aria-label="Open in" className="grid grid-cols-2 gap-1 rounded-[14px] bg-[#ece5dd] p-1 dark:bg-[#2a211b]">
               {(["messenger", "suite"] as AppTarget[]).map((t) => (
                 <button
                   key={t}
+                  role="radio"
+                  aria-checked={target === t}
                   onClick={() => chooseTarget(t)}
-                  className={`rounded-full border px-3 py-1 ${
-                    target === t ? "border-taupe bg-taupe text-cream dark:text-[#26211b]" : "border-taupe/30 text-taupe"
-                  }`}
+                  className={`h-10 rounded-[11px] text-sm ${target === t ? "bg-white text-ink shadow-sm dark:bg-[#3a2f27] dark:text-white" : "text-[#6f6156] dark:text-[#b8a796]"}`}
                 >
                   {APP_NAMES[t]}
                 </button>
               ))}
             </div>
-            <button onClick={openApp} disabled={!!busy || !hasPhoto} className="btn-primary w-full !py-4 !text-base">
+            <button onClick={openApp} disabled={!!busy || !hasPhoto} className={bigBtn}>
+              <Ico d={ICON.send} size={19} w={2} />
               {busy || "Send to " + APP_NAMES[target]}
             </button>
-            <p className="mt-2 text-center text-xs text-ink/60">
-              Copies the photo and opens {APP_NAMES[target]}. Open the customer&apos;s chat, press and hold the message box, and tap Paste.
+            <p className="text-center text-xs text-[#6f6156] dark:text-[#b8a796]">
+              Copies the photo and opens {APP_NAMES[target]}. In the chat, press and hold the message box and tap Paste.
             </p>
-          </div>
-
-          <div>
             <button
               onClick={() => record("muse")}
               disabled={!!busy || !hasPhoto || !!found.order.notifiedAt}
-              className="btn-secondary w-full !py-3.5 !text-base"
+              className={softBtn + " h-[52px] w-full"}
             >
               {found.order.museStatus === "queued" ? "Queued for Muse ✓" : "Send with Muse"}
             </button>
-            <p className="mt-1.5 text-center text-xs text-ink/60">
-              Muse sends the photo and message for you. If it can&apos;t find them on Messenger, it flags the package here.
-            </p>
-          </div>
+          </section>
 
-          {canShareFiles ? (
-            <button onClick={share} disabled={!!busy || !hasPhoto} className="btn-secondary w-full">
-              Share photo and message instead
-            </button>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {photoSrc && (
-                <a href={photoSrc} download={"paquete-" + found.order.label + ".jpg"} className="btn-secondary flex-1">Save photo</a>
-              )}
-              <button onClick={() => record("shared")} disabled={!!busy} className="btn-secondary flex-1">Mark as sent</button>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            {found.email && (
-              <button onClick={() => record("email")} disabled={!!busy || !hasPhoto} className="btn-secondary flex-1">
-                Email instead
+          {/* Message + other options */}
+          <details className="group rounded-[18px] border border-[#ebe3da] bg-white dark:border-[#3a2f27] dark:bg-[#1f1914]">
+            <summary className="flex h-[52px] cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden justify-between px-4 text-[15px]">
+              Message &amp; other options
+              <span className="text-[#8a7b6d] transition-transform group-open:rotate-90"><Ico d="M9 6l6 6-6 6" size={18} /></span>
+            </summary>
+            <div className="flex flex-col gap-2.5 px-4 pb-4">
+              <p className="whitespace-pre-line rounded-xl bg-[#f6f1eb] px-3.5 py-3 text-sm text-[#4a3d33] dark:bg-[#251e18] dark:text-[#d6c9bb]">{found.message}</p>
+              <button onClick={copyMessage} className={softBtn}>
+                <Ico d={ICON.copy} size={17} w={1.8} />
+                {copied ? "Message copied" : "Copy message"}
               </button>
-            )}
-            <button onClick={() => record("save")} disabled={!!busy || !photo} className="btn-secondary flex-1">
-              Save photo only
-            </button>
-          </div>
-        </div>
+              {canShareFiles ? (
+                <button onClick={share} disabled={!!busy || !hasPhoto} className={softBtn}>Share photo and message</button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5">
+                  {photoSrc && (
+                    <a href={photoSrc} download={"paquete-" + found.order.label + ".jpg"} className={softBtn}>Save photo</a>
+                  )}
+                  <button onClick={() => record("shared")} disabled={!!busy} className={softBtn}>Mark as sent</button>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2.5">
+                {found.email && (
+                  <button onClick={() => record("email")} disabled={!!busy || !hasPhoto} className={softBtn}>Email instead</button>
+                )}
+                <button onClick={() => record("save")} disabled={!!busy || !photo} className={softBtn + (found.email ? "" : " col-span-2")}>Save photo only</button>
+              </div>
+            </div>
+          </details>
+        </>
       )}
 
-      {/* ---------- Done ---------- */}
       {stage === "done" && found && result && (
-        <div className="card mt-4 !rounded-[2rem] !p-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e6efdf] text-[#4c7a3a] dark:bg-transparent">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 12.5l4.5 4.5L19 7" />
-            </svg>
-          </div>
-          <p className="mt-4 font-heading text-3xl text-taupe">
-            {result.via === "muse"
-              ? "Queued for Muse"
-              : result.via === "opened"
-              ? "Paste the photo"
-              : result.via === "shared"
-              ? "Marked as sent"
-              : result.via === "email"
-              ? "Email sent"
-              : "Photo saved"}
-          </p>
-          <p className="mt-1 text-sm text-ink/70">
-            {found.order.label}
-            {result.to ? " · " + result.to : ""}
-          </p>
+        <>
+          <section className="mt-2 flex flex-col items-center gap-2.5 text-center">
+            <div className="relative h-[168px] w-[168px] overflow-hidden rounded-[28px] bg-[#2a221d] shadow-[0_16px_36px_rgba(47,38,31,0.18)]">
+              {photoSrc && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoSrc} alt="Package" className="h-full w-full object-cover" />
+              )}
+              <span className="absolute bottom-2.5 right-2.5 grid h-[34px] w-[34px] place-items-center rounded-full bg-[#2f6b43] text-white ring-[3px] ring-cream dark:ring-[#15110e]">
+                <Ico d={ICON.check} size={18} w={3} />
+              </span>
+            </div>
+            <h1 className="mt-1.5 font-heading text-[30px] leading-tight">
+              {result.via === "muse"
+                ? "Queued for Muse"
+                : result.via === "opened"
+                ? "Now paste the photo"
+                : result.via === "shared"
+                ? `Sent to ${firstName || "customer"}`
+                : result.via === "email"
+                ? "Email sent"
+                : "Photo saved"}
+            </h1>
+            <p className="text-[15px] text-[#6f6156] dark:text-[#b8a796]">
+              {found.order.label}
+              {firstName ? " · " + found.order.name : ""}
+              {result.to ? " · " + result.to : ""}
+            </p>
+          </section>
+
           {result.via === "muse" && (
-            <p className="mt-4 text-sm text-ink/70">
-              Muse will send the photo and message next time it runs. Anything it can&apos;t match shows up as
-              <span className="font-medium"> flagged</span> on the Packing List.
+            <p className="rounded-2xl bg-white px-4 py-3 text-sm text-[#4a3d33] shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:text-[#d6c9bb] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
+              Muse will send the photo and message next time it runs. Anything it can&apos;t match shows up as flagged on the Packing List.
             </p>
           )}
+
           {result.via === "shared" && (
-            <div className="mt-5 space-y-3 text-left">
-              <p className="text-sm text-ink/80">
-                Messenger only sends the photo. The message is already copied: in the chat, press and hold the
-                message box and tap <span className="font-medium">Paste</span>.
+            <div className="flex flex-col gap-2.5 rounded-2xl bg-white p-4 shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
+              <p className="text-sm text-[#4a3d33] dark:text-[#d6c9bb]">
+                Messenger only sends the photo. The message is already copied: in the chat, press and hold the message box and tap Paste.
               </p>
-              <div className="flex gap-2">
-                <button onClick={copyMessage} className="btn-secondary flex-1">{copied ? "Message copied" : "Copy message again"}</button>
-                {canShareFiles && (
-                  <button onClick={shareText} className="btn-secondary flex-1">Share message</button>
-                )}
+              <div className="grid grid-cols-2 gap-2.5">
+                <button onClick={copyMessage} className={softBtn + (canShareFiles ? "" : " col-span-2")}>{copied ? "Message copied" : "Copy again"}</button>
+                {canShareFiles && <button onClick={shareText} className={softBtn}>Share message</button>}
               </div>
             </div>
           )}
+
           {result.via === "opened" && (
-            <div className="mt-5 space-y-3 text-left">
+            <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
               {photoCopied === false && (
-                <p className="rounded-2xl bg-[#fbf1dc] px-4 py-2.5 text-xs text-[#7a5a1e] dark:bg-transparent dark:text-[#e6c88f]">
-                  This phone didn&apos;t let the photo be copied. Use &quot;Share photo&quot; below instead.
+                <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e] dark:bg-[#2e2617] dark:text-[#e6c88f]">
+                  This phone didn&apos;t let the photo be copied. Use Share photo below instead.
                 </p>
               )}
-              <ol className="list-decimal space-y-1 pl-5 text-sm text-ink/80">
-                <li>In {APP_NAMES[target]}, open {found.order.name ? found.order.name.split(" ")[0] + "'s" : "the customer's"} chat.</li>
-                <li>Press and hold the message box, tap Paste, and send the photo.</li>
-                <li>Come back here, tap Copy message, and paste that too.</li>
+              <ol className="flex flex-col gap-2 text-sm text-[#4a3d33] dark:text-[#d6c9bb]">
+                {[
+                  `In ${APP_NAMES[target]}, open ${firstName ? firstName + "'s" : "the customer's"} chat.`,
+                  "Press and hold the message box, tap Paste, and send the photo.",
+                  "Come back here, tap Copy message, and paste that too.",
+                ].map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#efe6dc] text-xs text-[#6f5c49] dark:bg-[#3a2f27] dark:text-[#c9ab8a]">{i + 1}</span>
+                    {step}
+                  </li>
+                ))}
               </ol>
-              <div className="flex gap-2">
-                <button onClick={copyMessage} className="btn-secondary flex-1">{copied ? "Message copied" : "Copy message"}</button>
-                <button onClick={() => { window.location.href = appLink(target); }} className="btn-secondary flex-1">
-                  Open {APP_NAMES[target]}
-                </button>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button onClick={copyMessage} className={softBtn}>{copied ? "Copied" : "Copy message"}</button>
+                <button onClick={() => { window.location.href = appLink(target); }} className={softBtn}>Open {APP_NAMES[target]}</button>
               </div>
-              {canShareFiles && (
-                <button onClick={share} className="btn-secondary w-full">Share photo</button>
-              )}
+              {canShareFiles && <button onClick={share} className={softBtn}>Share photo</button>}
             </div>
           )}
-          <button onClick={next} className="btn-primary mt-6 w-full !py-4 !text-base">Scan next package</button>
-        </div>
+
+          <span className="flex-1" />
+          <button onClick={next} className={bigBtn}>
+            <Ico d={ICON.scan} size={19} w={2} />
+            Scan next package
+          </button>
+        </>
       )}
     </div>
   );
