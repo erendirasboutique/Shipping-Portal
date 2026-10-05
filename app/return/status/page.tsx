@@ -2,77 +2,112 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
-const TAUPE = "#806a52";
-const SAND = "#bda891";
+/* ------------------------------------------------------------------ */
+/*  Settings                                                           */
+/* ------------------------------------------------------------------ */
+
+// Same background as the return page. Swap the file in /public to change it.
+const BG_IMAGE = "/return-bg.jpg";
+const LOGO = "/EB_Logo_Fall BGBLANK.png";
+const MESSENGER_URL = "https://ebtq.io/messenger";
+const POLICY_URL = "https://www.erendirasboutique.com/return-policy";
+const RETURN_URL = "/return";
+const CODE_PREFIX = "EB-";
+
+/* Brand colors
+   brown  #5B4A38  text, buttons
+   muted  #7A6A57  secondary text
+   line   #CFC3B4  borders
+   cream  #F5F3EF  soft fills                                          */
 
 type Lang = "en" | "es";
 
 const T = {
   en: {
+    language: "Language",
     title: "Your Return",
     subtitle: "Enter your return code to check status and print your label.",
-    placeholder: "EB-XXXXXX",
+    codeLabel: "Return code",
     check: "Check",
     checking: "Checking…",
     genericError: "Something went wrong. Try again.",
-    returnCode: "Return code",
+    hi: (name: string) => `Hi ${name}`,
+    returnWord: "Return",
+    progress: "Return progress",
     steps: ["Requested", "Label ready", "In transit", "Received"],
     noRequest: "This code hasn't been used to start a return yet.",
     startReturn: "Start your return",
+    notStarted: "Haven't started a return?",
+    startOne: "Start one",
     submitted: (name?: string) =>
       `${name ? `Thanks, ${name}! ` : ""}Your return request is in. We're preparing your prepaid USPS label — check back here soon with this same code to print it.`,
     prepaidLabel: (carrier: string) => `Prepaid ${carrier} label`,
-    ready: "READY",
-    printLabel: "Print Return Label",
+    ready: "Ready",
+    preparing: "Preparing",
+    notReady: "Label not ready yet",
+    printLabel: "Print return label",
     opening: "Opening…",
-    shareLink: "Share label link",
+    shareLink: "Share link",
     copied: "Link copied!",
     shareTitle: "Erendira's Boutique Return Label",
     copyPrompt: "Copy this link:",
-    trackReturn: "Track Return",
+    trackReturn: "Track",
     instructions: "Instructions",
-    tip1: "Print the label and tape it to your package",
-    tip2: "Place the packing slip inside before sealing",
-    tip3: "Drop off at any USPS location near you",
-    needHelp: "Need help with your return?",
+    tip1: "Print the label and tape it to your package.",
+    tip2: "Place the packing slip inside before sealing.",
+    tip3: "Drop it off at any USPS location near you.",
     nearestUsps: "Find the nearest USPS",
+    policy: "Return policy",
+    questions: "Questions? Message us",
     instructionsPdf: "/return-instructions.pdf",
   },
   es: {
+    language: "Idioma",
     title: "Tu Devolución",
     subtitle: "Ingresa tu código de devolución para ver el estado e imprimir tu etiqueta.",
-    placeholder: "EB-XXXXXX",
+    codeLabel: "Código de devolución",
     check: "Buscar",
     checking: "Buscando…",
     genericError: "Algo salió mal. Inténtalo de nuevo.",
-    returnCode: "Código de devolución",
+    hi: (name: string) => `Hola ${name}`,
+    returnWord: "Devolución",
+    progress: "Progreso de la devolución",
     steps: ["Solicitada", "Etiqueta lista", "En camino", "Recibida"],
     noRequest: "Este código aún no se ha usado para iniciar una devolución.",
     startReturn: "Inicia tu devolución",
+    notStarted: "¿Aún no inicias una devolución?",
+    startOne: "Iníciala aquí",
     submitted: (name?: string) =>
       `${name ? `¡Gracias, ${name}! ` : ""}Recibimos tu solicitud de devolución. Estamos preparando tu etiqueta prepagada de USPS — vuelve pronto con este mismo código para imprimirla.`,
     prepaidLabel: (carrier: string) => `Etiqueta prepagada de ${carrier}`,
-    ready: "LISTA",
-    printLabel: "Imprimir Etiqueta",
+    ready: "Lista",
+    preparing: "En preparación",
+    notReady: "Etiqueta aún no disponible",
+    printLabel: "Imprimir etiqueta",
     opening: "Abriendo…",
-    shareLink: "Compartir enlace",
+    shareLink: "Compartir",
     copied: "¡Enlace copiado!",
     shareTitle: "Etiqueta de Devolución — Erendira's Boutique",
     copyPrompt: "Copia este enlace:",
-    trackReturn: "Rastrear Devolución",
+    trackReturn: "Rastrear",
     instructions: "Instrucciones",
-    tip1: "Imprime la etiqueta y pégala a tu paquete",
-    tip2: "Coloca la hoja de empaque adentro antes de cerrarlo",
-    tip3: "Entrégalo en cualquier oficina de USPS cercana",
-    needHelp: "¿Necesitas ayuda con tu devolución?",
+    tip1: "Imprime la etiqueta y pégala a tu paquete.",
+    tip2: "Coloca la hoja de empaque adentro antes de cerrarlo.",
+    tip3: "Entrégalo en cualquier oficina de USPS cercana.",
     nearestUsps: "Encuentra la oficina de USPS más cercana",
+    policy: "Política de devoluciones",
+    questions: "¿Preguntas? Escríbenos",
     instructionsPdf: "/return-instructions.pdf",
   },
 };
 
-function Icon({ d, size = 15 }: { d: string; size?: number }) {
+/* ------------------------------------------------------------------ */
+/*  Icons                                                              */
+/* ------------------------------------------------------------------ */
+
+function Icon({ d, size = 16 }: { d: string; size?: number }) {
   return (
     <svg
       width={size}
@@ -101,71 +136,130 @@ const ICONS = {
   slip: "M7 3h10a2 2 0 012 2v16l-3-2-3 2-3-2-3 2V5a2 2 0 012-2z M9 8h6 M9 12h6",
   store: "M3 9l1.5-5h15L21 9 M3 9v11h18V9 M3 9c0 1.5 1.5 3 3 3s3-1.5 3-3c0 1.5 1.5 3 3 3s3-1.5 3-3c0 1.5 1.5 3 3 3s3-1.5 3-3 M9 20v-6h6v6",
   share: "M18 8a3 3 0 100-6 3 3 0 000 6z M6 15a3 3 0 100-6 3 3 0 000 6z M18 22a3 3 0 100-6 3 3 0 000 6z M8.6 13.5l6.8 4 M15.4 6.5l-6.8 4",
+  clock: "M12 21a9 9 0 100-18 9 9 0 000 18z M12 7v5l3 2",
+  chat: "M21 12a8 8 0 01-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1121 12z",
+  external: "M7 17L17 7 M8 7h9v9",
 };
 
-type StepState = "done" | "current" | "todo";
+/* ------------------------------------------------------------------ */
+/*  Small pieces                                                       */
+/* ------------------------------------------------------------------ */
 
-function Step({ icon, label, state }: { icon: string; label: string; state: StepState }) {
-  const done = state === "done";
-  const current = state === "current";
+const outlineBtnCls =
+  "flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border-[1.5px] border-[#CFC3B4] bg-white " +
+  "px-3 text-sm font-semibold text-[#5B4A38] transition hover:border-[#5B4A38]";
+
+const linkCls = "inline-flex min-h-[44px] items-center gap-1.5 text-[#5B4A38] hover:text-[#3B3026]";
+
+function Background() {
   return (
-    <div className="flex-1 text-center">
-      <div
-        className="mx-auto flex h-7 w-7 items-center justify-center rounded-full"
-        style={
-          done || current
-            ? { background: TAUPE, color: "#F5F3EF" }
-            : { background: "#F5F3EF", border: "1.5px solid #D8CDBD", color: SAND }
-        }
-      >
-        <Icon d={done ? ICONS.check : icon} size={14} />
-      </div>
-      <p
-        className="mt-1.5 text-[11px] leading-tight"
-        style={{ color: done || current ? TAUPE : "#B3A48F", fontWeight: current ? 600 : 400 }}
-      >
-        {label}
-      </p>
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+      <Image src={BG_IMAGE} alt="" fill priority sizes="100vw" className="object-cover" />
     </div>
   );
 }
 
-function Connector({ active }: { active: boolean }) {
-  return <div className="mt-3.5 h-0.5 flex-1" style={{ background: active ? TAUPE : "#E2D9CC" }} />;
-}
-
-function Stepper({ stage, labels }: { stage: "submitted" | "label_ready"; labels: string[] }) {
-  const labelState: StepState = stage === "label_ready" ? "current" : "todo";
+function LangToggle({ lang, setLang, label }: { lang: Lang; setLang: (l: Lang) => void; label: string }) {
   return (
-    <div className="mt-7 flex items-start px-1">
-      <Step icon={ICONS.check} label={labels[0]} state="done" />
-      <Connector active={stage === "label_ready"} />
-      <Step icon={ICONS.tag} label={labels[1]} state={labelState} />
-      <Connector active={false} />
-      <Step icon={ICONS.truck} label={labels[2]} state="todo" />
-      <Connector active={false} />
-      <Step icon={ICONS.box} label={labels[3]} state="todo" />
+    <div
+      role="group"
+      aria-label={label}
+      className="flex rounded-full bg-white/85 p-1 shadow-[0_2px_8px_rgba(59,48,38,0.08)]"
+    >
+      {(["en", "es"] as Lang[]).map((l) => {
+        const on = lang === l;
+        return (
+          <button
+            key={l}
+            type="button"
+            aria-pressed={on}
+            onClick={() => setLang(l)}
+            className={
+              "h-9 min-w-[44px] rounded-full px-3 text-[13px] font-semibold transition " +
+              (on ? "bg-[#5B4A38] text-white" : "text-[#5B4A38] hover:bg-white")
+            }
+          >
+            {l.toUpperCase()}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function Tip({ icon, text }: { icon: string; text: string }) {
+type StepState = "done" | "current" | "pending" | "todo";
+
+function Stepper({ stage, labels, label }: { stage: "submitted" | "label_ready"; labels: string[]; label: string }) {
+  const icons = [ICONS.check, ICONS.tag, ICONS.truck, ICONS.box];
+  const states: StepState[] =
+    stage === "label_ready" ? ["done", "current", "todo", "todo"] : ["done", "pending", "todo", "todo"];
+
   return (
-    <div className="flex flex-1 items-start gap-2.5">
-      <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-        style={{ background: "#F5F3EF", color: TAUPE }}
-      >
-        <Icon d={icon} />
-      </div>
-      <p className="text-xs leading-relaxed" style={{ color: "#6E6152" }}>{text}</p>
-    </div>
+    <ol aria-label={label} className="mt-5 grid grid-cols-4 text-center text-xs sm:text-[13px]">
+      {labels.map((text, i) => {
+        const s = states[i];
+        const lineDone = stage === "label_ready" && i === 0;
+        return (
+          <li
+            key={text}
+            aria-current={s === "current" || s === "pending" ? "step" : undefined}
+            className={
+              "relative flex flex-col items-center gap-2 " +
+              (s === "todo" ? "text-[#7A6A57]" : "font-semibold text-[#5B4A38]")
+            }
+          >
+            {i < labels.length - 1 && (
+              <span
+                aria-hidden
+                className={"absolute left-1/2 top-[18px] h-0.5 w-full " + (lineDone ? "bg-[#5B4A38]" : "bg-[#E2D9CD]")}
+              />
+            )}
+            <span
+              className={
+                "relative flex h-[38px] w-[38px] items-center justify-center rounded-full " +
+                (s === "done"
+                  ? "bg-[#5B4A38] text-white"
+                  : s === "current"
+                  ? "bg-[#5B4A38] text-white shadow-[0_0_0_5px_#EAE3D9]"
+                  : s === "pending"
+                  ? "border-2 border-dashed border-[#5B4A38] bg-white text-[#5B4A38]"
+                  : "border-[1.5px] border-[#CFC3B4] bg-white text-[#7A6A57]")
+              }
+            >
+              <Icon d={icons[i]} size={16} />
+            </span>
+            {text}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
+
+function Tip({ icon, children }: { icon: string; children: ReactNode }) {
+  return (
+    <li className="flex items-start gap-3 sm:flex-col sm:gap-2.5">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F5F3EF] text-[#5B4A38]">
+        <Icon d={icon} size={18} />
+      </span>
+      <span className="pt-2 text-sm leading-snug text-[#5B4A38] sm:pt-0">{children}</span>
+    </li>
+  );
+}
+
+function normalizeCode(v: string) {
+  // Customers can type just the 6 characters or paste the full "EB-XXXXXX" code.
+  return v.toUpperCase().replace(/\s+/g, "").replace(/^EB-/, "");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
 
 export default function ReturnStatusPage() {
   const [lang, setLang] = useState<Lang>("en");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(""); // without the EB- prefix
+  const [checkedCode, setCheckedCode] = useState(""); // full code of the last successful lookup
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<any | null>(null);
@@ -174,7 +268,10 @@ export default function ReturnStatusPage() {
 
   const t = T[lang];
 
-  async function lookup() {
+  async function lookup(e?: FormEvent) {
+    e?.preventDefault();
+    if (!code) return;
+    const full = CODE_PREFIX + code;
     setError(null);
     setInfo(null);
     setBusy(true);
@@ -182,21 +279,20 @@ export default function ReturnStatusPage() {
       const res = await fetch("/api/returns/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code: full }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || t.genericError);
+      setCheckedCode(full);
       setInfo(data);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (err: any) {
+      setError(err.message);
     }
     setBusy(false);
   }
 
   function slipUrl() {
-    return `${window.location.origin}/api/returns/slip?code=${encodeURIComponent(
-      code.trim().toUpperCase()
-    )}&lang=${lang}`;
+    return `${window.location.origin}/api/returns/slip?code=${encodeURIComponent(checkedCode)}&lang=${lang}`;
   }
 
   function printLabel() {
@@ -230,169 +326,205 @@ export default function ReturnStatusPage() {
 
   const formatTracking = (tn?: string) => (tn ? tn.replace(/(.{4})/g, "$1 ").trim() : "");
 
+  const hasReturn = info && (info.state === "submitted" || info.state === "label_ready");
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F5F3EF] px-4 py-10">
-      <div className="card relative w-full max-w-lg !rounded-[2rem]">
-        <div className="absolute right-5 top-5 flex overflow-hidden rounded-full border" style={{ borderColor: "#D8CDBD" }}>
-          <button
-            onClick={() => setLang("en")}
-            className="px-3 py-1 text-[11px] tracking-wide"
-            style={lang === "en" ? { background: TAUPE, color: "#F5F3EF" } : { background: "#fff", color: TAUPE }}
-          >
-            EN
-          </button>
-          <button
-            onClick={() => setLang("es")}
-            className="px-3 py-1 text-[11px] tracking-wide"
-            style={lang === "es" ? { background: TAUPE, color: "#F5F3EF" } : { background: "#fff", color: TAUPE }}
-          >
-            ES
-          </button>
-        </div>
+    <div className="relative isolate flex min-h-screen flex-col bg-[#DCD2C5] px-4 py-5 text-[#5B4A38] sm:px-6 sm:py-6">
+      <Background />
 
-        <div className="text-center">
-          <Image src="/EB_Logo_Fall BGBLANK.png" alt="Erendira's Boutique" width={120} height={52} className="mx-auto h-auto w-28" />
-          <h1 className="mt-5 text-3xl">{t.title}</h1>
-          <p className="mt-2 text-sm text-ink/70">{t.subtitle}</p>
-        </div>
+      <div className="mx-auto flex w-full max-w-[1200px] justify-end">
+        <LangToggle lang={lang} setLang={setLang} label={t.language} />
+      </div>
 
-        <div className="mt-6 flex gap-2">
-          <input
-            className="input text-center font-mono uppercase tracking-[0.25em]"
-            placeholder={t.placeholder}
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === "Enter" && lookup()}
+      <main className="flex flex-1 items-center justify-center py-6 sm:py-8">
+        <section
+          className="flex w-full max-w-[620px] flex-col rounded-3xl bg-white px-5 pb-6 pt-10 shadow-[0_2px_4px_rgba(59,48,38,0.06),0_24px_60px_rgba(59,48,38,0.18)] sm:px-10 sm:pb-7 sm:pt-11"
+        >
+          <Image
+            src={LOGO}
+            alt="Erendira's Boutique"
+            width={220}
+            height={95}
+            priority
+            className="mx-auto h-auto w-[190px] sm:w-[220px]"
           />
-          <button onClick={lookup} disabled={busy || !code.trim()} className="btn-primary shrink-0">
-            {busy ? t.checking : t.check}
-          </button>
-        </div>
+          <h1 className="font-body mt-6 text-center text-[28px] leading-tight sm:text-[32px]">{t.title}</h1>
+          <p className="mt-2 text-center text-base text-[#7A6A57]">{t.subtitle}</p>
 
-        {error && (
-          <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
-        )}
-
-        {info && (info.state === "submitted" || info.state === "label_ready") && (
-          <p className="mt-4 text-center text-xs" style={{ color: "#8A7B68" }}>
-            {t.returnCode}{" "}
-            <span className="font-mono tracking-[0.15em]" style={{ color: TAUPE }}>
-              {code.trim().toUpperCase()}
-            </span>
-            {info.first_name ? ` · ${info.first_name}` : ""}
-          </p>
-        )}
-
-        {info?.state === "no_request" && (
-          <div className="mt-6 rounded-2xl border border-taupe/20 bg-cream/60 p-5 text-center">
-            <p className="text-sm text-ink/80">{t.noRequest}</p>
-            <Link href="/return" className="btn-primary mt-4 inline-flex">
-              {t.startReturn}
-            </Link>
-          </div>
-        )}
-
-        {info?.state === "submitted" && (
-          <>
-            <Stepper stage="submitted" labels={t.steps} />
-            <div className="mt-6 rounded-2xl border border-taupe/20 bg-cream/60 p-5 text-center">
-              <p className="text-sm leading-relaxed text-ink/80">{t.submitted(info.first_name)}</p>
+          {/* Code lookup */}
+          <form onSubmit={lookup} className="mt-6 flex gap-2.5">
+            <label htmlFor="status-code" className="sr-only">
+              {t.codeLabel}
+            </label>
+            <div className="flex h-[54px] min-w-0 flex-1 overflow-hidden rounded-[14px] border-[1.5px] border-[#CFC3B4] bg-white transition focus-within:border-[#5B4A38] focus-within:ring-2 focus-within:ring-[#5B4A38]/15">
+              <span className="flex items-center border-r-[1.5px] border-[#CFC3B4] bg-[#F5F3EF] px-3.5 font-mono text-[17px] font-semibold tracking-[0.08em] text-[#7A6A57]">
+                {CODE_PREFIX}
+              </span>
+              <input
+                id="status-code"
+                value={code}
+                onChange={(e) => setCode(normalizeCode(e.target.value))}
+                placeholder="XXXXXX"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                className="min-w-0 flex-1 bg-transparent px-3.5 font-mono text-[17px] uppercase tracking-[0.2em] text-[#5B4A38] outline-none placeholder:text-[#B7A693]"
+              />
             </div>
-          </>
-        )}
+            <button
+              type="submit"
+              disabled={busy || !code}
+              className="h-[54px] shrink-0 rounded-[14px] bg-[#5B4A38] px-6 text-[15px] font-semibold text-white transition hover:bg-[#4A3B2C] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? t.checking : t.check}
+            </button>
+          </form>
 
-        {info?.state === "label_ready" && (
-          <>
-            <Stepper stage="label_ready" labels={t.steps} />
+          {error && (
+            <div role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-            <div className="mt-6 rounded-[20px] border p-6" style={{ background: "#F5F3EF", borderColor: "#E5DBCC" }}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[15px]" style={{ color: "#3D342A" }}>
-                    {t.prepaidLabel(info.carrier || "USPS")}
-                  </p>
-                  {info.tracking_number && (
-                    <p className="mt-1 font-mono text-xs" style={{ color: "#8A7B68" }}>
-                      {formatTracking(info.tracking_number)}
-                    </p>
+          {!info && (
+            <p className="mt-4 text-center text-sm text-[#7A6A57]">
+              {t.notStarted}{" "}
+              <Link href={RETURN_URL} className="font-semibold text-[#5B4A38] underline underline-offset-2">
+                {t.startOne}
+              </Link>
+            </p>
+          )}
+
+          {/* Code not used yet */}
+          {info?.state === "no_request" && (
+            <div className="mt-6 rounded-[18px] bg-[#F5F3EF] p-6 text-center">
+              <p className="text-[15px] text-[#5B4A38]">{t.noRequest}</p>
+              <Link
+                href={RETURN_URL}
+                className="mt-4 inline-flex h-12 items-center justify-center rounded-xl bg-[#5B4A38] px-6 text-[15px] font-semibold text-white transition hover:bg-[#4A3B2C]"
+              >
+                {t.startReturn}
+              </Link>
+            </div>
+          )}
+
+          {hasReturn && (
+            <>
+              <div className="my-6 h-px bg-[#EAE3D9]" />
+
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                {info.first_name ? (
+                  <h2 className="font-body text-xl">{t.hi(info.first_name)}</h2>
+                ) : (
+                  <span />
+                )}
+                <p className="text-[13px] text-[#7A6A57]">
+                  {t.returnWord}{" "}
+                  <strong className="font-mono tracking-[0.06em] text-[#5B4A38]">{checkedCode}</strong>
+                </p>
+              </div>
+
+              <Stepper stage={info.state} labels={t.steps} label={t.progress} />
+
+              {/* Label card */}
+              <div className="mt-7 rounded-[18px] bg-[#F5F3EF] p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-body text-xl">{t.prepaidLabel(info.carrier || "USPS")}</p>
+                    {info.state === "label_ready" && info.tracking_number && (
+                      <p className="mt-1 break-words font-mono text-sm tracking-[0.04em] text-[#7A6A57]">
+                        {formatTracking(info.tracking_number)}
+                      </p>
+                    )}
+                    {info.state === "submitted" && (
+                      <p className="mt-1.5 max-w-[400px] text-sm leading-relaxed text-[#7A6A57]">
+                        {t.submitted(info.first_name)}
+                      </p>
+                    )}
+                  </div>
+                  {info.state === "label_ready" ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#5B4A38] px-3 py-1 text-xs font-semibold text-white">
+                      <Icon d={ICONS.check} size={12} />
+                      {t.ready}
+                    </span>
+                  ) : (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#CFC3B4] bg-white px-3 py-1 text-xs font-semibold">
+                      <Icon d={ICONS.clock} size={12} />
+                      {t.preparing}
+                    </span>
                   )}
                 </div>
-                <span
-                  className="rounded-full px-3 py-1 text-[11px] tracking-[0.15em]"
-                  style={{ background: "#EDE7DB", color: TAUPE }}
-                >
-                  {t.ready}
-                </span>
-              </div>
 
-              <button
-                onClick={printLabel}
-                disabled={opening}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{ background: TAUPE, color: "#F5F3EF" }}
-              >
-                <Icon d={ICONS.printer} size={16} />
-                {opening ? t.opening : t.printLabel}
-              </button>
+                {info.state === "label_ready" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={printLabel}
+                      disabled={opening}
+                      className="mt-5 flex h-14 w-full items-center justify-center gap-2.5 rounded-[14px] bg-[#5B4A38] text-base font-semibold text-white transition hover:bg-[#4A3B2C] disabled:opacity-60"
+                    >
+                      <Icon d={ICONS.printer} size={18} />
+                      {opening ? t.opening : t.printLabel}
+                    </button>
 
-              <button
-                onClick={shareLabel}
-                className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full border bg-white py-2.5 text-[13px]"
-                style={{ borderColor: "#D8CDBD", color: TAUPE }}
-              >
-                <Icon d={copied ? ICONS.check : ICONS.share} size={14} />
-                {copied ? t.copied : t.shareLink}
-              </button>
-
-              <div className="mt-2.5 flex gap-2.5">
-                {info.tracking_url ? (
-                  <a
-                    href={info.tracking_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-full border bg-white py-2.5 text-[13px]"
-                    style={{ borderColor: "#D8CDBD", color: TAUPE }}
+                    <div className="mt-2.5 flex flex-wrap gap-2.5">
+                      <button type="button" onClick={shareLabel} className={outlineBtnCls} aria-live="polite">
+                        <Icon d={copied ? ICONS.check : ICONS.share} />
+                        {copied ? t.copied : t.shareLink}
+                      </button>
+                      {info.tracking_url ? (
+                        <a href={info.tracking_url} target="_blank" rel="noreferrer" className={outlineBtnCls}>
+                          <Icon d={ICONS.pin} />
+                          {t.trackReturn}
+                        </a>
+                      ) : null}
+                      <a href={t.instructionsPdf} target="_blank" rel="noreferrer" className={outlineBtnCls}>
+                        <Icon d={ICONS.help} />
+                        {t.instructions}
+                      </a>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="mt-5 flex h-14 w-full cursor-not-allowed items-center justify-center gap-2.5 rounded-[14px] bg-[#EAE3D9] text-base font-semibold text-[#7A6A57]"
                   >
-                    <Icon d={ICONS.pin} size={14} />
-                    {t.trackReturn}
-                  </a>
-                ) : null}
-                <a
-                  href={t.instructionsPdf}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full border bg-white py-2.5 text-[13px]"
-                  style={{ borderColor: "#D8CDBD", color: TAUPE }}
-                >
-                  <Icon d={ICONS.help} size={14} />
-                  {t.instructions}
-                </a>
+                    <Icon d={ICONS.printer} size={18} />
+                    {t.notReady}
+                  </button>
+                )}
               </div>
-            </div>
 
-            <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:gap-3">
-              <Tip icon={ICONS.printer} text={t.tip1} />
-              <Tip icon={ICONS.slip} text={t.tip2} />
-              <Tip icon={ICONS.store} text={t.tip3} />
-            </div>
+              {/* Tips */}
+              <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Tip icon={ICONS.printer}>{t.tip1}</Tip>
+                <Tip icon={ICONS.slip}>{t.tip2}</Tip>
+                <Tip icon={ICONS.store}>{t.tip3}</Tip>
+              </ul>
+            </>
+          )}
 
-            <div className="mt-6 border-t pt-4 text-center" style={{ borderColor: "#EFE9DE" }}>
-              <span className="text-xs" style={{ color: "#A89A85" }}>
-                {t.needHelp}{" "}
-              </span>
-              <a
-                href={uspsMapUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs underline"
-                style={{ color: TAUPE }}
-              >
+          {/* Footer links */}
+          <div className="mb-1 mt-6 h-px bg-[#EAE3D9]" />
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-0 text-sm font-semibold">
+            {info?.state === "label_ready" && (
+              <a href={uspsMapUrl} target="_blank" rel="noreferrer" className={linkCls}>
                 {t.nearestUsps}
+                <Icon d={ICONS.external} size={14} />
               </a>
-            </div>
-          </>
-        )}
-      </div>
+            )}
+            <a href={POLICY_URL} target="_blank" rel="noopener noreferrer" className={linkCls}>
+              {t.policy}
+              <Icon d={ICONS.external} size={14} />
+            </a>
+            <a href={MESSENGER_URL} target="_blank" rel="noopener noreferrer" className={linkCls}>
+              <Icon d={ICONS.chat} />
+              {t.questions}
+            </a>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
