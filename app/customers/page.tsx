@@ -59,14 +59,8 @@ function initials(name?: string) {
   return (first + last).toUpperCase();
 }
 
-const AVATAR_TINTS = [
-  "bg-sand/60 text-taupe",
-  "bg-rose-100 text-rose-800",
-  "bg-amber-100 text-amber-800",
-  "bg-emerald-100 text-emerald-800",
-  "bg-sky-100 text-sky-800",
-  "bg-violet-100 text-violet-800",
-];
+// Avatars stay in the boutique palette.
+const AVATAR_TINTS = ["bg-sand/40 text-taupe", "bg-sand/60 text-taupe", "bg-taupe/15 text-taupe"];
 
 function avatarTint(seed: string) {
   let h = 0;
@@ -86,6 +80,23 @@ function Avatar({ name, id, size = "md" }: { name?: string; id?: string; size?: 
 function location(c: any) {
   return [c.city, c.state].filter(Boolean).join(", ");
 }
+
+type Filter = "all" | "month" | "noEmail" | "noAddress";
+type Stat = { count: number; last: string | null };
+
+function shortDay(iso: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString("en-US", sameYear ? { month: "short", day: "numeric" } : { month: "short", year: "numeric" });
+}
+
+function letterOf(name?: string) {
+  const ch = (name || "").trim().charAt(0).toUpperCase();
+  return ch >= "A" && ch <= "Z" ? ch : "#";
+}
+
+const LETTERS = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 function statusTone(status?: string) {
   const s = (status || "").toLowerCase();
@@ -151,6 +162,8 @@ export default function CustomersPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [filter, setFilter] = useState<Filter>("all");
 
   async function load() {
     // Every customer, loaded 1,000 at a time (a plain select stops at 1,000).
@@ -165,6 +178,15 @@ export default function CustomersPage() {
     ).catch(() => [] as any[]);
     setCustomers(data);
     setLoaded(true);
+    // Light order list for the Orders / Last shipped columns (matched like the profile: email, then name).
+    const ords = await fetchAll((from, to) =>
+      supabase
+        .from("shipping_orders")
+        .select("id, to_email, to_name, created_at")
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    ).catch(() => [] as any[]);
+    setOrders(ords);
   }
   useEffect(() => {
     load();
@@ -182,11 +204,76 @@ export default function CustomersPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [editing, showMerge]);
 
+  // Orders and last ship date per customer.
+  const stats = useMemo(() => {
+    const byEmail = new Map<string, any[]>();
+    const byName = new Map<string, any[]>();
+    for (const o of orders) {
+      const e = (o.to_email || "").trim().toLowerCase();
+      const n = (o.to_name || "").trim().toLowerCase();
+      if (e) byEmail.set(e, [...(byEmail.get(e) || []), o]);
+      if (n) byName.set(n, [...(byName.get(n) || []), o]);
+    }
+    const out = new Map<string, Stat>();
+    for (const c of customers) {
+      const list = [
+        ...(byEmail.get((c.email || "").trim().toLowerCase()) || []),
+        ...(byName.get((c.name || "").trim().toLowerCase()) || []),
+      ];
+      const ids = new Set<string>();
+      let last: string | null = null;
+      for (const o of list) {
+        if (ids.has(o.id)) continue;
+        ids.add(o.id);
+        if (!last || o.created_at > last) last = o.created_at;
+      }
+      out.set(c.id, { count: ids.size, last });
+    }
+    return out;
+  }, [customers, orders]);
+
+  const monthStart = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+  }, []);
+
+  const matchesFilter = (c: any, f: Filter) => {
+    if (f === "month") return (stats.get(c.id)?.last || "") >= monthStart;
+    if (f === "noEmail") return !c.email;
+    if (f === "noAddress") return !c.street1 || !c.zip;
+    return true;
+  };
+
+  const counts = useMemo(() => {
+    const n = { all: customers.length, month: 0, noEmail: 0, noAddress: 0 };
+    for (const c of customers) {
+      if (matchesFilter(c, "month")) n.month++;
+      if (matchesFilter(c, "noEmail")) n.noEmail++;
+      if (matchesFilter(c, "noAddress")) n.noAddress++;
+    }
+    return n;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customers, stats, monthStart]);
+
   const shown = customers.filter((c) => {
+    if (!matchesFilter(c, filter)) return false;
     if (!q.trim()) return true;
     const s = q.toLowerCase();
     return [c.name, c.email, c.phone, c.city, c.zip].some((v) => (v || "").toLowerCase().includes(s));
   });
+
+  // First row for each letter, for the A–Z jump strip.
+  const firstOfLetter = new Map<string, string>();
+  for (const c of shown) {
+    const L = letterOf(c.name);
+    if (!firstOfLetter.has(L)) firstOfLetter.set(L, c.id);
+  }
+  function jumpTo(L: string) {
+    const id = firstOfLetter.get(L);
+    if (!id) return;
+    const el = document.querySelector(`[data-cust-row="${id}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const dupes = useMemo(() => findDuplicates(customers), [customers]);
 
@@ -360,7 +447,7 @@ export default function CustomersPage() {
           <button onClick={() => setShowMerge(true)} className="btn-secondary inline-flex items-center gap-2">
             Find duplicates
             {dupes.length > 0 && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{dupes.length}</span>
+              <span className="rounded-full bg-sand/40 px-2 py-0.5 text-xs font-semibold text-taupe">{dupes.length}</span>
             )}
           </button>
           <button onClick={() => setEditing({ ...empty })} className="btn-primary inline-flex items-center gap-2">
@@ -379,13 +466,13 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      {/* Search + filters */}
+      <div className="mt-6 flex flex-wrap items-center gap-2.5">
         <div className="relative w-full max-w-md">
-          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/40">{Icon.search}</span>
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-taupe/70">{Icon.search}</span>
           <input
             className="input !pl-10 !pr-9"
-            placeholder="Search by name, email, phone, city or ZIP"
+            placeholder="Search name, email, phone, city or ZIP"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -396,97 +483,177 @@ export default function CustomersPage() {
             </button>
           )}
         </div>
-        {searching && loaded && (
-          <span className="text-sm text-ink/55">{shown.length.toLocaleString()} match{shown.length === 1 ? "" : "es"}</span>
+        {([
+          ["all", "All", counts.all],
+          ["month", "Shipped this month", counts.month],
+          ["noEmail", "Missing email", counts.noEmail],
+          ["noAddress", "Missing address", counts.noAddress],
+        ] as [Filter, string, number][]).map(([key, label, n]) => {
+          const on = filter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              aria-pressed={on}
+              className={`inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm transition-colors ${
+                on ? "border-taupe bg-taupe text-cream" : "border-sand text-taupe hover:border-taupe/50"
+              }`}
+            >
+              {label}
+              <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${on ? "bg-cream/25" : "bg-sand/40"}`}>
+                {loaded ? n.toLocaleString() : "…"}
+              </span>
+            </button>
+          );
+        })}
+        {(searching || filter !== "all") && loaded && (
+          <span className="text-sm text-ink/55">{shown.length.toLocaleString()} shown</span>
         )}
       </div>
 
       {/* Directory */}
-      <div className="card mt-4 overflow-hidden !p-0">
-        {!loaded ? (
-          <ul className="divide-y divide-sand/30">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <li key={i} className="flex animate-pulse items-center gap-3 px-5 py-4">
-                <span className="h-10 w-10 rounded-full bg-sand/40" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3 w-40 rounded bg-sand/50" />
-                  <div className="h-3 w-56 rounded bg-sand/30" />
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : !shown.length ? (
-          <div className="flex flex-col items-center px-6 py-16 text-center">
-            <span className="text-ink/30">{Icon.people}</span>
-            {searching ? (
-              <>
-                <p className="mt-3 font-medium">No customers match “{q.trim()}”</p>
-                <button onClick={() => setQ("")} className="mt-3 text-sm text-taupe underline underline-offset-2">Clear search</button>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 font-medium">No customers yet</p>
-                <p className="mt-1 text-sm text-ink/55">Add your first customer or import a CSV to get started.</p>
-                <div className="mt-5 flex gap-2">
-                  <button onClick={() => fileRef.current?.click()} className="btn-secondary">Import CSV</button>
-                  <button onClick={() => setEditing({ ...empty })} className="btn-primary">Add customer</button>
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Desktop table */}
-            <table className="hidden w-full md:table">
-              <thead className="border-b border-sand/60 bg-sand/10">
-                <tr>
-                  <th className="table-th">Customer</th>
-                  <th className="table-th">Phone</th>
-                  <th className="table-th">Location</th>
-                  <th className="table-th">ZIP</th>
-                  <th className="table-th w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((c) => (
-                  <tr key={c.id} onClick={() => setEditing(c)}
-                    className="group cursor-pointer border-b border-sand/30 transition-colors last:border-0 hover:bg-sand/15">
-                    <td className="table-td">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={c.name} id={c.id} />
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{c.name}</p>
-                          <p className="truncate text-sm text-ink/55">{c.email || <span className="text-ink/35">No email</span>}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="table-td whitespace-nowrap tabular-nums">{c.phone || <span className="text-ink/35">—</span>}</td>
-                    <td className="table-td">{location(c) || <span className="text-ink/35">—</span>}</td>
-                    <td className="table-td tabular-nums">{c.zip || <span className="text-ink/35">—</span>}</td>
-                    <td className="table-td text-ink/25 transition-colors group-hover:text-taupe">{Icon.chevron}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Mobile list */}
-            <ul className="divide-y divide-sand/30 md:hidden">
-              {shown.map((c) => (
-                <li key={c.id}>
-                  <button onClick={() => setEditing(c)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-sand/15">
-                    <Avatar name={c.name} id={c.id} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{c.name}</p>
-                      <p className="truncate text-sm text-ink/55">
-                        {[c.email, location(c)].filter(Boolean).join(" · ") || "No contact info"}
-                      </p>
-                    </div>
-                    <span className="text-ink/25">{Icon.chevron}</span>
-                  </button>
+      <div className="relative mt-4">
+        <div className="card overflow-hidden !p-0 md:mr-8">
+          {!loaded ? (
+            <ul className="divide-y divide-sand/30">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <li key={i} className="flex animate-pulse items-center gap-3 px-5 py-3.5">
+                  <span className="h-9 w-9 rounded-full bg-sand/40" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-40 rounded bg-sand/50" />
+                    <div className="h-3 w-56 rounded bg-sand/30" />
+                  </div>
                 </li>
               ))}
             </ul>
-          </>
+          ) : !shown.length ? (
+            <div className="flex flex-col items-center px-6 py-16 text-center">
+              <span className="text-taupe/40">{Icon.people}</span>
+              {searching || filter !== "all" ? (
+                <>
+                  <p className="mt-3 font-medium">No customers match{searching ? ` “${q.trim()}”` : " this filter"}</p>
+                  <button onClick={() => { setQ(""); setFilter("all"); }} className="mt-3 text-sm text-taupe underline underline-offset-2">Show everyone</button>
+                </>
+              ) : (
+                <>
+                  <p className="mt-3 font-medium">No customers yet</p>
+                  <p className="mt-1 text-sm text-ink/55">Add your first customer or import a CSV to get started.</p>
+                  <div className="mt-5 flex gap-2">
+                    <button onClick={() => fileRef.current?.click()} className="btn-secondary">Import CSV</button>
+                    <button onClick={() => setEditing({ ...empty })} className="btn-primary">Add customer</button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <table className="hidden w-full md:table">
+                <thead className="border-b border-sand/60 bg-sand/10">
+                  <tr>
+                    <th className="table-th">Customer</th>
+                    <th className="table-th">Contact</th>
+                    <th className="table-th">Location</th>
+                    <th className="table-th">Orders</th>
+                    <th className="table-th">Last shipped</th>
+                    <th className="table-th w-10" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((c) => {
+                    const st = stats.get(c.id);
+                    const anchor = firstOfLetter.get(letterOf(c.name)) === c.id;
+                    return (
+                      <tr key={c.id} data-cust-row={c.id} onClick={() => setEditing(c)}
+                        className={`group cursor-pointer border-b border-sand/30 transition-colors last:border-0 hover:bg-sand/15 ${anchor ? "scroll-mt-4" : ""}`}>
+                        <td className="table-td !py-2.5">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={c.name} id={c.id} size="sm" />
+                            <p className="truncate font-medium">{c.name}</p>
+                          </div>
+                        </td>
+                        <td className="table-td !py-2.5">
+                          {c.email || c.phone ? (
+                            <div className="min-w-0 text-sm">
+                              {c.email && <p className="truncate text-ink/70">{c.email}</p>}
+                              {c.phone && <p className="truncate tabular-nums text-ink/55">{c.phone}</p>}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditing(c); }}
+                              className="text-sm text-taupe hover:underline"
+                            >
+                              + Add email
+                            </button>
+                          )}
+                        </td>
+                        <td className="table-td !py-2.5">
+                          {location(c) ? (
+                            <span>
+                              {location(c)} <span className="tabular-nums text-ink/50">{c.zip}</span>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditing(c); }}
+                              className="text-sm text-taupe hover:underline"
+                            >
+                              + Add address
+                            </button>
+                          )}
+                        </td>
+                        <td className="table-td !py-2.5 tabular-nums">{st?.count || <span className="text-ink/35">0</span>}</td>
+                        <td className="table-td !py-2.5 text-sm text-ink/60">{shortDay(st?.last ?? null) || <span className="text-ink/35">—</span>}</td>
+                        <td className="table-td !py-2.5 text-sand transition-colors group-hover:text-taupe">{Icon.chevron}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Mobile list */}
+              <ul className="divide-y divide-sand/30 md:hidden">
+                {shown.map((c) => {
+                  const st = stats.get(c.id);
+                  return (
+                    <li key={c.id} data-cust-row={c.id}>
+                      <button onClick={() => setEditing(c)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-sand/15">
+                        <Avatar name={c.name} id={c.id} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{c.name}</p>
+                          <p className="truncate text-sm text-ink/55">
+                            {[location(c), st?.count ? `${st.count} order${st.count === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ") || "No address yet"}
+                          </p>
+                        </div>
+                        <span className="text-sand">{Icon.chevron}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+
+        {/* A–Z jump strip (desktop) */}
+        {loaded && shown.length > 20 && (
+          <nav aria-label="Jump to letter" className="absolute bottom-0 right-0 top-0 hidden md:block">
+            <div className="sticky top-6 flex flex-col items-center gap-px">
+              {LETTERS.map((L) => {
+                const has = firstOfLetter.has(L);
+                return (
+                  <button
+                    key={L}
+                    onClick={() => jumpTo(L)}
+                    disabled={!has}
+                    aria-label={`Jump to ${L}`}
+                    className="h-[19px] w-6 rounded text-[11px] leading-none text-taupe hover:bg-sand/40 disabled:text-sand"
+                  >
+                    {L}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
         )}
       </div>
 
