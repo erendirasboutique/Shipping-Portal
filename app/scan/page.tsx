@@ -604,9 +604,9 @@ export default function ScanPage() {
   );
 
   const softBtn =
-    "flex h-[50px] items-center justify-center gap-2 rounded-[14px] border border-[#e3d9ce] bg-white px-4 text-[15px] text-ink disabled:opacity-50 dark:border-[#3a2f27] dark:bg-[#1f1914] dark:text-[#f1e9e0]";
+    "flex h-[50px] items-center justify-center gap-2 rounded-[14px] border border-sand/60 bg-white dark:bg-transparent px-4 text-[15px] text-ink disabled:opacity-50";
   const bigBtn =
-    "flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#2f261f] text-base text-white disabled:opacity-50 dark:bg-[#c9ab8a] dark:text-[#2a211b]";
+    "flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-taupe text-base text-cream disabled:opacity-50";
 
   const errorBox = error && (
     <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -628,7 +628,7 @@ export default function ScanPage() {
             <span className="absolute right-0 top-0 h-9 w-9 rounded-tr-[22px] border-r-4 border-t-4 border-white" />
             <span className="absolute bottom-0 left-0 h-9 w-9 rounded-bl-[22px] border-b-4 border-l-4 border-white" />
             <span className="absolute bottom-0 right-0 h-9 w-9 rounded-br-[22px] border-b-4 border-r-4 border-white" />
-            <span className="eb-scanline absolute inset-x-4 h-0.5 rounded bg-[#e9c79f] shadow-[0_0_12px_2px_rgba(233,199,159,0.7)]" />
+            <span className="eb-scanline absolute inset-x-4 h-0.5 rounded bg-cream shadow-[0_0_12px_2px_rgba(255,255,255,0.6)]" />
             <p className="absolute inset-x-0 -bottom-10 text-center text-[15px] text-white/90">Line up the long barcode inside the frame</p>
           </div>
         )}
@@ -654,7 +654,7 @@ export default function ScanPage() {
             <span className="text-xs text-white/70">{sentCount > 0 ? `${sentCount} sent this session` : "Packing day"}</span>
           </div>
           {torchOk ? (
-            <button onClick={toggleTorch} aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"} aria-pressed={torchOn} className={`grid h-11 w-11 place-items-center rounded-full backdrop-blur ${torchOn ? "bg-white text-[#2f261f]" : "bg-white/15 text-white"}`}>
+            <button onClick={toggleTorch} aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"} aria-pressed={torchOn} className={`grid h-11 w-11 place-items-center rounded-full backdrop-blur ${torchOn ? "bg-white text-ink" : "bg-white/15 text-white"}`}>
               <Ico d={ICON.torch} size={19} />
             </button>
           ) : (
@@ -669,8 +669,8 @@ export default function ScanPage() {
         )}
 
         {/* Bottom panel */}
-        <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3.5 rounded-t-[28px] bg-[#fbf9f6] px-5 pt-3 text-ink dark:bg-[#1a1511] dark:text-[#f1e9e0]" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-          <span className="mx-auto h-[5px] w-10 rounded-full bg-[#d9cec2] dark:bg-[#3a2f27]" />
+        <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3.5 rounded-t-[28px] bg-cream px-5 pt-3 text-ink" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+          <span className="mx-auto h-[5px] w-10 rounded-full bg-sand" />
           {errorBox}
           <form
             className="flex gap-2"
@@ -679,10 +679,10 @@ export default function ScanPage() {
               lookup(typed);
             }}
           >
-            <label className="flex h-[50px] min-w-0 flex-1 items-center gap-2 rounded-[14px] border border-[#e3d9ce] bg-white px-3.5 text-[#8a7b6d] dark:border-[#3a2f27] dark:bg-[#1f1914]">
+            <label className="flex h-[50px] min-w-0 flex-1 items-center gap-2 rounded-[14px] border border-sand/60 bg-white dark:bg-transparent px-3.5 text-ink/50">
               <Ico d={ICON.search} size={18} w={1.8} />
               <input
-                className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-[#a89a8c] dark:text-[#f1e9e0]"
+                className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink/40"
                 placeholder="Tracking # or EB-123"
                 aria-label="Tracking number or order number"
                 value={typed}
@@ -692,18 +692,18 @@ export default function ScanPage() {
                 enterKeyHint="search"
               />
             </label>
-            <button type="submit" disabled={!typed.trim() || !!busy} className="h-[50px] shrink-0 rounded-[14px] bg-[#2f261f] px-5 text-[15px] text-white disabled:opacity-40 dark:bg-[#c9ab8a] dark:text-[#2a211b]">
+            <button type="submit" disabled={!typed.trim() || !!busy} className="h-[50px] shrink-0 rounded-[14px] bg-taupe px-5 text-[15px] text-cream disabled:opacity-40">
               Find
             </button>
           </form>
           <input ref={labelFileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onLabelPhoto} />
           <div className="grid grid-cols-2 gap-2.5">
             <button onClick={() => labelFileRef.current?.click()} disabled={!!busy} className={softBtn}>
-              <span className="text-[#6f5c49] dark:text-[#c9ab8a]"><Ico d={ICON.camera} size={18} w={1.8} /></span>
+              <span className="text-taupe"><Ico d={ICON.camera} size={18} w={1.8} /></span>
               Photo of label
             </button>
             <Link href="/packing" className={softBtn}>
-              <span className="text-[#6f5c49] dark:text-[#c9ab8a]"><Ico d={ICON.list} size={18} w={1.8} /></span>
+              <span className="text-taupe"><Ico d={ICON.list} size={18} w={1.8} /></span>
               Packing list
             </Link>
           </div>
@@ -714,12 +714,12 @@ export default function ScanPage() {
 
   // ---------- Found & Done: light pages ----------
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-4 bg-cream px-5 text-ink dark:bg-[#15110e] dark:text-[#f1e9e0]" style={{ paddingTop: "max(16px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-4 bg-cream px-5 text-ink" style={{ paddingTop: "max(16px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
       <header className="flex items-center justify-between">
-        <button onClick={next} aria-label={stage === "found" ? "Not this one, scan again" : "Back to scanning"} className="grid h-11 w-11 place-items-center rounded-full border border-[#ebe3da] bg-white dark:border-[#3a2f27] dark:bg-[#1f1914]">
+        <button onClick={next} aria-label={stage === "found" ? "Not this one, scan again" : "Back to scanning"} className="grid h-11 w-11 place-items-center rounded-full border border-sand/60 bg-white dark:bg-transparent">
           <Ico d={stage === "found" ? ICON.close : ICON.back} />
         </button>
-        <span className="rounded-full bg-[#ece5dd] px-3 py-1.5 text-[13px] text-[#6f5c49] dark:bg-[#2a211b] dark:text-[#c9ab8a]">
+        <span className="rounded-full bg-sand/30 px-3 py-1.5 text-[13px] text-taupe">
           {stage === "found" ? "Step 2 · Photo & send" : sentCount > 0 ? `${sentCount} sent this session` : "Done"}
         </span>
         <span className="h-11 w-11" />
@@ -728,34 +728,34 @@ export default function ScanPage() {
       {stage === "found" && found && (
         <>
           {/* Who it's for */}
-          <section className="flex flex-col gap-3 rounded-[22px] border border-[#ebe3da] bg-white p-4 dark:border-[#3a2f27] dark:bg-[#1f1914]">
-            <span className="flex items-center gap-2 text-[13.5px] text-[#2f6b43] dark:text-[#8fc79f]">
-              <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-[#dcefe2] dark:bg-[#22382a]"><Ico d={ICON.check} size={13} w={3} /></span>
+          <section className="flex flex-col gap-3 rounded-[22px] border border-sand/60 bg-white dark:bg-transparent p-4">
+            <span className="flex items-center gap-2 text-[13.5px] text-taupe">
+              <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-sand/30"><Ico d={ICON.check} size={13} w={3} /></span>
               Label found
             </span>
             <div className="flex items-center gap-3.5">
-              <span className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl bg-[#efe6dc] text-[17px] text-[#6f5c49] dark:bg-[#3a2f27] dark:text-[#c9ab8a]">{initials}</span>
+              <span className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl bg-sand/30 text-[17px] text-taupe">{initials}</span>
               <div className="min-w-0">
                 <p className="truncate font-heading text-[26px] leading-tight">{found.order.name || "Customer"}</p>
-                <p className="truncate text-sm text-[#6f6156] dark:text-[#b8a796]">
+                <p className="truncate text-sm text-ink/60">
                   {found.order.label}
                   {found.order.place ? " · " + found.order.place : ""}
                 </p>
               </div>
             </div>
             {found.order.tracking && (
-              <p className="break-all rounded-xl bg-[#f6f1eb] px-3 py-2 font-mono text-xs text-[#4a3d33] dark:bg-[#251e18] dark:text-[#d6c9bb]">
+              <p className="break-all rounded-xl bg-cream px-3 py-2 font-mono text-xs text-ink/80">
                 {found.order.carrier ? found.order.carrier + " · " : ""}
                 {found.order.tracking}
               </p>
             )}
             {found.order.notifiedAt && (
-              <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e] dark:bg-[#2e2617] dark:text-[#e6c88f]">
+              <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e]">
                 Already sent by {found.order.notifiedVia || "message"} on {timeAgo(found.order.notifiedAt)}.
               </p>
             )}
             {!found.order.notifiedAt && found.order.museStatus === "queued" && (
-              <p className="rounded-xl bg-[#f1ebe4] px-3.5 py-2.5 text-[13px] text-[#6f6156] dark:bg-[#2a211b] dark:text-[#b8a796]">
+              <p className="rounded-xl bg-sand/20 px-3.5 py-2.5 text-[13px] text-ink/60">
                 Waiting for Muse to send it
                 {found.order.museQueuedAt ? " (queued " + timeAgo(found.order.museQueuedAt) + ")" : ""}. Sending it yourself now is fine too; Muse will skip it.
               </p>
@@ -785,10 +785,10 @@ export default function ScanPage() {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={!!busy}
-              className="flex h-[230px] w-full flex-col items-center justify-center gap-4 rounded-[22px] bg-[radial-gradient(110%_80%_at_50%_40%,#4a3f36_0%,#221c18_70%)] text-white"
+              className="flex h-[230px] w-full flex-col items-center justify-center gap-4 rounded-[22px] border-2 border-dashed border-taupe/40 bg-sand/20 text-taupe"
             >
-              <span className="grid h-[76px] w-[76px] place-items-center rounded-full border-4 border-white p-1">
-                <span className="block h-full w-full rounded-full bg-white" />
+              <span className="grid h-[76px] w-[76px] place-items-center rounded-full border-4 border-taupe p-1">
+                <span className="block h-full w-full rounded-full bg-taupe" />
               </span>
               <span className="text-base">{busy || "Take a photo of the box"}</span>
             </button>
@@ -796,14 +796,14 @@ export default function ScanPage() {
 
           {/* Send */}
           <section className="flex flex-col gap-2.5">
-            <div role="radiogroup" aria-label="Open in" className="grid grid-cols-2 gap-1 rounded-[14px] bg-[#ece5dd] p-1 dark:bg-[#2a211b]">
+            <div role="radiogroup" aria-label="Open in" className="grid grid-cols-2 gap-1 rounded-[14px] bg-sand/30 p-1">
               {(["messenger", "suite"] as AppTarget[]).map((t) => (
                 <button
                   key={t}
                   role="radio"
                   aria-checked={target === t}
                   onClick={() => chooseTarget(t)}
-                  className={`h-10 rounded-[11px] text-sm ${target === t ? "bg-white text-ink shadow-sm dark:bg-[#3a2f27] dark:text-white" : "text-[#6f6156] dark:text-[#b8a796]"}`}
+                  className={`h-10 rounded-[11px] text-sm ${target === t ? "bg-white dark:bg-transparent text-ink shadow-sm" : "text-ink/60"}`}
                 >
                   {APP_NAMES[t]}
                 </button>
@@ -813,7 +813,7 @@ export default function ScanPage() {
               <Ico d={ICON.send} size={19} w={2} />
               {busy || "Send to " + APP_NAMES[target]}
             </button>
-            <p className="text-center text-xs text-[#6f6156] dark:text-[#b8a796]">
+            <p className="text-center text-xs text-ink/60">
               Copies the photo and opens {APP_NAMES[target]}. In the chat, press and hold the message box and tap Paste.
             </p>
             <button
@@ -826,13 +826,13 @@ export default function ScanPage() {
           </section>
 
           {/* Message + other options */}
-          <details className="group rounded-[18px] border border-[#ebe3da] bg-white dark:border-[#3a2f27] dark:bg-[#1f1914]">
+          <details className="group rounded-[18px] border border-sand/60 bg-white dark:bg-transparent">
             <summary className="flex h-[52px] cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden justify-between px-4 text-[15px]">
               Message &amp; other options
-              <span className="text-[#8a7b6d] transition-transform group-open:rotate-90"><Ico d="M9 6l6 6-6 6" size={18} /></span>
+              <span className="text-ink/50 transition-transform group-open:rotate-90"><Ico d="M9 6l6 6-6 6" size={18} /></span>
             </summary>
             <div className="flex flex-col gap-2.5 px-4 pb-4">
-              <p className="whitespace-pre-line rounded-xl bg-[#f6f1eb] px-3.5 py-3 text-sm text-[#4a3d33] dark:bg-[#251e18] dark:text-[#d6c9bb]">{found.message}</p>
+              <p className="whitespace-pre-line rounded-xl bg-cream px-3.5 py-3 text-sm text-ink/80">{found.message}</p>
               <button onClick={copyMessage} className={softBtn}>
                 <Ico d={ICON.copy} size={17} w={1.8} />
                 {copied ? "Message copied" : "Copy message"}
@@ -861,12 +861,12 @@ export default function ScanPage() {
       {stage === "done" && found && result && (
         <>
           <section className="mt-2 flex flex-col items-center gap-2.5 text-center">
-            <div className="relative h-[168px] w-[168px] overflow-hidden rounded-[28px] bg-[#2a221d] shadow-[0_16px_36px_rgba(47,38,31,0.18)]">
+            <div className="relative h-[168px] w-[168px] overflow-hidden rounded-[28px] bg-sand/30 shadow-lg">
               {photoSrc && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoSrc} alt="Package" className="h-full w-full object-cover" />
               )}
-              <span className="absolute bottom-2.5 right-2.5 grid h-[34px] w-[34px] place-items-center rounded-full bg-[#2f6b43] text-white ring-[3px] ring-cream dark:ring-[#15110e]">
+              <span className="absolute bottom-2.5 right-2.5 grid h-[34px] w-[34px] place-items-center rounded-full bg-taupe text-cream ring-[3px] ring-cream">
                 <Ico d={ICON.check} size={18} w={3} />
               </span>
             </div>
@@ -881,7 +881,7 @@ export default function ScanPage() {
                 ? "Email sent"
                 : "Photo saved"}
             </h1>
-            <p className="text-[15px] text-[#6f6156] dark:text-[#b8a796]">
+            <p className="text-[15px] text-ink/60">
               {found.order.label}
               {firstName ? " · " + found.order.name : ""}
               {result.to ? " · " + result.to : ""}
@@ -889,14 +889,14 @@ export default function ScanPage() {
           </section>
 
           {result.via === "muse" && (
-            <p className="rounded-2xl bg-white px-4 py-3 text-sm text-[#4a3d33] shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:text-[#d6c9bb] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
+            <p className="rounded-2xl bg-white dark:bg-transparent px-4 py-3 text-sm text-ink/80 ring-1 ring-inset ring-sand/60">
               Muse will send the photo and message next time it runs. Anything it can&apos;t match shows up as flagged on the Packing List.
             </p>
           )}
 
           {result.via === "shared" && (
-            <div className="flex flex-col gap-2.5 rounded-2xl bg-white p-4 shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
-              <p className="text-sm text-[#4a3d33] dark:text-[#d6c9bb]">
+            <div className="flex flex-col gap-2.5 rounded-2xl bg-white dark:bg-transparent p-4 ring-1 ring-inset ring-sand/60">
+              <p className="text-sm text-ink/80">
                 Messenger only sends the photo. The message is already copied: in the chat, press and hold the message box and tap Paste.
               </p>
               <div className="grid grid-cols-2 gap-2.5">
@@ -907,20 +907,20 @@ export default function ScanPage() {
           )}
 
           {result.via === "opened" && (
-            <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-[inset_0_0_0_1px_#ebe3da] dark:bg-[#1f1914] dark:shadow-[inset_0_0_0_1px_#3a2f27]">
+            <div className="flex flex-col gap-3 rounded-2xl bg-white dark:bg-transparent p-4 ring-1 ring-inset ring-sand/60">
               {photoCopied === false && (
-                <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e] dark:bg-[#2e2617] dark:text-[#e6c88f]">
+                <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e]">
                   This phone didn&apos;t let the photo be copied. Use Share photo below instead.
                 </p>
               )}
-              <ol className="flex flex-col gap-2 text-sm text-[#4a3d33] dark:text-[#d6c9bb]">
+              <ol className="flex flex-col gap-2 text-sm text-ink/80">
                 {[
                   `In ${APP_NAMES[target]}, open ${firstName ? firstName + "'s" : "the customer's"} chat.`,
                   "Press and hold the message box, tap Paste, and send the photo.",
                   "Come back here, tap Copy message, and paste that too.",
                 ].map((step, i) => (
                   <li key={i} className="flex gap-3">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#efe6dc] text-xs text-[#6f5c49] dark:bg-[#3a2f27] dark:text-[#c9ab8a]">{i + 1}</span>
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sand/30 text-xs text-taupe">{i + 1}</span>
                     {step}
                   </li>
                 ))}
