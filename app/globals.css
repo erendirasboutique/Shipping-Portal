@@ -4,8 +4,8 @@
 /* Licensed brand fonts — files live in public/fonts/. Missing files fall back to Georgia. */
 /* Heading font */
 @font-face {
-  font-family: "Beyna Elavani";
-  src: url("/fonts/beyna_elvani_regular.ttf") format("truetype");
+  font-family: "Silver Editorial";
+  src: url("/fonts/sltfthesilvereditorial-regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -26,8 +26,8 @@
   --c-sand: 207 189 169;    /* everything else  #cfbda9 */
   --c-ink: 51 43 35;        /* body text        #332b23 */
   --c-surface: 255 255 255; /* cards, inputs    white   */
-  --font-heading: "Beyna Elavani", Georgia, serif;
-  /* Old name kept so anything in tailwind.config still pointing at it gets Beyna too */
+  --font-heading: "Silver Editorial", Georgia, serif;
+  /* Old name kept so anything in tailwind.config still pointing at it gets the heading font too */
   --font-laluxes: var(--font-heading);
   --font-body: "Cooper Lt BT", Georgia, serif;
   /* Old name kept so anything in tailwind.config still pointing at it gets Cooper too */
