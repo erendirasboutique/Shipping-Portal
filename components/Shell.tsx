@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import KeyboardShortcuts, { ShortcutsHint } from "@/components/KeyboardShortcuts";
 
 const LOGO = "/EB_Logo_Fall BGBLANK.png";
 
@@ -226,6 +227,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
+        <ShortcutsHint />
+
         <div className="flex items-center gap-2.5 rounded-xl border border-sand/60 bg-cream p-3">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-sand/30 text-taupe">
             <Icon d={ICON.truck} />
@@ -260,6 +263,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
+
+      <KeyboardShortcuts />
     </div>
   );
 }
