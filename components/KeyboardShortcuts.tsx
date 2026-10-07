@@ -37,7 +37,7 @@ function findSearchBox(): HTMLInputElement | null {
   return (
     boxes.find((i) => {
       const hint = (i.placeholder + " " + (i.getAttribute("aria-label") || "") + " " + i.type).toLowerCase();
-      return /search|find|tracking|eb-/.test(hint) && i.offsetParent !== null && !i.disabled;
+      return /search|find|tracking|eb-|buscar|busca|rastreo/.test(hint) && i.offsetParent !== null && !i.disabled;
     }) || null
   );
 }

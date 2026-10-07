@@ -6,6 +6,7 @@
 //    the phone's share button (or email it).
 
 import Link from "next/link";
+import PortalTranslator from "@/components/PortalTranslator";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 
@@ -172,6 +173,15 @@ function timeAgo(iso: string) {
 }
 
 export default function ScanPage() {
+  return (
+    <>
+      <ScanPageInner />
+      <PortalTranslator />
+    </>
+  );
+}
+
+function ScanPageInner() {
   const [stage, setStage] = useState<Stage>("scan");
   const [found, setFound] = useState<Found | null>(null);
   const [typed, setTyped] = useState("");

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import PortalTranslator from "@/components/PortalTranslator";
 
 // Where the Admin tab goes. Change this when you decide (e.g. an admin dashboard).
 const ADMIN_URL = "/admin";
@@ -235,8 +236,11 @@ function LoginInner() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
-      <LoginInner />
-    </Suspense>
+    <>
+      <Suspense>
+        <LoginInner />
+      </Suspense>
+      <PortalTranslator toggle />
+    </>
   );
 }

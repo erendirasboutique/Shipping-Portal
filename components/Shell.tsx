@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import KeyboardShortcuts, { ShortcutsHint } from "@/components/KeyboardShortcuts";
+import PortalTranslator, { LanguageToggle } from "@/components/PortalTranslator";
 
 const LOGO = "/EB_Logo_Fall BGBLANK.png";
 
@@ -229,6 +230,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         <ShortcutsHint />
 
+        <div className="flex items-center justify-between gap-2 px-2">
+          <span translate="no" className="text-[13px] text-ink/55">Language · Idioma</span>
+          <LanguageToggle />
+        </div>
+
         <div className="flex items-center gap-2.5 rounded-xl border border-sand/60 bg-cream p-3">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-sand/30 text-taupe">
             <Icon d={ICON.truck} />
@@ -249,7 +255,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           />
           <div className="flex min-w-0 flex-1 flex-col text-[13px] leading-tight">
             <b className="font-semibold text-ink">Erendira&apos;s Boutique</b>
-            <span className="truncate text-ink/60">{email}</span>
+            <span translate="no" className="truncate text-ink/60">{email}</span>
           </div>
           <button
             onClick={signOut}
@@ -265,6 +271,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
 
       <KeyboardShortcuts />
+      <PortalTranslator />
     </div>
   );
 }
