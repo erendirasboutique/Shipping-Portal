@@ -168,7 +168,7 @@ export default function ShipDayCard() {
         const groups = new Map<string, { city: string; state: string; names: string[] }>();
         for (const o of moving) {
           const key = o.to_city.trim().toLowerCase() + "|" + o.to_state.trim().toUpperCase();
-          const g = groups.get(key) || { city: o.to_city.trim(), state: o.to_state.trim().toUpperCase(), names: [] };
+          const g = groups.get(key) || { city: o.to_city.trim(), state: o.to_state.trim().toUpperCase(), names: [] as string[] };
           g.names.push(o.to_name || "");
           groups.set(key, g);
         }
