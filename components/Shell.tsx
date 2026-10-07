@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import KeyboardShortcuts, { ShortcutsHint } from "@/components/KeyboardShortcuts";
 import PortalTranslator, { LanguageToggle } from "@/components/PortalTranslator";
+import QuickStartGuide, { QuickStartButton } from "@/components/QuickStartGuide";
 
 const LOGO = "/EB_Logo_Fall BGBLANK.png";
 
@@ -228,9 +229,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
+        <div className="-mx-1 -mb-2 px-1">
+          <QuickStartButton />
+        </div>
+
         <ShortcutsHint />
 
-        <div className="flex items-center justify-between gap-2 px-2">
+        <div data-tour="prefs" className="flex items-center justify-between gap-2 px-2">
           <span translate="no" className="text-[13px] text-ink/55">Language · Idioma</span>
           <LanguageToggle />
         </div>
@@ -271,6 +276,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
 
       <KeyboardShortcuts />
+      <QuickStartGuide />
       <PortalTranslator />
     </div>
   );
