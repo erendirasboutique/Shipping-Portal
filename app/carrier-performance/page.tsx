@@ -201,7 +201,7 @@ export default function CarrierPerformancePage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="eyebrow">How fast it gets there</p>
-            <h1 className="mt-1 text-4xl leading-none md:text-5xl">Carrier Performance</h1>
+            <h1 className="mt-1 text-4xl leading-[1.15] md:text-5xl">Carrier Performance</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div role="tablist" className="flex gap-1 rounded-full bg-sand/30 p-1">
@@ -238,7 +238,7 @@ export default function CarrierPerformancePage() {
                 <span className="shrink-0 text-xs text-ink/55">{s.total} packages</span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="font-heading text-5xl leading-none text-taupe">{s.avgDays != null ? fmtDays(s.avgDays) : "–"}</span>
+                <span className="py-1 font-heading text-5xl leading-[1.2] text-taupe">{s.avgDays != null ? fmtDays(s.avgDays) : "–"}</span>
                 <span className="text-sm text-ink/55">days on average</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-sand/30">
@@ -315,12 +315,12 @@ export default function CarrierPerformancePage() {
             <section className="grid grid-cols-2 gap-3">
               <div className="card flex flex-col gap-1 !rounded-3xl !p-5">
                 <p className="text-xs text-ink/55">Most common delivery day</p>
-                <p className="font-heading text-3xl leading-tight text-taupe">{busiestDay?.name || "–"}</p>
+                <p className="py-1 font-heading text-3xl leading-[1.2] text-taupe">{busiestDay?.name || "–"}</p>
                 {busiestDay && <p className="text-xs text-ink/55">{Math.round(busiestDay.share * 100)}% of deliveries</p>}
               </div>
               <div className="card flex flex-col gap-1 !rounded-3xl !p-5">
                 <p className="text-xs text-ink/55">Not delivered yet</p>
-                <p className="font-heading text-3xl leading-tight text-taupe">{loaded ? stillMoving : "–"}</p>
+                <p className="py-1 font-heading text-3xl leading-[1.2] text-taupe">{loaded ? stillMoving : "–"}</p>
                 <p className="text-xs text-ink/55">in this time range</p>
               </div>
             </section>

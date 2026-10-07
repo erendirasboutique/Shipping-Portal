@@ -221,7 +221,7 @@ export default function RecapPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="eyebrow">Monthly recap</p>
-            <h1 className="mt-1 text-4xl leading-none md:text-6xl">{title}</h1>
+            <h1 className="mt-1 text-4xl leading-[1.15] md:text-6xl">{title}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <button onClick={() => setYm(prev)} aria-label="Previous month"
@@ -254,7 +254,7 @@ export default function RecapPage() {
             return (
               <div key={k.label} className="card flex min-w-0 flex-col gap-1 !rounded-3xl !p-4 md:!p-5">
                 <p className="truncate text-xs text-ink/60 md:text-[13px]">{k.label}</p>
-                <p className={`truncate font-heading leading-tight text-taupe ${k.value.length > 8 ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"}`}>{loaded ? k.value : "–"}</p>
+                <p className={`whitespace-nowrap py-1 font-heading leading-[1.2] text-taupe ${k.value.length > 8 ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"}`}>{loaded ? k.value : "–"}</p>
                 <p className={`truncate text-xs ${good === true ? "text-taupe" : "text-ink/55"}`}>{loaded ? note || " " : " "}</p>
               </div>
             );

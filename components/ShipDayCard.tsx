@@ -237,7 +237,7 @@ export default function ShipDayCard() {
             <Icon d={homeIcon} size={34} />
           </span>
           <div className="min-w-0">
-            <p className="font-heading text-[28px] leading-tight text-taupe md:text-[32px]">{dayName(shipDay)}</p>
+            <p className="py-0.5 font-heading text-[28px] leading-[1.2] text-taupe md:text-[32px]">{dayName(shipDay)}</p>
             <p className="text-sm text-ink/80">
               {home ? `${describe(home.code)} · ${home.hi}° high · ${home.rain >= 20 ? home.rain + "% chance of rain" : "no rain"}` : homeErr ? "Forecast unavailable right now" : "Checking the forecast…"}
             </p>

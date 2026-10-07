@@ -104,7 +104,7 @@ export default function Dashboard() {
         <div className="relative flex items-start justify-between gap-6">
           <div className="min-w-0">
             <p className="eyebrow">Shipping Studio</p>
-            <h1 className="mt-1 text-4xl leading-none md:text-6xl">Shipping Portal</h1>
+            <h1 className="mt-1 text-4xl leading-[1.15] md:text-6xl">Shipping Portal</h1>
             <p className="mt-3 text-sm text-ink/70">
               Create 4×6 labels, manage customers, review shipments, and print batches.
             </p>
@@ -135,7 +135,7 @@ export default function Dashboard() {
         {statCards.map((s) => (
           <Link key={s.label} href={s.href} className="card min-w-0 !rounded-2xl !p-4 transition-colors hover:border-taupe/40 md:!rounded-3xl md:!p-5">
             <p className="truncate text-xs text-ink/70">{s.label}</p>
-            <p className={`mt-1.5 truncate font-heading leading-none text-taupe md:mt-2 ${s.value.length > 7 ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl"}`}>
+            <p className={`mt-1 whitespace-nowrap py-1 font-heading leading-[1.2] text-taupe md:mt-1.5 ${s.value.length > 7 ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl"}`}>
               {loaded ? s.value : "–"}
             </p>
             <p className="mt-1.5 truncate text-[11px] text-ink/50 md:mt-2 md:text-xs">{s.sub}</p>
