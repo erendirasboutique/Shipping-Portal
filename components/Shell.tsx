@@ -2,12 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Figtree } from "next/font/google";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-
-const ui = Figtree({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 const LOGO = "/EB_Logo_Fall BGBLANK.png";
 
@@ -22,6 +19,8 @@ const ICON = {
   users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   returns: "M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3",
   map: "M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+  speed: "M12 14l4-4M3.3 17A9 9 0 1 1 20.7 17",
+  recap: "M3 3v18h18M8 17V11M13 17V7M18 17v-4",
   plus: "M12 5v14M5 12h14",
   moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z",
   sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",
@@ -53,7 +52,14 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/returns", label: "Returns", d: ICON.returns },
     ],
   },
-  { label: "Insights", items: [{ href: "/map", label: "Shipping Map", d: ICON.map }] },
+  {
+    label: "Insights",
+    items: [
+      { href: "/map", label: "Shipping Map", d: ICON.map },
+      { href: "/carrier-performance", label: "Carrier Performance", d: ICON.speed },
+      { href: "/recap", label: "Monthly Recap", d: ICON.recap },
+    ],
+  },
 ];
 
 function Icon({ d, size = 18, width = 1.8 }: { d: string; size?: number; width?: number }) {
@@ -127,7 +133,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen lg:flex">
       {/* Phone top bar */}
       <header
-        className={`${ui.className} sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#ebe3da] bg-white/95 px-4 backdrop-blur lg:hidden dark:border-[#3a2f27] dark:bg-[#1f1914]/95`}
+        className={`sticky top-0 z-30 flex h-16 items-center justify-between border-b border-sand/60 bg-cream/95 px-4 backdrop-blur lg:hidden`}
       >
         <Link href="/" aria-label="Dashboard">
           <Image src={LOGO} alt="Erendira's Boutique" width={170} height={72} className="h-9 w-auto" priority />
@@ -135,7 +141,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open menu"
-          className="grid h-11 w-11 place-items-center rounded-xl text-[#4a3d33] hover:bg-[#f6f1eb] dark:text-[#e9dfd3] dark:hover:bg-[#2e251e]"
+          className="grid h-11 w-11 place-items-center rounded-xl text-ink/80 hover:bg-sand/20"
         >
           <Icon d={ICON.menu} size={22} />
         </button>
@@ -146,12 +152,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <button
           aria-label="Close menu"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-[#2a211b]/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
         />
       )}
 
       <aside
-        className={`${ui.className} fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col gap-4 border-r border-[#ebe3da] bg-white px-3.5 pb-3.5 pt-5 transition-transform duration-200 dark:border-[#3a2f27] dark:bg-[#1f1914] ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col gap-4 border-r border-sand/60 bg-cream px-3.5 pb-3.5 pt-5 transition-transform duration-200 ${
           open ? "translate-x-0" : "-translate-x-full"
         } lg:sticky lg:top-0 lg:h-screen lg:w-[264px] lg:shrink-0 lg:translate-x-0`}
       >
@@ -164,14 +170,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               onClick={toggleDark}
               aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
               title={dark ? "Light mode" : "Dark mode"}
-              className="grid h-9 w-9 place-items-center rounded-lg text-[#8a7b6d] hover:bg-[#f6f1eb] dark:text-[#b8a796] dark:hover:bg-[#2e251e]"
+              className="grid h-9 w-9 place-items-center rounded-lg text-ink/50 hover:bg-sand/20"
             >
               <Icon d={dark ? ICON.sun : ICON.moon} size={17} />
             </button>
             <button
               onClick={() => setOpen(false)}
               aria-label="Close menu"
-              className="grid h-9 w-9 place-items-center rounded-lg text-[#8a7b6d] hover:bg-[#f6f1eb] lg:hidden dark:text-[#b8a796] dark:hover:bg-[#2e251e]"
+              className="grid h-9 w-9 place-items-center rounded-lg text-ink/50 hover:bg-sand/20 lg:hidden"
             >
               <Icon d={ICON.close} size={18} />
             </button>
@@ -180,7 +186,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         <Link
           href="/create-label"
-          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2f261f] text-[15px] font-semibold text-white transition-colors hover:bg-[#45382e] dark:bg-[#c9ab8a] dark:text-[#2a211b] dark:hover:bg-[#d6bc9e]"
+          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-taupe text-[15px] font-semibold text-cream transition-colors hover:bg-taupe/90"
         >
           <Icon d={ICON.plus} size={18} width={2.2} />
           Create label
@@ -190,7 +196,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           {GROUPS.map((group) => (
             <div key={group.label || "top"} className="flex flex-col gap-0.5">
               {group.label && (
-                <p className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6f6156] dark:text-[#a8998a]">
+                <p className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">
                   {group.label}
                 </p>
               )}
@@ -203,11 +209,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                     aria-current={active ? "page" : undefined}
                     className={`flex h-[38px] items-center gap-3 rounded-[10px] px-2.5 text-[14.5px] transition-colors ${
                       active
-                        ? "bg-[#f1ebe4] font-semibold text-[#2f261f] dark:bg-[#2e251e] dark:text-white"
-                        : "text-[#4a3d33] hover:bg-[#f6f1eb] dark:text-[#d6c9bb] dark:hover:bg-[#2a211b]"
+                        ? "bg-sand/20 font-semibold text-ink"
+                        : "text-ink/80 hover:bg-sand/20"
                     }`}
                   >
-                    <span className={active ? "text-[#6f5c49] dark:text-[#c9ab8a]" : "text-[#8a7b6d] dark:text-[#a8998a]"}>
+                    <span className={active ? "text-taupe" : "text-ink/50"}>
                       <Icon d={item.d} />
                     </span>
                     {item.label}
@@ -218,13 +224,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-[#ebe3da] bg-[#faf8f5] p-3 dark:border-[#3a2f27] dark:bg-[#251e18]">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-[#efe6dc] text-[#6f5c49] dark:bg-[#3a2f27] dark:text-[#c9ab8a]">
+        <div className="flex items-center gap-2.5 rounded-xl border border-sand/60 bg-cream p-3">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-sand/30 text-taupe">
             <Icon d={ICON.truck} />
           </span>
           <div className="flex flex-col text-[13px] leading-tight">
-            <b className="font-semibold text-[#2f261f] dark:text-[#f1e9e0]">Next ship day</b>
-            <span className="text-[#6f6156] dark:text-[#b8a796]">{shipDay}</span>
+            <b className="font-semibold text-ink">Next ship day</b>
+            <span className="text-ink/60">{shipDay}</span>
           </div>
         </div>
 
@@ -234,17 +240,17 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             alt=""
             width={34}
             height={34}
-            className="h-[34px] w-[34px] shrink-0 rounded-full border border-[#ebe3da] bg-white object-contain p-1 dark:border-[#3a2f27]"
+            className="h-[34px] w-[34px] shrink-0 rounded-full border border-sand/60 bg-white dark:bg-transparent object-contain p-1"
           />
           <div className="flex min-w-0 flex-1 flex-col text-[13px] leading-tight">
-            <b className="font-semibold text-[#2f261f] dark:text-[#f1e9e0]">Erendira&apos;s Boutique</b>
-            <span className="truncate text-[#6f6156] dark:text-[#b8a796]">{email}</span>
+            <b className="font-semibold text-ink">Erendira&apos;s Boutique</b>
+            <span className="truncate text-ink/60">{email}</span>
           </div>
           <button
             onClick={signOut}
             aria-label="Sign out"
             title="Sign out"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#8a7b6d] hover:bg-[#f6f1eb] hover:text-[#9a4b43] dark:text-[#b8a796] dark:hover:bg-[#2e251e]"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink/50 hover:bg-sand/20 hover:text-red-700"
           >
             <Icon d={ICON.logout} size={17} />
           </button>

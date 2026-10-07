@@ -6,6 +6,7 @@ import Shell from "@/components/Shell";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fetchAll } from "@/lib/fetchAll";
 import ShippingMap from "@/components/ShippingMap";
+import ShipDayCard from "@/components/ShipDayCard";
 
 const Flower = ({ className = "" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" className={className} aria-hidden>
@@ -125,6 +126,9 @@ export default function Dashboard() {
           <span className="text-sm">Start →</span>
         </Link>
       </div>
+
+      {/* Ship day: weather, USPS holidays, alerts where packages are headed */}
+      <ShipDayCard />
 
       {/* Stat cards */}
       <div className="mt-4 grid grid-cols-2 gap-3 md:mt-5 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
