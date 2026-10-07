@@ -75,7 +75,7 @@ export default function CarrierPerformancePage() {
     const m = new Map<string, { name: string; days: number[]; costs: number[]; total: number }>();
     for (const o of inRange) {
       const k = serviceName(o);
-      const s = m.get(k) || { name: k, days: [], costs: [], total: 0 };
+      const s = m.get(k) || { name: k, days: [] as number[], costs: [] as number[], total: 0 };
       s.total++;
       if (o.postage_amount != null) s.costs.push(Number(o.postage_amount));
       m.set(k, s);
