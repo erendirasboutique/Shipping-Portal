@@ -1,6 +1,8 @@
 // app/api/returns/slip/route.ts
 // GET /api/returns/slip?code=EB-XXXXXX&lang=es
-// Branded 2-page return packet (instructions + label, packing slip w/ barcode). EN/ES.
+// One-page return packet (EN/ES):
+//   top half    → steps + packing slip (goes inside the box)
+//   bottom half → the shipping label, turned sideways at its real 6 × 4 size (taped on the box)
 //
 // Dependencies (package.json):
 //   "pdf-lib": "^1.17.1",
@@ -9,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage, LineCapStyle } from "pdf-lib";
+import { PDFDocument, PDFFont, PDFPage, PDFImage, PDFEmbeddedPage, rgb, degrees, StandardFonts, LineCapStyle, Color } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 // @ts-ignore
 import bwipjs from "bwip-js";
@@ -20,129 +22,185 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ====== CONFIG ======
-const HEADING_FONT_FILE = "la-luxes-serif.ttf";
-const BODY_FONT_FILE = "recoleta-regular.ttf";
+// Fonts live in public/fonts. The first file that exists is used.
+const HEADING_FONTS = ["sltfthesilvereditorial-regular.otf", "la-luxes-serif.ttf"];
+const BODY_FONTS = ["CooperLtBT-Regular.ttf", "recoleta-regular.ttf"];
 const LOGO_FILE = "EB_Logo_Fall BGBLANK.png";
 
-const RETURN_ADDRESS = [
-  "Erendira's Boutique — Returns",
-  "17121 Hawthorne Ave",
-  "Fontana, CA 92335",
-];
+const RETURN_ADDRESS = "Erendira's Boutique — Returns · 17121 Hawthorne Ave, Fontana, CA 92335";
+const WEBSITE = "my.erendirasboutique.com";
 // ====================
 
 const T = {
   en: {
-    p1Title: (c: string) => `Print this paper & attach the ${c} label`,
-    p1Sub: "Steps to successfully return your items",
-    steps: (c: string) => [
-      "Please print this paper.",
-      "Cut out the label below.",
-      "Package & seal items into a poly bag or box.",
-      "Tape this label to the package.",
-      `Drop off the package at a ${c} location.`,
+    title: "Your return is ready",
+    steps: (c: string): [string, string][] => [
+      ["Print", "this page"],
+      ["Cut", "on the dashed line"],
+      ["Pack", "items + top part"],
+      ["Tape", "label on the box"],
+      ["Drop off", "at any " + c],
     ],
-    slipNote: "•  Don't forget to include the packing slip (page 2) inside the package.",
-    cutHere: "CUT HERE",
-    warning: (c: string) =>
-      `This label is ONLY accepted at ${c} locations. Using this label with any other carrier will cause your return to fail.`,
-    labelFail: "Your label couldn't be embedded — use the Print Return Label button instead.",
-    p2Title: "Packing Slip",
-    p2Sub: "Please place this page inside your package.",
-    merchant: "Merchant",
+    slipTitle: "Packing slip",
+    slipNote: "Put this part inside the box",
     customer: "Customer",
-    returnCode: "Return Code",
-    returnDate: "Return Date",
-    tracking: (c: string) => `${c} Tracking`,
-    reason: "Reason for Return",
-    shipTo: "SHIP YOUR RETURN TO",
-    footer: "Questions? Visit my.erendirasboutique.com",
+    returnDate: "Return date",
+    carrier: "Carrier",
+    reason: "Reason",
+    cutHere: "CUT HERE  ·  TAPE THE LABEL BELOW ON YOUR BOX",
+    warning: (c: string) => "Only " + c + " accepts this label  ·  Questions? " + WEBSITE,
+    labelFail: "Your label couldn't be added here. Use the Print Return Label button instead.",
+    returnsTo: "Returns to " + RETURN_ADDRESS,
+    findTitle: (c: string) => (c.toUpperCase() === "USPS" ? "Find a post office near you" : "Find a " + c + " drop-off near you"),
+    findSub: "Scan with your phone camera to see the closest ones on a map.",
     locale: "en-US",
   },
   es: {
-    p1Title: (c: string) => `Imprime esta hoja y pega la etiqueta de ${c}`,
-    p1Sub: "Pasos para devolver tus artículos con éxito",
-    steps: (c: string) => [
-      "Imprime esta hoja.",
-      "Recorta la etiqueta de abajo.",
-      "Empaca y sella tus artículos en una bolsa o caja.",
-      "Pega esta etiqueta al paquete.",
-      `Entrega el paquete en cualquier oficina de ${c}.`,
+    title: "Tu devolución está lista",
+    steps: (c: string): [string, string][] => [
+      ["Imprime", "esta hoja"],
+      ["Recorta", "por la línea"],
+      ["Empaca", "artículos + parte de arriba"],
+      ["Pega", "la etiqueta en la caja"],
+      ["Entrega", "en cualquier " + c],
     ],
-    slipNote: "•  No olvides incluir la hoja de empaque (página 2) dentro del paquete.",
-    cutHere: "CORTA AQUÍ",
-    warning: (c: string) =>
-      `Esta etiqueta SOLO se acepta en oficinas de ${c}. Usarla con otra paquetería hará que tu devolución falle.`,
-    labelFail: "No se pudo incluir tu etiqueta — usa el botón Imprimir Etiqueta en su lugar.",
-    p2Title: "Hoja de Empaque",
-    p2Sub: "Coloca esta página dentro de tu paquete.",
-    merchant: "Comercio",
+    slipTitle: "Hoja de empaque",
+    slipNote: "Pon esta parte dentro de la caja",
     customer: "Cliente",
-    returnCode: "Código de Devolución",
-    returnDate: "Fecha de Devolución",
-    tracking: (c: string) => `Rastreo ${c}`,
-    reason: "Motivo de la Devolución",
-    shipTo: "ENVÍA TU DEVOLUCIÓN A",
-    footer: "¿Preguntas? Visita my.erendirasboutique.com",
+    returnDate: "Fecha",
+    carrier: "Paquetería",
+    reason: "Motivo",
+    cutHere: "CORTA AQUÍ  ·  PEGA LA ETIQUETA DE ABAJO EN TU CAJA",
+    warning: (c: string) => "Solo " + c + " acepta esta etiqueta  ·  ¿Preguntas? " + WEBSITE,
+    labelFail: "No se pudo incluir tu etiqueta aquí. Usa el botón Imprimir Etiqueta.",
+    returnsTo: "Se devuelve a " + RETURN_ADDRESS,
+    findTitle: (c: string) => (c.toUpperCase() === "USPS" ? "Encuentra una oficina de correos cerca" : "Encuentra un punto de " + c + " cerca"),
+    findSub: "Escanéala con la cámara de tu teléfono para verlas en el mapa.",
     locale: "es-MX",
   },
 };
 
+// Brand colors (a touch darker than the screen colors so they print well)
 const TAUPE = rgb(0x80 / 255, 0x6a / 255, 0x52 / 255);
-const SAND = rgb(0xbd / 255, 0xa8 / 255, 0x91 / 255);
-const CREAM = rgb(0xf5 / 255, 0xf3 / 255, 0xef / 255);
-const INK = rgb(0.2, 0.17, 0.14);
+const SAND = rgb(0xcf / 255, 0xbd / 255, 0xa9 / 255);
+const LINE = rgb(0xe7 / 255, 0xdd / 255, 0xd1 / 255);
+const MUTED = rgb(0xa8 / 255, 0x95 / 255, 0x7f / 255);
+const SOFT = rgb(0x8d / 255, 0x7c / 255, 0x69 / 255);
+const INK = rgb(0x33 / 255, 0x2b / 255, 0x23 / 255);
+const WHITE = rgb(1, 1, 1);
 
-const PAGE_W = 612;
+const PAGE_W = 612; // US Letter
 const PAGE_H = 792;
-const M = 56;
+const M = 36; // side margin
 
-async function loadFont(pdf: PDFDocument, filename: string): Promise<PDFFont | null> {
-  try {
-    const bytes = await fs.readFile(path.join(process.cwd(), "public", "fonts", filename));
-    return await pdf.embedFont(bytes, { subset: true });
-  } catch {
-    return null;
+// The label area: 6" wide × 4" tall (a 4×6 label turned sideways), across the bottom
+const LABEL_W = 432;
+const LABEL_H = 288;
+const LABEL_X = (PAGE_W - LABEL_W) / 2;
+const LABEL_Y = 76;
+const CUT_Y = LABEL_Y + LABEL_H + 7 + 24; // dashed cut line above the label box
+
+async function loadFont(pdf: PDFDocument, files: string[]): Promise<PDFFont | null> {
+  for (const file of files) {
+    try {
+      const bytes = await fs.readFile(path.join(process.cwd(), "public", "fonts", file));
+      // .otf (CFF) fonts are embedded whole — subsetting them can garble letters
+      return await pdf.embedFont(bytes, { subset: !file.toLowerCase().endsWith(".otf") });
+    } catch {
+      // try the next one
+    }
   }
+  return null;
 }
 
-function drawHeader(
-  page: PDFPage,
-  heading: PDFFont,
-  body: PDFFont,
-  logo: Awaited<ReturnType<PDFDocument["embedPng"]>> | null,
-  title: string,
-  subtitle: string
-) {
-  page.drawRectangle({ x: 0, y: PAGE_H - 130, width: PAGE_W, height: 130, color: CREAM });
-  let textX = M;
-  if (logo) {
-    const h = 54;
-    const w = (logo.width / logo.height) * h;
-    page.drawImage(logo, { x: M, y: PAGE_H - 38 - h, width: w, height: h });
-    textX = M + w + 20;
+// Text helpers ----------------------------------------------------------
+
+/** Characters a font can't draw are swapped for close ones (or dropped), so the PDF never fails. */
+function safe(font: PDFFont, text: string): string {
+  let out = "";
+  for (const ch of text) {
+    try {
+      font.encodeText(ch);
+      out += ch;
+    } catch {
+      const fallback = ch === "—" || ch === "–" ? "-" : ch === "·" ? "-" : ch === "’" ? "'" : "";
+      if (fallback) {
+        try {
+          font.encodeText(fallback);
+          out += fallback;
+        } catch {}
+      }
+    }
   }
-  const maxW = PAGE_W - M - textX;
-  let size = 22;
-  while (size > 12 && heading.widthOfTextAtSize(title, size) > maxW) {
-    size -= 0.5;
-  }
-  page.drawText(title, { x: textX, y: PAGE_H - 66, size, font: heading, color: TAUPE });
-  page.drawText(subtitle, { x: textX, y: PAGE_H - 90, size: 10.5, font: body, color: INK });
+  return out;
 }
 
-function wrap(text: string, max = 88): string[] {
+function wrapWidth(font: PDFFont, text: string, size: number, maxW: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
-  let rest = text;
-  while (rest.length > max) {
-    let cut = rest.lastIndexOf(" ", max);
-    if (cut < 30) cut = max;
-    lines.push(rest.slice(0, cut));
-    rest = rest.slice(cut).trim();
+  let line = "";
+  for (const w of words) {
+    const next = line ? line + " " + w : w;
+    if (font.widthOfTextAtSize(next, size) <= maxW || !line) line = next;
+    else {
+      lines.push(line);
+      line = w;
+    }
   }
-  lines.push(rest);
+  if (line) lines.push(line);
   return lines;
 }
+
+function text(page: PDFPage, font: PDFFont, s: string, x: number, y: number, size: number, color: Color) {
+  page.drawText(safe(font, s), { x, y, size, font, color });
+}
+
+function centered(page: PDFPage, font: PDFFont, s: string, cx: number, y: number, size: number, color: Color) {
+  const str = safe(font, s);
+  page.drawText(str, { x: cx - font.widthOfTextAtSize(str, size) / 2, y, size, font, color });
+}
+
+/** Small caps-style label: spaced-out uppercase */
+function eyebrow(page: PDFPage, font: PDFFont, s: string, x: number, y: number, color: Color = MUTED) {
+  page.drawText(safe(font, s.toUpperCase()), { x, y, size: 7.5, font, color });
+}
+
+/** Rounded rectangle. (x, top) is the top-left corner. */
+function roundRect(
+  page: PDFPage,
+  x: number,
+  top: number,
+  w: number,
+  h: number,
+  r: number,
+  opts: { color?: Color; borderColor?: Color; borderWidth?: number; borderDashArray?: number[] }
+) {
+  const d =
+    `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} ` +
+    `H ${r} A ${r} ${r} 0 0 1 0 ${h - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
+  page.drawSvgPath(d, { x, y: top, ...opts });
+}
+
+function dashed(page: PDFPage, x1: number, x2: number, y: number) {
+  if (x2 <= x1) return;
+  page.drawLine({
+    start: { x: x1, y },
+    end: { x: x2, y },
+    thickness: 1,
+    color: SAND,
+    dashArray: [4, 4],
+    lineCap: LineCapStyle.Round,
+  });
+}
+
+/** Google Maps search for drop-off spots near wherever the customer's phone is. */
+function dropOffUrl(carrier: string): string {
+  const c = carrier.toUpperCase();
+  const q = c === "USPS" ? "post office" : c === "UPS" ? "UPS drop off" : c.indexOf("FEDEX") >= 0 ? "FedEx drop off" : carrier + " drop off";
+  return "https://www.google.com/maps/search/" + encodeURIComponent(q + " near me");
+}
+
+// Route ----------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
   const code = (req.nextUrl.searchParams.get("code") || "").trim().toUpperCase();
@@ -153,10 +211,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing return code" }, { status: 400 });
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const { data: ret, error } = await supabase
     .from("return_requests")
@@ -179,204 +234,243 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const carrier = ret.carrier || "USPS";
+  const carrier: string = ret.carrier || "USPS";
 
   // ---------- Build PDF ----------
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
+  pdf.setTitle("Return " + ret.return_code + " — Erendira's Boutique");
 
-  const heading =
-    (await loadFont(pdf, HEADING_FONT_FILE)) ??
-    (await pdf.embedFont(StandardFonts.TimesRomanBold));
-  const body =
-    (await loadFont(pdf, BODY_FONT_FILE)) ??
-    (await pdf.embedFont(StandardFonts.TimesRoman));
+  const heading = (await loadFont(pdf, HEADING_FONTS)) ?? (await pdf.embedFont(StandardFonts.TimesRoman));
+  const body = (await loadFont(pdf, BODY_FONTS)) ?? (await pdf.embedFont(StandardFonts.TimesRoman));
 
-  let logo = null;
+  let logo: PDFImage | null = null;
   try {
-    const logoBytes = await fs.readFile(path.join(process.cwd(), "public", LOGO_FILE));
-    logo = await pdf.embedPng(logoBytes);
+    logo = await pdf.embedPng(await fs.readFile(path.join(process.cwd(), "public", LOGO_FILE)));
   } catch {
     logo = null;
   }
 
-  // Fetch the shipping label (PNG / JPG / PDF)
-  let labelPng: Awaited<ReturnType<PDFDocument["embedPng"]>> | null = null;
-  let labelJpg: Awaited<ReturnType<PDFDocument["embedJpg"]>> | null = null;
-  let labelPdfPage: Awaited<ReturnType<PDFDocument["embedPage"]>> | null = null;
+  // The shipping label (PNG / JPG / PDF)
+  let labelImg: PDFImage | null = null;
+  let labelPage: PDFEmbeddedPage | null = null;
   if (ret.label_url) {
     try {
       const res = await fetch(ret.label_url);
       if (res.ok) {
         const buf = new Uint8Array(await res.arrayBuffer());
         const ctype = (res.headers.get("content-type") || "").toLowerCase();
-        const url = ret.label_url.toLowerCase();
+        const url = String(ret.label_url).toLowerCase();
         if (ctype.includes("pdf") || url.includes(".pdf")) {
           const src = await PDFDocument.load(buf);
           const [embedded] = await pdf.embedPdf(src, [0]);
-          labelPdfPage = embedded;
+          labelPage = embedded;
         } else if (ctype.includes("jpeg") || ctype.includes("jpg") || /\.jpe?g/.test(url)) {
-          labelJpg = await pdf.embedJpg(buf);
+          labelImg = await pdf.embedJpg(buf);
         } else {
-          labelPng = await pdf.embedPng(buf);
+          labelImg = await pdf.embedPng(buf);
         }
       }
     } catch {
-      // label embed failed — page 1 shows a note instead
+      // couldn't add it — a note is shown in its place
     }
   }
 
-  // Barcode (Code 128) of tracking number
-  let barcodePng: Awaited<ReturnType<PDFDocument["embedPng"]>> | null = null;
-  const barcodeText = ret.tracking_number || ret.return_code;
+  // Barcode of the return code, so the boutique can scan the slip when the box arrives
+  let barcode: PDFImage | null = null;
   try {
-    const barcodeBuf = await bwipjs.toBuffer({
-      bcid: "code128",
-      text: barcodeText,
-      scale: 3,
-      height: 12,
-      includetext: false,
-    });
-    barcodePng = await pdf.embedPng(barcodeBuf);
+    const png = await bwipjs.toBuffer({ bcid: "code128", text: ret.return_code, scale: 3, height: 10, includetext: false });
+    barcode = await pdf.embedPng(png);
   } catch {
-    barcodePng = null;
+    barcode = null;
   }
 
-  // ========== PAGE 1 — Instructions + Shipping Label ==========
-  const p1 = pdf.addPage([PAGE_W, PAGE_H]);
-  drawHeader(p1, heading, body, logo, t.p1Title(carrier), t.p1Sub);
-
-  let y = PAGE_H - 130 - 34;
-
-  t.steps(carrier).forEach((s, i) => {
-    wrap(s, 82).forEach((line, j) => {
-      p1.drawText(j === 0 ? `${i + 1}.  ${line}` : `     ${line}`, {
-        x: M, y, size: 11.5, font: body, color: INK,
-      });
-      y -= 17;
-    });
-    y -= 3;
-  });
-  p1.drawText(t.slipNote, {
-    x: M + 18, y, size: 11, font: body, color: TAUPE,
-  });
-  y -= 28;
-
-  // CUT HERE dashed line
-  const cutLabel = t.cutHere;
-  const cutW = body.widthOfTextAtSize(cutLabel, 9);
-  p1.drawLine({
-    start: { x: M, y }, end: { x: PAGE_W / 2 - cutW / 2 - 10, y },
-    thickness: 1, color: SAND, dashArray: [4, 4], lineCap: LineCapStyle.Round,
-  });
-  p1.drawText(cutLabel, { x: PAGE_W / 2 - cutW / 2, y: y - 3, size: 9, font: body, color: SAND });
-  p1.drawLine({
-    start: { x: PAGE_W / 2 + cutW / 2 + 10, y }, end: { x: PAGE_W - M, y },
-    thickness: 1, color: SAND, dashArray: [4, 4], lineCap: LineCapStyle.Round,
-  });
-  y -= 18;
-
-  for (const line of wrap(t.warning(carrier), 88)) {
-    p1.drawText(line, { x: M, y, size: 9, font: body, color: TAUPE });
-    y -= 13;
-  }
-  y -= 8;
-
-  // Label area
-  const areaTop = y;
-  const areaBottom = 60;
-  const areaH = areaTop - areaBottom;
-  const areaW = PAGE_W - M * 2;
-
-  const drawLabelBox = (w: number, h: number, drawFn: (x: number, yPos: number, w: number, h: number) => void) => {
-    const scale = Math.min(areaW / w, areaH / h);
-    const dw = w * scale;
-    const dh = h * scale;
-    const x = (PAGE_W - dw) / 2;
-    const yPos = areaBottom + (areaH - dh) / 2;
-    drawFn(x, yPos, dw, dh);
-    p1.drawRectangle({
-      x: x - 8, y: yPos - 8, width: dw + 16, height: dh + 16,
-      borderColor: SAND, borderWidth: 1, borderDashArray: [4, 4],
-    });
-  };
-
-  if (labelPng) {
-    drawLabelBox(labelPng.width, labelPng.height, (x, yPos, w, h) =>
-      p1.drawImage(labelPng!, { x, y: yPos, width: w, height: h })
-    );
-  } else if (labelJpg) {
-    drawLabelBox(labelJpg.width, labelJpg.height, (x, yPos, w, h) =>
-      p1.drawImage(labelJpg!, { x, y: yPos, width: w, height: h })
-    );
-  } else if (labelPdfPage) {
-    drawLabelBox(labelPdfPage.width, labelPdfPage.height, (x, yPos, w, h) =>
-      p1.drawPage(labelPdfPage!, { x, y: yPos, width: w, height: h })
-    );
-  } else {
-    p1.drawText(t.labelFail, {
-      x: M, y: areaBottom + areaH / 2, size: 10, font: body, color: TAUPE,
-    });
+  // QR code that opens a map of nearby drop-off spots
+  let qr: PDFImage | null = null;
+  try {
+    const png = await bwipjs.toBuffer({ bcid: "qrcode", text: dropOffUrl(carrier), scale: 4, eclevel: "M", paddingwidth: 0 });
+    qr = await pdf.embedPng(png);
+  } catch {
+    qr = null;
   }
 
-  // ========== PAGE 2 — Packing Slip ==========
-  const p2 = pdf.addPage([PAGE_W, PAGE_H]);
-  drawHeader(p2, heading, body, logo, t.p2Title, t.p2Sub);
+  const page = pdf.addPage([PAGE_W, PAGE_H]);
 
-  y = PAGE_H - 130 - 40;
-
-  if (barcodePng) {
-    const bw = 200;
-    const bh = (barcodePng.height / barcodePng.width) * bw;
-    const bx = PAGE_W - M - bw;
-    p2.drawImage(barcodePng, { x: bx, y: y - bh + 10, width: bw, height: bh });
-    const tw = body.widthOfTextAtSize(barcodeText, 9);
-    p2.drawText(barcodeText, {
-      x: bx + (bw - tw) / 2, y: y - bh - 4, size: 9, font: body, color: INK,
-    });
+  // ===== Header =====
+  const headerH = 64;
+  let hx = M;
+  if (logo) {
+    const lh = 36;
+    const lw = (logo.width / logo.height) * lh;
+    page.drawImage(logo, { x: M, y: PAGE_H - headerH / 2 - lh / 2, width: lw, height: lh });
+    hx = M + lw + 14;
   }
 
-  const field = (labelText: string, value: string) => {
-    p2.drawText(labelText.toUpperCase(), { x: M, y, size: 8, font: body, color: SAND });
-    y -= 14;
-    p2.drawText(value || "—", { x: M, y, size: 12, font: body, color: INK });
-    y -= 26;
-  };
+  // Return code pill (right)
+  const pillText = safe(body, ret.return_code);
+  const pillSize = 10.5;
+  const pillW = body.widthOfTextAtSize(pillText, pillSize) + 24;
+  const pillH = 22;
+  const pillX = PAGE_W - M - pillW;
+  roundRect(page, pillX, PAGE_H - headerH / 2 + pillH / 2, pillW, pillH, pillH / 2, { borderColor: SAND, borderWidth: 1 });
+  page.drawText(pillText, { x: pillX + 12, y: PAGE_H - headerH / 2 - 3.5, size: pillSize, font: body, color: TAUPE });
 
-  field(t.merchant, "Erendira's Boutique");
-  field(t.customer, ret.from_name || "");
-  field(t.returnCode, ret.return_code);
-  field(
-    t.returnDate,
-    new Date(ret.created_at).toLocaleDateString(t.locale, { year: "numeric", month: "long", day: "numeric" })
-  );
-  field(t.tracking(carrier), ret.tracking_number || "");
+  // Title (shrinks if a long translation needs it)
+  const titleMax = pillX - 16 - hx;
+  let titleSize = 22;
+  while (titleSize > 14 && heading.widthOfTextAtSize(safe(heading, t.title), titleSize) > titleMax) titleSize -= 0.5;
+  text(page, heading, t.title, hx, PAGE_H - headerH / 2 - titleSize * 0.32, titleSize, TAUPE);
 
-  if (ret.reason) {
-    p2.drawText(t.reason.toUpperCase(), { x: M, y, size: 8, font: body, color: SAND });
-    y -= 14;
-    for (const line of wrap(String(ret.reason), 88).slice(0, 4)) {
-      p2.drawText(line, { x: M, y, size: 11, font: body, color: INK });
-      y -= 16;
+  page.drawLine({ start: { x: 0, y: PAGE_H - headerH }, end: { x: PAGE_W, y: PAGE_H - headerH }, thickness: 1, color: LINE });
+
+  // ===== Steps (a row of 5) =====
+  const steps = t.steps(carrier);
+  const colW = (PAGE_W - M * 2) / steps.length;
+  const circleY = PAGE_H - headerH - 26;
+  page.drawLine({
+    start: { x: M + colW / 2, y: circleY },
+    end: { x: PAGE_W - M - colW / 2, y: circleY },
+    thickness: 0.8,
+    color: LINE,
+  });
+  steps.forEach(([word, sub], i) => {
+    const cx = M + colW * i + colW / 2;
+    page.drawCircle({ x: cx, y: circleY, size: 11, color: TAUPE });
+    centered(page, body, String(i + 1), cx, circleY - 3.6, 10, WHITE);
+    centered(page, body, word, cx, circleY - 25, 10.5, INK);
+    centered(page, body, sub, cx, circleY - 36.5, 8.5, SOFT);
+  });
+
+  // ===== Packing slip card =====
+  const cardX = M;
+  const cardW = PAGE_W - M * 2;
+  const cardTop = circleY - 52;
+  const pad = 16;
+  const barW = 140;
+  const fieldsW = cardW - pad * 2 - barW - 18;
+  const colF = fieldsW / 3;
+
+  // Measure the reason first so the card fits it
+  const reasonLines = ret.reason ? wrapWidth(body, safe(body, String(ret.reason)), 11.5, fieldsW).slice(0, 3) : [];
+  const cardH = 26 /*title*/ + 14 + 34 /*fields*/ + (reasonLines.length ? 14 + reasonLines.length * 14 + 6 : 0) + pad + 4;
+  roundRect(page, cardX, cardTop, cardW, cardH, 12, { borderColor: LINE, borderWidth: 1 });
+
+  let y = cardTop - pad - 14;
+  text(page, heading, t.slipTitle, cardX + pad, y, 18, TAUPE);
+  const note = safe(body, t.slipNote);
+  page.drawText(note, { x: cardX + cardW - pad - body.widthOfTextAtSize(note, 8.5), y: y + 3, size: 8.5, font: body, color: MUTED });
+
+  y -= 26;
+  const dateStr = new Date(ret.created_at).toLocaleDateString(t.locale, { year: "numeric", month: "short", day: "numeric" });
+  const fields: [string, string][] = [
+    [t.customer, ret.from_name || "—"],
+    [t.returnDate, dateStr],
+    [t.carrier, carrier],
+  ];
+  fields.forEach(([label, value], i) => {
+    const fx = cardX + pad + colF * i;
+    eyebrow(page, body, label, fx, y);
+    const v = wrapWidth(body, safe(body, value), 12, colF - 12)[0] || "";
+    page.drawText(v, { x: fx, y: y - 15, size: 12, font: body, color: INK });
+  });
+  y -= 34;
+
+  if (reasonLines.length) {
+    y -= 8;
+    eyebrow(page, body, t.reason, cardX + pad, y);
+    y -= 15;
+    for (const line of reasonLines) {
+      page.drawText(line, { x: cardX + pad, y, size: 11.5, font: body, color: INK });
+      y -= 14;
     }
-    y -= 12;
   }
 
-  p2.drawLine({ start: { x: M, y }, end: { x: PAGE_W - M, y }, thickness: 1, color: SAND });
-  y -= 28;
+  // Barcode + return code (right side of the card)
+  const barX = cardX + cardW - pad - barW;
+  const barTop = cardTop - pad - 30;
+  if (barcode) {
+    const bh = 40;
+    page.drawImage(barcode, { x: barX, y: barTop - bh, width: barW, height: bh });
+    centered(page, heading, ret.return_code, barX + barW / 2, barTop - bh - 17, 15, TAUPE);
+  } else {
+    centered(page, heading, ret.return_code, barX + barW / 2, barTop - 24, 18, TAUPE);
+  }
 
-  p2.drawRectangle({
-    x: M, y: y - 82, width: PAGE_W - M * 2, height: 100,
-    color: CREAM, borderColor: SAND, borderWidth: 1,
+  // Return address (small, under the card)
+  const addr = safe(body, t.returnsTo);
+  page.drawText(addr, { x: M, y: cardTop - cardH - 16, size: 8.5, font: body, color: MUTED });
+
+
+  // "Find a post office near you" QR, in the space between the slip and the cut line
+  const addrY = cardTop - cardH - 16;
+  const gap = addrY - 14 - (CUT_Y + 8); // room between the address line and the cut line
+  if (qr && gap >= 52) {
+    const qs = Math.min(64, gap - 16);
+    const qy = CUT_Y + 8 + (gap - qs) / 2;
+    const title = safe(heading, t.findTitle(carrier));
+    const titleSize = 15;
+    const sub = safe(body, t.findSub);
+    const textW = Math.max(heading.widthOfTextAtSize(title, titleSize), body.widthOfTextAtSize(sub, 9));
+    const groupW = qs + 14 + textW;
+    const gx = (PAGE_W - groupW) / 2;
+    roundRect(page, gx - 6, qy + qs + 6, qs + 12, qs + 12, 8, { borderColor: LINE, borderWidth: 1 });
+    page.drawImage(qr, { x: gx, y: qy, width: qs, height: qs });
+    page.drawText(title, { x: gx + qs + 14, y: qy + qs / 2 + 2, size: titleSize, font: heading, color: TAUPE });
+    page.drawText(sub, { x: gx + qs + 14, y: qy + qs / 2 - 13, size: 9, font: body, color: SOFT });
+  }
+
+  // ===== Cut line =====
+  const cut = safe(body, t.cutHere);
+  const cutSize = 7.5;
+  const cutW = body.widthOfTextAtSize(cut, cutSize);
+  dashed(page, M, PAGE_W / 2 - cutW / 2 - 10, CUT_Y);
+  page.drawText(cut, { x: PAGE_W / 2 - cutW / 2, y: CUT_Y - 2.5, size: cutSize, font: body, color: MUTED });
+  dashed(page, PAGE_W / 2 + cutW / 2 + 10, PAGE_W - M, CUT_Y);
+
+  // ===== Label, sideways, across the bottom =====
+  // Dashed cut box around the label area
+  roundRect(page, LABEL_X - 7, LABEL_Y + LABEL_H + 7, LABEL_W + 14, LABEL_H + 14, 5, {
+    borderColor: SAND,
+    borderWidth: 1,
+    borderDashArray: [4, 4],
   });
-  p2.drawText(t.shipTo, { x: M + 16, y: y - 4, size: 8, font: body, color: TAUPE });
-  let ay = y - 24;
-  for (const line of RETURN_ADDRESS) {
-    p2.drawText(line, { x: M + 16, y: ay, size: 12, font: body, color: INK });
-    ay -= 17;
+
+  const placeLabel = (w0: number, h0: number, draw: (o: { x: number; y: number; width: number; height: number; rotate?: ReturnType<typeof degrees> }) => void) => {
+    if (h0 >= w0) {
+      // Portrait label → turn it 90° so it lies sideways. Its top ends up on the left.
+      const s = Math.min(LABEL_W / h0, LABEL_H / w0);
+      const dw = w0 * s; // becomes the height on the page
+      const dh = h0 * s; // becomes the width on the page
+      const left = LABEL_X + (LABEL_W - dh) / 2;
+      const bottom = LABEL_Y + (LABEL_H - dw) / 2;
+      // pdf-lib turns around the bottom-left corner, counter-clockwise
+      draw({ x: left + dh, y: bottom, width: dw, height: dh, rotate: degrees(90) });
+    } else {
+      // Already landscape → just fit it
+      const s = Math.min(LABEL_W / w0, LABEL_H / h0);
+      const dw = w0 * s;
+      const dh = h0 * s;
+      draw({ x: LABEL_X + (LABEL_W - dw) / 2, y: LABEL_Y + (LABEL_H - dh) / 2, width: dw, height: dh });
+    }
+  };
+
+  if (labelImg) {
+    const img = labelImg;
+    placeLabel(img.width, img.height, (o) => page.drawImage(img, o));
+  } else if (labelPage) {
+    const lp = labelPage;
+    placeLabel(lp.width, lp.height, (o) => page.drawPage(lp, o));
+  } else {
+    const lines = wrapWidth(body, safe(body, t.labelFail), 11, LABEL_W - 60);
+    let ly = LABEL_Y + LABEL_H / 2 + (lines.length * 15) / 2 - 11;
+    for (const line of lines) {
+      centered(page, body, line, PAGE_W / 2, ly, 11, TAUPE);
+      ly -= 15;
+    }
   }
 
-  p2.drawText(t.footer, { x: M, y: 48, size: 9, font: body, color: SAND });
+  // Under the label
+  centered(page, body, t.warning(carrier), PAGE_W / 2, LABEL_Y - 7 - 16, 8.5, MUTED);
 
   const bytes = await pdf.save();
 
