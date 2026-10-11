@@ -41,6 +41,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Shipping day",
     items: [
+      { href: "/live-list", label: "Live List", d: ICON.users },
       { href: "/create-label", label: "Create Label", d: ICON.create },
       { href: "/batch-print", label: "Batch Print", d: ICON.print },
       { href: "/packing", label: "Packing List", d: ICON.pack },

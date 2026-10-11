@@ -291,6 +291,13 @@ function CreateLabelInner() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [packageType, setPackageType] = useState<PackageType>("box");
+  // Live List: type the number from the stickers to pull the customer up.
+  const [liveQuery, setLiveQuery] = useState(params.get("live") ?? "");
+  const [liveNumber, setLiveNumber] = useState<number | null>(
+    params.get("live") ? parseInt(params.get("live") as string, 10) || null : null
+  );
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveNote, setLiveNote] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
   const ratesRef = useRef<HTMLElement>(null);
   const providerBeforeEnvelope = useRef<typeof provider>("shippo");
 
@@ -360,6 +367,71 @@ function CreateLabelInner() {
     }, 250);
     return () => clearTimeout(t);
   }, [search, supabase]);
+
+  async function lookupLive() {
+    const n = parseInt(liveQuery, 10);
+    if (!Number.isInteger(n) || n < 1) {
+      setLiveNote({ tone: "err", text: "Type the number from the sticker." });
+      return;
+    }
+    setLiveBusy(true);
+    setLiveNote(null);
+    try {
+      const res = await fetch(`/api/live-list/lookup?n=${n}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Lookup failed");
+      if (!data.found) {
+        setLiveNumber(null);
+        setLiveNote({ tone: "err", text: data.reason });
+        return;
+      }
+      const who = data.row.name;
+
+      // Already shipped: stop so it can't get a second label.
+      if (data.order?.has_label) {
+        setLiveNumber(null);
+        setLiveNote({
+          tone: "warn",
+          text: `#${n} ${who} already has a label${data.order.order_number ? ` (${data.order.order_number})` : ""}${
+            data.order.tracking_number ? `, tracking ${data.order.tracking_number}` : ""
+          }. Don't ship it twice.`,
+        });
+        return;
+      }
+
+      // Saved as a draft earlier: reopen that draft instead of a new one.
+      if (data.order?.id && data.order.id !== orderId) {
+        setLiveNumber(n);
+        setLiveNote({ tone: "ok", text: `#${n} is ${who}. Opening the draft you saved for them…` });
+        router.push(`/create-label?draft=${data.order.id}&live=${n}`);
+        return;
+      }
+
+      setLiveNumber(n);
+      if (data.customer) {
+        pickCustomer(data.customer);
+        setLiveNote({ tone: "ok", text: `#${n} is ${who}. Check the name matches the sticker, then get rates.` });
+      } else {
+        // No single saved customer with that name: show the matches in the
+        // customer search so you can pick the right one, or add the address.
+        setSearch(who);
+        setLiveNote({
+          tone: "warn",
+          text: data.candidates?.length
+            ? `#${n} is ${who}. Pick the right customer below.`
+            : `#${n} is ${who}, but there's no saved address for that name. Add it below.`,
+        });
+        if (!data.candidates?.length) {
+          setManual(true);
+          set("to_name", who);
+        }
+      }
+    } catch (e: any) {
+      setLiveNote({ tone: "err", text: e.message || "Couldn't look that number up." });
+    } finally {
+      setLiveBusy(false);
+    }
+  }
 
   function pickCustomer(c: any) {
     setForm((f) => ({
@@ -445,6 +517,20 @@ function CreateLabelInner() {
         if (error) throw new Error(error.message);
         id = data.id;
         setOrderId(data.id);
+      }
+      // Tie the Live List number to this order, so the list shows it and the
+      // number reopens this draft instead of starting a second one.
+      // Best-effort: never blocks saving or buying.
+      if (liveNumber) {
+        try {
+          await fetch("/api/live-list/link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ number: liveNumber, order_id: id }),
+          });
+        } catch {
+          // ignore
+        }
       }
       return id as string;
     } finally {
@@ -610,6 +696,48 @@ function CreateLabelInner() {
           {/* 1. Ship to */}
           <section className="card !rounded-[2rem]">
             <SectionTitle n={1}>Ship To:</SectionTitle>
+
+            {/* Live List: the number on the inside/outside stickers. */}
+            <div className="mt-5 rounded-2xl border border-taupe/20 bg-cream/60 p-4">
+              <label className="label" htmlFor="live-lookup">
+                Live List # <span className="text-ink/40">(from the sticker)</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="live-lookup"
+                  className="input"
+                  inputMode="numeric"
+                  placeholder="14"
+                  value={liveQuery}
+                  onChange={(e) => {
+                    setLiveQuery(e.target.value.replace(/\D/g, ""));
+                    setLiveNote(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      lookupLive();
+                    }
+                  }}
+                />
+                <button type="button" className="btn-secondary shrink-0" onClick={lookupLive} disabled={liveBusy}>
+                  {liveBusy ? "Finding…" : "Find"}
+                </button>
+              </div>
+              {liveNote ? (
+                <p
+                  className={`mt-2 text-sm ${
+                    liveNote.tone === "err" ? "text-red-700" : liveNote.tone === "warn" ? "text-amber-700" : "text-emerald-700"
+                  }`}
+                >
+                  {liveNote.text}
+                </p>
+              ) : liveNumber ? (
+                <p className="mt-2 text-sm text-emerald-700">Linked to Live List #{liveNumber}.</p>
+              ) : (
+                <p className="mt-1 text-xs text-ink/50">Fills in the customer, and ties this label to that number.</p>
+              )}
+            </div>
 
             {form.customer_id && form.to_name ? (
               <div className="mt-5 flex items-center gap-4 rounded-2xl border border-taupe/20 bg-cream/60 px-4 py-3">

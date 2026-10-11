@@ -154,6 +154,32 @@ export async function buildPickupLabel(opts: {
 }
 
 /**
+ * The packing pair: two identical 2.25 x 1.25" labels in one PDF, one
+ * marked INSIDE (goes on the item bag) and one marked OUTSIDE (goes on the
+ * mailer). The Live List number sits in the black bar on both, so the
+ * number typed on the create-label page is the one printed in the biggest type.
+ *
+ * Both pages print in one go on a Rollo: one tap, two stickers.
+ */
+export async function buildStickerPair(opts: {
+  number: number;
+  name: string;
+  sub?: string;
+}): Promise<Uint8Array> {
+  const font = await loadRecoleta();
+  // The Helvetica fallback writes raw bytes, so it can't draw the middle dot.
+  const sep = font ? ' · ' : ' - ';
+  const pages = (['Inside', 'Outside'] as const).map((side) => ({
+    tagline: `#${opts.number}${sep}${side}`,
+    name: opts.name,
+    sub: opts.sub,
+  }));
+  return font
+    ? assembleEmbedded(pages.map((p) => pickupOpsEmbedded(p, font)), font)
+    : assembleHelvetica(pages.map((p) => pickupOpsHelvetica(p)));
+}
+
+/**
  * Item-code label: the CODE huge and centered (e.g. "A1"), the description
  * small beneath it. No top bar — the code itself is the hero. Same font and
  * fallback behaviour as the pickup label.
@@ -245,6 +271,10 @@ function itemHelveticaPDF(opts: { code: string; description?: string }): Uint8Ar
 
 // ---- path A: Recoleta embedded ----
 function embeddedPDF(opts: { tagline: string; name: string; sub?: string }, f: Font): Uint8Array {
+  return assembleEmbedded(pickupOpsEmbedded(opts, f), f);
+}
+
+function pickupOpsEmbedded(opts: { tagline: string; name: string; sub?: string }, f: Font): string {
   const pad = 0.12 * PT, barH = 0.34 * PT;
   const tag = opts.tagline.toUpperCase();
   const maxW = W - 2 * pad;
@@ -271,24 +301,37 @@ function embeddedPDF(opts: { tagline: string; name: string; sub?: string }, f: F
     ops.push('BT /F1 9 Tf',
       `${((W - widthEmbedded(opts.sub, 9, f)) / 2).toFixed(2)} ${pad.toFixed(2)} Td ${glyphHex(opts.sub, f.map)} Tj ET`);
   }
-  return assembleEmbedded(ops.join('\n'), f);
+  return ops.join('\n');
 }
 
-/** Wrap a content stream + embedded Recoleta into a finished PDF. */
-function assembleEmbedded(content: string, f: Font): Uint8Array {
+/**
+ * Wrap one or more content streams + embedded Recoleta into a finished PDF.
+ * Each content stream becomes one label-sized page; the font is shared.
+ */
+function assembleEmbedded(content: string | string[], f: Font): Uint8Array {
+  const pages = Array.isArray(content) ? content : [content];
   const scale = 1000 / f.unitsPerEm;
   const wArr = '[0[' + f.adv.map((a) => Math.round(a * scale)).join(' ') + ']]';
 
+  // 1 catalog, 2 pages, 3-6 font objects, then a page + content pair per page.
+  const firstPage = 7;
+  const kids = pages.map((_, i) => `${firstPage + i * 2} 0 R`).join(' ');
+
   const objs: (string | { fontStream: true; body: string })[] = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>`,
-    '<< /Type /Font /Subtype /Type0 /BaseFont /Recoleta /Encoding /Identity-H /DescendantFonts [6 0 R] >>',
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
-    `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Recoleta /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 7 0 R /CIDToGIDMap /Identity /W ${wArr} >>`,
-    '<< /Type /FontDescriptor /FontName /Recoleta /Flags 4 /FontBBox [0 -300 1000 900] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /FontFile2 8 0 R >>',
+    `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`,
+    '<< /Type /Font /Subtype /Type0 /BaseFont /Recoleta /Encoding /Identity-H /DescendantFonts [4 0 R] >>',
+    `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Recoleta /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 5 0 R /CIDToGIDMap /Identity /W ${wArr} >>`,
+    '<< /Type /FontDescriptor /FontName /Recoleta /Flags 4 /FontBBox [0 -300 1000 900] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /FontFile2 6 0 R >>',
     { fontStream: true, body: `<< /Length ${f.bytes.length} /Length1 ${f.bytes.length} >>\nstream\n<<FONT>>\nendstream` },
   ];
+  pages.forEach((c, i) => {
+    const pageNo = firstPage + i * 2;
+    objs.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R >> >> /Contents ${pageNo + 1} 0 R >>`,
+      `<< /Length ${Buffer.byteLength(c, 'latin1')} >>\nstream\n${c}\nendstream`
+    );
+  });
 
   const parts: Buffer[] = [];
   const offsets: number[] = [];
@@ -323,6 +366,10 @@ function assembleEmbedded(content: string, f: Font): Uint8Array {
 
 // ---- path B: Helvetica fallback (no font file) ----
 function helveticaPDF(opts: { tagline: string; name: string; sub?: string }): Uint8Array {
+  return assembleHelvetica(pickupOpsHelvetica(opts));
+}
+
+function pickupOpsHelvetica(opts: { tagline: string; name: string; sub?: string }): string {
   const pad = 0.12 * PT, barH = 0.34 * PT;
   const tag = opts.tagline.toUpperCase();
   const maxW = W - 2 * pad;
@@ -348,20 +395,29 @@ function helveticaPDF(opts: { tagline: string; name: string; sub?: string }): Ui
     ops.push('BT /F1 9 Tf',
       `${((W - widthHelv(opts.sub, 9, false)) / 2).toFixed(2)} ${pad.toFixed(2)} Td (${esc(opts.sub)}) Tj ET`);
   }
-  return assembleHelvetica(ops.join('\n'));
+  return ops.join('\n');
 }
 
-/** Wrap a content stream into a finished PDF using the standard Helvetica fonts. */
-function assembleHelvetica(content: string): Uint8Array {
+/** Wrap one or more content streams into a finished PDF using the standard Helvetica fonts. */
+function assembleHelvetica(content: string | string[]): Uint8Array {
+  const pages = Array.isArray(content) ? content : [content];
   const enc = new TextEncoder();
+  // 1 catalog, 2 pages, 3-4 fonts, then a page + content pair per page.
+  const firstPage = 5;
+  const kids = pages.map((_, i) => `${firstPage + i * 2} 0 R`).join(' ');
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>`,
+    `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
   ];
+  pages.forEach((c, i) => {
+    const pageNo = firstPage + i * 2;
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${pageNo + 1} 0 R >>`,
+      `<< /Length ${enc.encode(c).length} >>\nstream\n${c}\nendstream`
+    );
+  });
 
   let pdf = '%PDF-1.4\n';
   const offsets: number[] = [];
