@@ -5,11 +5,15 @@
 //   mode = "email"  → photo saved, emailed to the customer
 //   mode = "save"   → photo saved only
 //   mode = "muse"   → photo saved, queued for Muse to send on Messenger
+//   mode = "auto"   → photo saved, sent from the business Page through the
+//                     Messenger Send API (customer messaged the Page < 24h ago)
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { customerEmail, orderLabel } from "@/lib/scanLookup";
 import { sendEmailPackage, emailConfigured } from "@/lib/notify";
+import { shippingNotice } from "@/lib/shipNotice";
+import { autoSendStatus, sendPackageMessage } from "@/lib/messenger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,7 +35,7 @@ export async function POST(req: Request) {
     const admin = supabaseAdmin();
     const { data: order, error: loadErr } = await admin
       .from("shipping_orders")
-      .select("id, order_number, customer_id, to_name, to_email, tracking_number, package_photo_url")
+      .select("id, order_number, customer_id, to_name, to_email, to_street1, to_street2, to_city, to_state, to_zip, carrier, mail_class, tracking_number, created_at, package_photo_url, customer_notified_at")
       .eq("id", orderId)
       .single();
     if (loadErr || !order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
@@ -79,6 +83,28 @@ export async function POST(req: Request) {
     } else if (mode === "shared") {
       update.customer_notified_at = now;
       update.notified_via = "messenger";
+    } else if (mode === "auto") {
+      if (!photoUrl) return NextResponse.json({ error: "Take a photo of the package first." }, { status: 400 });
+      if (order.customer_notified_at) {
+        return NextResponse.json({ error: "This package was already sent." }, { status: 409 });
+      }
+      if (!order.customer_id) return NextResponse.json({ error: "This label isn't tied to a customer." }, { status: 400 });
+      const { data: cust } = await admin
+        .from("shipping_customers")
+        .select("messenger_psid, messenger_last_inbound_at")
+        .eq("id", order.customer_id)
+        .maybeSingle();
+      const auto = autoSendStatus(cust);
+      if (!auto.ok) return NextResponse.json({ error: auto.reason, fallback: true }, { status: 400 });
+      try {
+        await sendPackageMessage(cust!.messenger_psid as string, photoUrl, shippingNotice(order));
+      } catch (e: any) {
+        // Save the photo anyway so the one-tap send has it.
+        await admin.from("shipping_orders").update({ package_photo_url: photoUrl, updated_at: now }).eq("id", order.id);
+        return NextResponse.json({ error: e?.message || "Messenger didn't send.", fallback: true }, { status: 502 });
+      }
+      update.customer_notified_at = now;
+      update.notified_via = "messenger (auto)";
     } else if (mode === "muse") {
       if (!photoUrl) return NextResponse.json({ error: "Take a photo of the package first." }, { status: 400 });
       update.muse_status = "queued";

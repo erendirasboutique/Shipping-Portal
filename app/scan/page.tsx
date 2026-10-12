@@ -2,11 +2,12 @@
 
 // Scan and Send — for packing day.
 // 1) Scan the label with the phone camera  2) Take a photo of the package
-// 3) Share the photo + tracking message to the customer on Messenger from
-//    the phone's share button (or email it).
+// 3) If the customer messaged the business Page in the last 24 hours, it
+//    sends by itself. Otherwise their saved chat opens with the photo copied.
 
 import Link from "next/link";
 import PortalTranslator from "@/components/PortalTranslator";
+import MessengerLink from "@/components/MessengerLink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 
@@ -33,7 +34,17 @@ type Found = {
   };
   message: string;
   email: string | null;
+  messenger: {
+    customerId: string;
+    link: string | null;
+    openUrl: string | null;
+    autoSend: boolean;
+    autoReason: string;
+  } | null;
 };
+
+type AutoState = "idle" | "countdown" | "sending" | "failed" | "cancelled";
+const AUTO_SECONDS = 3;
 
 type Stage = "scan" | "found" | "done";
 
@@ -201,6 +212,8 @@ function ScanPageInner() {
   const [sentCount, setSentCount] = useState(0);
   const [torchOk, setTorchOk] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [autoState, setAutoState] = useState<AutoState>("idle");
+  const [autoLeft, setAutoLeft] = useState(AUTO_SECONDS);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -248,6 +261,7 @@ function ScanPageInner() {
         setPhotoCopied(null);
         setPreview(null);
         setResult(null);
+        setAutoState("idle");
         setTyped("");
         setStage("found");
       } catch (e: any) {
@@ -430,6 +444,8 @@ function ScanPageInner() {
     e.target.value = "";
     if (!f) return;
     setBusy("Preparing photo…");
+    // A new photo restarts the auto-send countdown, so the new one goes out.
+    setAutoState((a) => (a === "countdown" ? "idle" : a));
     const blob = await compressPhoto(f);
     setPhoto(blob);
     setPhotoUploaded(false);
@@ -473,7 +489,7 @@ function ScanPageInner() {
       return;
     }
     setError(null);
-    const link = appLink(target);
+    const link = found.messenger?.openUrl || appLink(target);
 
     let copy: Promise<void>;
     try {
@@ -505,6 +521,32 @@ function ScanPageInner() {
     Promise.race([copy, new Promise((res) => setTimeout(res, 700))]).then(go, go);
   }
 
+  // Auto-send: once the photo is saved, count down a few seconds (so a wrong
+  // scan can be cancelled), then send from the Page.
+  const autoEligible =
+    stage === "found" &&
+    !!found?.messenger?.autoSend &&
+    !found?.order.notifiedAt &&
+    (photoUploaded || (!photo && !!found?.order.photo));
+
+  useEffect(() => {
+    if (autoEligible && autoState === "idle" && !busy) {
+      setAutoLeft(AUTO_SECONDS);
+      setAutoState("countdown");
+    }
+  }, [autoEligible, autoState, busy]);
+
+  useEffect(() => {
+    if (autoState !== "countdown") return;
+    if (autoLeft <= 0) {
+      record("auto");
+      return;
+    }
+    const t = window.setTimeout(() => setAutoLeft((n) => n - 1), 1000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoState, autoLeft]);
+
   // Detect once whether this phone can share a photo to other apps.
   useEffect(() => {
     try {
@@ -516,9 +558,12 @@ function ScanPageInner() {
   }, []);
 
   // Save the photo on the order and record how the customer was told.
-  async function record(mode: "shared" | "email" | "save" | "muse") {
+  async function record(mode: "shared" | "email" | "save" | "muse" | "auto") {
     if (!found) return;
-    setBusy(mode === "email" ? "Sending email…" : mode === "muse" ? "Adding to Muse queue…" : "Saving…");
+    if (mode === "auto") setAutoState("sending");
+    setBusy(
+      mode === "email" ? "Sending email…" : mode === "muse" ? "Adding to Muse queue…" : mode === "auto" ? "Sending on Messenger…" : "Saving…"
+    );
     setError(null);
     try {
       const fd = new FormData();
@@ -527,7 +572,15 @@ function ScanPageInner() {
       if (photo && !photoUploaded) fd.append("photo", photo, "package.jpg");
       const res = await fetch("/api/scan/send", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Saving failed.");
+      if (!res.ok) {
+        if (mode === "auto") {
+          if (data.photoUrl) setPhotoUploaded(true);
+          setAutoState("failed");
+          throw new Error((data.error || "Messenger didn't send.") + " Send it with the button below instead.");
+        }
+        throw new Error(data.error || "Saving failed.");
+      }
+      if (mode === "auto") setPhotoUploaded(true);
       setResult({ via: mode, to: data.to });
       if (mode !== "save") setSentCount((n) => n + 1);
       setStage("done");
@@ -598,6 +651,7 @@ function ScanPageInner() {
     setCopied(false);
     setPhotoUploaded(false);
     setPhotoCopied(null);
+    setAutoState("idle");
     lastCodeRef.current = null;
     setStage("scan");
   }
@@ -799,6 +853,16 @@ function ScanPageInner() {
             )}
           </section>
 
+          {found.messenger && !found.messenger.link && (
+            <MessengerLink
+              customerId={found.messenger.customerId}
+              customerName={found.order.name}
+              onChange={(m) =>
+                setFound((f) => (f && f.messenger ? { ...f, messenger: { ...f.messenger, link: m.link, openUrl: m.openUrl } } : f))
+              }
+            />
+          )}
+
           {errorBox}
 
           {/* Package photo */}
@@ -825,8 +889,40 @@ function ScanPageInner() {
             </button>
           )}
 
+          {/* Auto-send from the Page */}
+          {found.messenger?.autoSend && !found.order.notifiedAt && (
+            <section className="flex flex-col gap-2 rounded-[18px] bg-emerald-50 px-4 py-3 text-emerald-800">
+              {autoState === "countdown" ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[15px]">Sending to {firstName || "customer"} in {autoLeft}…</p>
+                  <button onClick={() => setAutoState("cancelled")} className="h-10 shrink-0 rounded-xl bg-white px-4 text-sm text-ink ring-1 ring-inset ring-sand/60">
+                    Cancel
+                  </button>
+                </div>
+              ) : autoState === "sending" ? (
+                <p className="text-[15px]">Sending on Messenger…</p>
+              ) : autoState === "failed" ? (
+                <p className="text-sm">Didn&apos;t send automatically. Use the button below.</p>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm">
+                    {hasPhoto
+                      ? "Messaged your Page recently, so this can send by itself."
+                      : "Messaged your Page recently. Take the photo and it sends by itself."}
+                  </p>
+                  {autoState === "cancelled" && hasPhoto && (
+                    <button onClick={() => record("auto")} disabled={!!busy} className="h-10 shrink-0 rounded-xl bg-taupe px-4 text-sm text-cream">
+                      Send now
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Send */}
           <section className="flex flex-col gap-2.5">
+            {!found.messenger?.openUrl && (
             <div role="radiogroup" aria-label="Open in" className="grid grid-cols-2 gap-1 rounded-[14px] bg-sand/30 p-1">
               {(["messenger", "suite"] as AppTarget[]).map((t) => (
                 <button
@@ -840,12 +936,19 @@ function ScanPageInner() {
                 </button>
               ))}
             </div>
-            <button onClick={openApp} disabled={!!busy || !hasPhoto} className={bigBtn}>
+            )}
+            <button
+              onClick={openApp}
+              disabled={!!busy || !hasPhoto || autoState === "countdown" || autoState === "sending"}
+              className={found.messenger?.autoSend && autoState !== "failed" ? softBtn + " h-[52px] w-full" : bigBtn}
+            >
               <Ico d={ICON.send} size={19} w={2} />
-              {busy || "Send to " + APP_NAMES[target]}
+              {found.messenger?.openUrl ? "Open " + (firstName ? firstName + "'s" : "their") + " chat" : busy || "Send to " + APP_NAMES[target]}
             </button>
             <p className="text-center text-xs text-ink/60">
-              Copies the photo and opens {APP_NAMES[target]}. In the chat, press and hold the message box and tap Paste.
+              {found.messenger?.openUrl
+                ? "Copies the photo and opens their chat. Press and hold the message box and tap Paste."
+                : "Copies the photo and opens " + APP_NAMES[target] + ". In the chat, press and hold the message box and tap Paste."}
             </p>
             <button
               onClick={() => record("muse")}
@@ -902,7 +1005,9 @@ function ScanPageInner() {
               </span>
             </div>
             <h1 className="mt-1.5 font-heading text-[30px] leading-tight">
-              {result.via === "muse"
+              {result.via === "auto"
+                ? `Sent to ${firstName || "customer"}`
+                : result.via === "muse"
                 ? "Queued for Muse"
                 : result.via === "opened"
                 ? "Now paste the photo"
@@ -918,6 +1023,12 @@ function ScanPageInner() {
               {result.to ? " · " + result.to : ""}
             </p>
           </section>
+
+          {result.via === "auto" && (
+            <p className="rounded-2xl bg-white dark:bg-transparent px-4 py-3 text-sm text-ink/80 ring-1 ring-inset ring-sand/60">
+              The photo and tracking message went out automatically from your Page on Messenger.
+            </p>
+          )}
 
           {result.via === "muse" && (
             <p className="rounded-2xl bg-white dark:bg-transparent px-4 py-3 text-sm text-ink/80 ring-1 ring-inset ring-sand/60">
@@ -946,7 +1057,9 @@ function ScanPageInner() {
               )}
               <ol className="flex flex-col gap-2 text-sm text-ink/80">
                 {[
-                  `In ${APP_NAMES[target]}, open ${firstName ? firstName + "'s" : "the customer's"} chat.`,
+                  found.messenger?.openUrl
+                    ? `${firstName ? firstName + "'s" : "Their"} chat opens by itself.`
+                    : `In ${APP_NAMES[target]}, open ${firstName ? firstName + "'s" : "the customer's"} chat.`,
                   "Press and hold the message box, tap Paste, and send the photo.",
                   "Come back here, tap Copy message, and paste that too.",
                 ].map((step, i) => (
@@ -958,7 +1071,9 @@ function ScanPageInner() {
               </ol>
               <div className="grid grid-cols-2 gap-2.5">
                 <button onClick={copyMessage} className={softBtn}>{copied ? "Copied" : "Copy message"}</button>
-                <button onClick={() => { window.location.href = appLink(target); }} className={softBtn}>Open {APP_NAMES[target]}</button>
+                <button onClick={() => { window.location.href = found.messenger?.openUrl || appLink(target); }} className={softBtn}>
+                  {found.messenger?.openUrl ? "Open chat" : "Open " + APP_NAMES[target]}
+                </button>
               </div>
               {canShareFiles && <button onClick={share} className={softBtn}>Share photo</button>}
             </div>

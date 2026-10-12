@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import Shell from "@/components/Shell";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import MessengerLink from "@/components/MessengerLink";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fetchAll } from "@/lib/fetchAll";
 
@@ -728,6 +729,13 @@ export default function CustomersPage() {
                 <textarea className="input" rows={2} placeholder="Gift wrap preferences, sizing, anything worth remembering…"
                   value={editing.notes || ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} />
               </section>
+
+              {editing.id && (
+                <section>
+                  <SectionTitle>Messenger</SectionTitle>
+                  <MessengerLink customerId={editing.id} customerName={editing.name} full />
+                </section>
+              )}
 
               {editing.id && (
                 <section>

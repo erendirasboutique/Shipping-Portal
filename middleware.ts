@@ -19,6 +19,8 @@ const PUBLIC_PATHS = [
   "/api/live/portal",
   // Meta Muse connection. Every route checks the MUSE_API_TOKEN itself.
   "/api/muse",
+  // Facebook's Messenger webhook. Checks FB_APP_SECRET on every call.
+  "/api/messenger/webhook",
 ];
 
 // A v4 uuid, which is what portal_token is. Used to spot a bare token at

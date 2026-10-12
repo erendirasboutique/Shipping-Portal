@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import ScaleReader from "@/components/ScaleReader";
+import MessengerLink from "@/components/MessengerLink";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Rate = {
@@ -740,6 +741,7 @@ function CreateLabelInner() {
             </div>
 
             {form.customer_id && form.to_name ? (
+              <>
               <div className="mt-5 flex items-center gap-4 rounded-2xl border border-taupe/20 bg-cream/60 px-4 py-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sand/60 font-semibold text-taupe">
                   {form.to_name
@@ -764,6 +766,10 @@ function CreateLabelInner() {
                   Change
                 </button>
               </div>
+              <div className="mt-3">
+                <MessengerLink customerId={form.customer_id} customerName={form.to_name} />
+              </div>
+              </>
             ) : (
               <div className="relative mt-5">
                 <input

@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { findOrderByCode, customerEmail, orderLabel } from "@/lib/scanLookup";
 import { emailConfigured } from "@/lib/notify";
 import { shippingNotice } from "@/lib/shipNotice";
+import { autoSendStatus, openUrlFor } from "@/lib/messenger";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,29 @@ export async function GET(req: Request) {
         .maybeSingle();
       if (!museErr) muse = data;
     }
+    // Messenger: their chat link, and whether the Page can send automatically.
+    // Skipped quietly if the Messenger database update isn't in yet.
+    let messenger: any = null;
+    if (order.customer_id) {
+      const { data: cust, error: custErr } = await admin
+        .from("shipping_customers")
+        .select("id, messenger_link, messenger_psid, messenger_last_inbound_at")
+        .eq("id", order.customer_id)
+        .maybeSingle();
+      if (!custErr && cust) {
+        const auto = autoSendStatus(cust);
+        messenger = {
+          customerId: cust.id,
+          link: cust.messenger_link || null,
+          openUrl: openUrlFor(cust.messenger_link),
+          autoSend: auto.ok,
+          autoReason: auto.reason,
+        };
+      }
+    }
+
     return NextResponse.json({
+      messenger,
       order: {
         id: order.id,
         label: orderLabel(order),
