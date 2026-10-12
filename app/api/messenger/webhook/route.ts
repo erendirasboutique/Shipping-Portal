@@ -74,7 +74,7 @@ async function recordInbound(admin: any, psid: string, at: string) {
     .eq("psid", psid)
     .maybeSingle();
 
-  const name = existing?.name || (await profileName(psid));
+  const name: string | null = (existing?.name as string | null) || (await profileName(psid));
 
   // Already linked to a customer: just move their window forward.
   const { data: linked } = await admin
@@ -87,7 +87,7 @@ async function recordInbound(admin: any, psid: string, at: string) {
   // Not linked yet: link only when exactly one active customer has that
   // exact name and isn't linked to someone else. Otherwise staff pick.
   if (!customerId && name) {
-    const exact = name.replace(/[\\%_]/g, (c) => "\\" + c);
+    const exact = name.replace(/[\\%_]/g, (c: string) => "\\" + c);
     const { data: matches } = await admin
       .from("shipping_customers")
       .select("id, messenger_psid")

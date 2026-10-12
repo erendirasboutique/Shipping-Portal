@@ -64,14 +64,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         .order("last_inbound_at", { ascending: false })
         .limit(40);
       const words = String(c.name || "").toLowerCase().split(/\s+/).filter((w) => w.length > 1);
-      contacts = (data || [])
-        .map((x: any) => {
-          const n = String(x.name || "").toLowerCase();
-          return { ...x, score: words.filter((w) => n.includes(w)).length };
-        })
-        .sort((a, b) => b.score - a.score)
+      type Row = { psid: string; name: string | null; last_inbound_at: string | null; score: number };
+      const rows: any[] = data || [];
+      const scored: Row[] = rows.map((x: any) => {
+        const n = String(x.name || "").toLowerCase();
+        return { psid: x.psid, name: x.name, last_inbound_at: x.last_inbound_at, score: words.filter((w) => n.includes(w)).length };
+      });
+      contacts = scored
+        .sort((a: Row, b: Row) => b.score - a.score)
         .slice(0, 6)
-        .map(({ psid, name, last_inbound_at, score }) => ({ psid, name, lastMessagedAt: last_inbound_at, likely: score > 0 }));
+        .map((r: Row) => ({ psid: r.psid, name: r.name, lastMessagedAt: r.last_inbound_at, likely: r.score > 0 }));
     }
     return NextResponse.json(shape(c, contacts));
   } catch (e: any) {
