@@ -1,7 +1,7 @@
 // app/api/returns/slip/route.ts
 // GET /api/returns/slip?code=EB-XXXXXX&lang=es
 // One-page return packet (EN/ES):
-//   top half    → steps + packing slip (goes inside the box)
+//   top half    → steps + packing slip + drop-off QR (goes inside the box)
 //   bottom half → the shipping label, turned sideways at its real 6 × 4 size (taped on the box)
 //
 // Dependencies (package.json):
@@ -81,11 +81,10 @@ const T = {
 };
 
 // Brand colors (a touch darker than the screen colors so they print well)
-const TAUPE = rgb(0x80 / 255, 0x6a / 255, 0x52 / 255);
-const SAND = rgb(0xcf / 255, 0xbd / 255, 0xa9 / 255);
-const LINE = rgb(0xe7 / 255, 0xdd / 255, 0xd1 / 255);
-const MUTED = rgb(0xa8 / 255, 0x95 / 255, 0x7f / 255);
-const SOFT = rgb(0x8d / 255, 0x7c / 255, 0x69 / 255);
+const BROWN = rgb(0x5b / 255, 0x4a / 255, 0x38 / 255);
+const MUTED = rgb(0x7a / 255, 0x6a / 255, 0x57 / 255);
+const LINE = rgb(0xdc / 255, 0xd2 / 255, 0xc5 / 255);
+const SAND = rgb(0xb7 / 255, 0xa6 / 255, 0x93 / 255);
 const INK = rgb(0x33 / 255, 0x2b / 255, 0x23 / 255);
 const WHITE = rgb(1, 1, 1);
 
@@ -97,15 +96,19 @@ const M = 36; // side margin
 const LABEL_W = 432;
 const LABEL_H = 288;
 const LABEL_X = (PAGE_W - LABEL_W) / 2;
-const LABEL_Y = 76;
-const CUT_Y = LABEL_Y + LABEL_H + 7 + 24; // dashed cut line above the label box
+const LABEL_Y = 54; // 0.75" from the bottom edge
+const CUT_Y = LABEL_Y + LABEL_H + 7 + 22; // dashed cut line above the label box
+
+// Turn off ligatures and other letter-joining. pdf-lib draws joined letters (like "fi" or "st")
+// with the wrong width, which is what put gaps inside words ("ofi cina", "est á").
+const PLAIN_LETTERS = { liga: false, clig: false, dlig: false, hlig: false, calt: false, rlig: false };
 
 async function loadFont(pdf: PDFDocument, files: string[]): Promise<PDFFont | null> {
   for (const file of files) {
     try {
       const bytes = await fs.readFile(path.join(process.cwd(), "public", "fonts", file));
       // .otf (CFF) fonts are embedded whole — subsetting them can garble letters
-      return await pdf.embedFont(bytes, { subset: !file.toLowerCase().endsWith(".otf") });
+      return await pdf.embedFont(bytes, { subset: !file.toLowerCase().endsWith(".otf"), features: PLAIN_LETTERS });
     } catch {
       // try the next one
     }
@@ -151,6 +154,12 @@ function wrapWidth(font: PDFFont, text: string, size: number, maxW: number): str
   return lines;
 }
 
+/** Shrinks the size until the text fits in maxW (never below minSize). */
+function fitSize(font: PDFFont, s: string, size: number, maxW: number, minSize: number) {
+  while (size > minSize && font.widthOfTextAtSize(s, size) > maxW) size -= 0.5;
+  return size;
+}
+
 function text(page: PDFPage, font: PDFFont, s: string, x: number, y: number, size: number, color: Color) {
   page.drawText(safe(font, s), { x, y, size, font, color });
 }
@@ -160,9 +169,9 @@ function centered(page: PDFPage, font: PDFFont, s: string, cx: number, y: number
   page.drawText(str, { x: cx - font.widthOfTextAtSize(str, size) / 2, y, size, font, color });
 }
 
-/** Small caps-style label: spaced-out uppercase */
-function eyebrow(page: PDFPage, font: PDFFont, s: string, x: number, y: number, color: Color = MUTED) {
-  page.drawText(safe(font, s.toUpperCase()), { x, y, size: 7.5, font, color });
+/** Small uppercase label above a value */
+function eyebrow(page: PDFPage, font: PDFFont, s: string, x: number, y: number) {
+  page.drawText(safe(font, s.toUpperCase()), { x, y, size: 7.5, font, color: MUTED });
 }
 
 /** Rounded rectangle. (x, top) is the top-left corner. */
@@ -296,71 +305,89 @@ export async function GET(req: NextRequest) {
 
   const page = pdf.addPage([PAGE_W, PAGE_H]);
 
-  // ===== Header =====
+  // ===== Header: logo · title · code pill =====
   const headerH = 64;
+  const headerMid = PAGE_H - headerH / 2;
   let hx = M;
   if (logo) {
-    const lh = 36;
+    const lh = 38;
     const lw = (logo.width / logo.height) * lh;
-    page.drawImage(logo, { x: M, y: PAGE_H - headerH / 2 - lh / 2, width: lw, height: lh });
-    hx = M + lw + 14;
+    page.drawImage(logo, { x: M, y: headerMid - lh / 2, width: lw, height: lh });
+    hx = M + lw + 16;
   }
 
-  // Return code pill (right)
   const pillText = safe(body, ret.return_code);
   const pillSize = 10.5;
-  const pillW = body.widthOfTextAtSize(pillText, pillSize) + 24;
-  const pillH = 22;
+  const pillW = body.widthOfTextAtSize(pillText, pillSize) + 26;
+  const pillH = 24;
   const pillX = PAGE_W - M - pillW;
-  roundRect(page, pillX, PAGE_H - headerH / 2 + pillH / 2, pillW, pillH, pillH / 2, { borderColor: SAND, borderWidth: 1 });
-  page.drawText(pillText, { x: pillX + 12, y: PAGE_H - headerH / 2 - 3.5, size: pillSize, font: body, color: TAUPE });
+  roundRect(page, pillX, headerMid + pillH / 2, pillW, pillH, pillH / 2, { borderColor: SAND, borderWidth: 1 });
+  page.drawText(pillText, { x: pillX + 13, y: headerMid - pillSize * 0.35, size: pillSize, font: body, color: BROWN });
 
-  // Title (shrinks if a long translation needs it)
-  const titleMax = pillX - 16 - hx;
-  let titleSize = 22;
-  while (titleSize > 14 && heading.widthOfTextAtSize(safe(heading, t.title), titleSize) > titleMax) titleSize -= 0.5;
-  text(page, heading, t.title, hx, PAGE_H - headerH / 2 - titleSize * 0.32, titleSize, TAUPE);
+  const title = safe(heading, t.title);
+  const titleSize = fitSize(heading, title, 24, pillX - 16 - hx, 14);
+  page.drawText(title, { x: hx, y: headerMid - titleSize * 0.32, size: titleSize, font: heading, color: BROWN });
 
-  page.drawLine({ start: { x: 0, y: PAGE_H - headerH }, end: { x: PAGE_W, y: PAGE_H - headerH }, thickness: 1, color: LINE });
+  page.drawLine({ start: { x: M, y: PAGE_H - headerH }, end: { x: PAGE_W - M, y: PAGE_H - headerH }, thickness: 1, color: LINE });
 
   // ===== Steps (a row of 5) =====
   const steps = t.steps(carrier);
   const colW = (PAGE_W - M * 2) / steps.length;
   const circleY = PAGE_H - headerH - 26;
+  const subLines = steps.map(([, sub]) => wrapWidth(body, safe(body, sub), 8.5, colW - 10).slice(0, 2));
+  const maxSubLines = Math.max(...subLines.map((l) => l.length));
+
   page.drawLine({
     start: { x: M + colW / 2, y: circleY },
     end: { x: PAGE_W - M - colW / 2, y: circleY },
-    thickness: 0.8,
+    thickness: 1,
     color: LINE,
   });
-  steps.forEach(([word, sub], i) => {
+  steps.forEach(([word], i) => {
     const cx = M + colW * i + colW / 2;
-    page.drawCircle({ x: cx, y: circleY, size: 11, color: TAUPE });
+    page.drawCircle({ x: cx, y: circleY, size: 11, color: BROWN });
     centered(page, body, String(i + 1), cx, circleY - 3.6, 10, WHITE);
-    centered(page, body, word, cx, circleY - 25, 10.5, INK);
-    centered(page, body, sub, cx, circleY - 36.5, 8.5, SOFT);
+    centered(page, body, word, cx, circleY - 26, 10.5, INK);
+    subLines[i].forEach((line, j) => {
+      page.drawText(line, { x: cx - body.widthOfTextAtSize(line, 8.5) / 2, y: circleY - 38 - j * 10, size: 8.5, font: body, color: MUTED });
+    });
   });
+  const stepsBottom = circleY - 38 - (maxSubLines - 1) * 10;
 
   // ===== Packing slip card =====
+  // Left: title + customer details. Right: barcode with the return code under it.
   const cardX = M;
   const cardW = PAGE_W - M * 2;
-  const cardTop = circleY - 52;
-  const pad = 16;
-  const barW = 140;
-  const fieldsW = cardW - pad * 2 - barW - 18;
-  const colF = fieldsW / 3;
+  const cardTop = stepsBottom - 18;
+  const pad = 18;
+  const barW = 150;
+  const gutter = 24;
+  const leftW = cardW - pad * 2 - barW - gutter;
+  const colF = leftW / 3;
 
-  // Measure the reason first so the card fits it
-  const reasonLines = ret.reason ? wrapWidth(body, safe(body, String(ret.reason)), 11.5, fieldsW).slice(0, 3) : [];
-  const cardH = 26 /*title*/ + 14 + 34 /*fields*/ + (reasonLines.length ? 14 + reasonLines.length * 14 + 6 : 0) + pad + 4;
+  const reasonLines = ret.reason ? wrapWidth(body, safe(body, String(ret.reason)), 11, leftW).slice(0, 2) : [];
+  if (ret.reason && reasonLines.length === 2) {
+    // Long reasons get trimmed so the page layout never breaks
+    const all = wrapWidth(body, safe(body, String(ret.reason)), 11, leftW);
+    if (all.length > 2) {
+      let last = reasonLines[1];
+      while (last.length > 1 && body.widthOfTextAtSize(last + "…", 11) > leftW) last = last.slice(0, -1);
+      reasonLines[1] = last.trimEnd() + "…";
+    }
+  }
+
+  const leftH = reasonLines.length ? 92 + (reasonLines.length - 1) * 13 + 4 : 66 + 4;
+  const rightH = 72;
+  const innerH = Math.max(leftH, rightH);
+  const cardH = pad + innerH + pad;
   roundRect(page, cardX, cardTop, cardW, cardH, 12, { borderColor: LINE, borderWidth: 1 });
 
-  let y = cardTop - pad - 14;
-  text(page, heading, t.slipTitle, cardX + pad, y, 18, TAUPE);
-  const note = safe(body, t.slipNote);
-  page.drawText(note, { x: cardX + cardW - pad - body.widthOfTextAtSize(note, 8.5), y: y + 3, size: 8.5, font: body, color: MUTED });
+  const y0 = cardTop - pad;
+  const lx = cardX + pad;
 
-  y -= 26;
+  text(page, heading, t.slipTitle, lx, y0 - 16, 19, BROWN);
+  text(page, body, t.slipNote, lx, y0 - 30, 8.5, MUTED);
+
   const dateStr = new Date(ret.created_at).toLocaleDateString(t.locale, { year: "numeric", month: "short", day: "numeric" });
   const fields: [string, string][] = [
     [t.customer, ret.from_name || "—"],
@@ -368,55 +395,70 @@ export async function GET(req: NextRequest) {
     [t.carrier, carrier],
   ];
   fields.forEach(([label, value], i) => {
-    const fx = cardX + pad + colF * i;
-    eyebrow(page, body, label, fx, y);
-    const v = wrapWidth(body, safe(body, value), 12, colF - 12)[0] || "";
-    page.drawText(v, { x: fx, y: y - 15, size: 12, font: body, color: INK });
+    const fx = lx + colF * i;
+    eyebrow(page, body, label, fx, y0 - 50);
+    const v = safe(body, value);
+    const vs = fitSize(body, v, 11.5, colF - 10, 9);
+    page.drawText(v, { x: fx, y: y0 - 64, size: vs, font: body, color: INK });
   });
-  y -= 34;
 
   if (reasonLines.length) {
-    y -= 8;
-    eyebrow(page, body, t.reason, cardX + pad, y);
-    y -= 15;
-    for (const line of reasonLines) {
-      page.drawText(line, { x: cardX + pad, y, size: 11.5, font: body, color: INK });
-      y -= 14;
-    }
+    eyebrow(page, body, t.reason, lx, y0 - 80);
+    reasonLines.forEach((line, i) => {
+      page.drawText(line, { x: lx, y: y0 - 93 - i * 13, size: 11, font: body, color: INK });
+    });
   }
 
-  // Barcode + return code (right side of the card)
+  // Divider between the two sides
+  const divX = lx + leftW + gutter / 2;
+  page.drawLine({ start: { x: divX, y: y0 }, end: { x: divX, y: y0 - innerH }, thickness: 1, color: LINE });
+
+  // Barcode block, centered top-to-bottom inside the card
   const barX = cardX + cardW - pad - barW;
-  const barTop = cardTop - pad - 30;
+  const barTop = y0 - (innerH - rightH) / 2;
+  const codeText = safe(body, ret.return_code);
   if (barcode) {
-    const bh = 40;
+    const bh = 46;
     page.drawImage(barcode, { x: barX, y: barTop - bh, width: barW, height: bh });
-    centered(page, heading, ret.return_code, barX + barW / 2, barTop - bh - 17, 15, TAUPE);
+    page.drawText(codeText, {
+      x: barX + barW / 2 - body.widthOfTextAtSize(codeText, 11) / 2,
+      y: barTop - bh - 18,
+      size: 11,
+      font: body,
+      color: INK,
+    });
   } else {
-    centered(page, heading, ret.return_code, barX + barW / 2, barTop - 24, 18, TAUPE);
+    page.drawText(codeText, {
+      x: barX + barW / 2 - body.widthOfTextAtSize(codeText, 16) / 2,
+      y: barTop - rightH / 2 - 5,
+      size: 16,
+      font: body,
+      color: INK,
+    });
   }
 
-  // Return address (small, under the card)
-  const addr = safe(body, t.returnsTo);
-  page.drawText(addr, { x: M, y: cardTop - cardH - 16, size: 8.5, font: body, color: MUTED });
+  // Return address, small, under the card
+  const addrY = cardTop - cardH - 14;
+  text(page, body, t.returnsTo, M + 2, addrY, 8, MUTED);
 
-
-  // "Find a post office near you" QR, in the space between the slip and the cut line
-  const addrY = cardTop - cardH - 16;
-  const gap = addrY - 14 - (CUT_Y + 8); // room between the address line and the cut line
-  if (qr && gap >= 52) {
-    const qs = Math.min(64, gap - 16);
-    const qy = CUT_Y + 8 + (gap - qs) / 2;
-    const title = safe(heading, t.findTitle(carrier));
-    const titleSize = 15;
+  // ===== "Find a post office near you" QR row =====
+  // Sits right under the slip. Shrinks a little on busy pages, and is skipped if there's no room.
+  const rowTop = addrY - 12;
+  const room = rowTop - (CUT_Y + 14);
+  if (qr && room >= 58) {
+    const rowH = Math.min(72, room);
+    const qs = rowH - 16;
+    roundRect(page, M, rowTop, cardW, rowH, 12, { borderColor: LINE, borderWidth: 1 });
+    page.drawImage(qr, { x: M + 8, y: rowTop - 8 - qs, width: qs, height: qs });
+    const tx = M + 8 + qs + 16;
+    const maxTextW = cardW - (tx - M) - 16;
+    const findTitle = safe(heading, t.findTitle(carrier));
+    const fts = fitSize(heading, findTitle, 16, maxTextW, 11);
     const sub = safe(body, t.findSub);
-    const textW = Math.max(heading.widthOfTextAtSize(title, titleSize), body.widthOfTextAtSize(sub, 9));
-    const groupW = qs + 14 + textW;
-    const gx = (PAGE_W - groupW) / 2;
-    roundRect(page, gx - 6, qy + qs + 6, qs + 12, qs + 12, 8, { borderColor: LINE, borderWidth: 1 });
-    page.drawImage(qr, { x: gx, y: qy, width: qs, height: qs });
-    page.drawText(title, { x: gx + qs + 14, y: qy + qs / 2 + 2, size: titleSize, font: heading, color: TAUPE });
-    page.drawText(sub, { x: gx + qs + 14, y: qy + qs / 2 - 13, size: 9, font: body, color: SOFT });
+    const subSize = fitSize(body, sub, 9, maxTextW, 7);
+    const midY = rowTop - rowH / 2;
+    page.drawText(findTitle, { x: tx, y: midY + 2, size: fts, font: heading, color: BROWN });
+    page.drawText(sub, { x: tx, y: midY - 13, size: subSize, font: body, color: MUTED });
   }
 
   // ===== Cut line =====
@@ -464,13 +506,13 @@ export async function GET(req: NextRequest) {
     const lines = wrapWidth(body, safe(body, t.labelFail), 11, LABEL_W - 60);
     let ly = LABEL_Y + LABEL_H / 2 + (lines.length * 15) / 2 - 11;
     for (const line of lines) {
-      centered(page, body, line, PAGE_W / 2, ly, 11, TAUPE);
+      centered(page, body, line, PAGE_W / 2, ly, 11, BROWN);
       ly -= 15;
     }
   }
 
   // Under the label
-  centered(page, body, t.warning(carrier), PAGE_W / 2, LABEL_Y - 7 - 16, 8.5, MUTED);
+  centered(page, body, t.warning(carrier), PAGE_W / 2, LABEL_Y - 7 - 15, 8, MUTED);
 
   const bytes = await pdf.save();
 
