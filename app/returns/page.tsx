@@ -67,6 +67,15 @@ function shortDate(iso?: string | null) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+// Printable return packet. "4x6" = label printer (label + packing slip, 2 pages).
+// "letter" = the same one-page sheet customers print (label + slip + steps).
+type SlipFormat = "4x6" | "letter";
+function slipUrl(code: string, format: SlipFormat) {
+  const q = new URLSearchParams({ code, lang: "en" });
+  if (format === "4x6") q.set("format", "4x6");
+  return "/api/returns/slip?" + q.toString();
+}
+
 // When the label was made (falls back to when the request came in).
 function labelDate(rr: any): string | null {
   return rr.label_created_at || rr.updated_at || rr.created_at || null;
@@ -81,6 +90,8 @@ const I = {
   dots: "M5 12h.01M12 12h.01M19 12h.01",
   plus: "M12 5v14M5 12h14",
   close: "M6 6l12 12M18 6 6 18",
+  tag: "M20 12l-8 8-9-9V4h7l10 8zM7.5 7.5h.01",
+  page: "M7 3h7l5 5v13H7zM14 3v5h5",
 };
 
 function Icon({ d, size = 16, w = 1.8 }: { d: string; size?: number; w?: number }) {
@@ -99,6 +110,8 @@ export default function ReturnsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [newCode, setNewCode] = useState<string | null>(null);
+  // Shown right after a label is bought, with the two print buttons
+  const [labelReady, setLabelReady] = useState<{ code: string; name: string; carrier: string; tracking: string } | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
@@ -202,8 +215,13 @@ export default function ReturnsPage() {
     const data = await res.json();
     setBuyingRateId(null);
     if (!res.ok) return setMsg(data.error);
+    const rr = rateModal.request;
     setRateModal(null);
-    setMsg(`${rate.carrier} return label created — ${data.tracking_number}`);
+    if (rr.return_code) {
+      setLabelReady({ code: rr.return_code, name: rr.from_name || "Customer", carrier: rate.carrier, tracking: data.tracking_number || "" });
+    } else {
+      setMsg(`${rate.carrier} return label created — ${data.tracking_number}`);
+    }
     load();
   }
 
@@ -349,6 +367,7 @@ export default function ReturnsPage() {
     const open = menuFor === rr.id;
     const s = stageOf(rr);
     const item = "flex h-10 w-full items-center rounded-lg px-3 text-left text-sm text-ink hover:bg-sand/20 disabled:opacity-50";
+    const item2 = "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-sand/20";
     return (
       <div className="relative" onClick={(e) => e.stopPropagation()}>
         <button
@@ -361,7 +380,30 @@ export default function ReturnsPage() {
         </button>
         {open && (
           <div role="menu" className="absolute right-0 top-11 z-20 w-56 rounded-2xl border border-sand/60 bg-cream p-1.5 shadow-xl">
-            {rr.label_url && (
+            {rr.label_url && rr.return_code && (
+              <>
+                <p className="px-3 pb-1 pt-1.5 text-[11px] uppercase tracking-wider text-ink/45">Print</p>
+                <a role="menuitem" className={item2} href={slipUrl(rr.return_code, "4x6")} target="_blank" rel="noreferrer" onClick={() => setMenuFor(null)}>
+                  <Icon d={I.tag} size={15} />
+                  <span className="flex flex-col leading-tight">
+                    4×6 label printer
+                    <span className="text-xs text-ink/50">Label + packing slip</span>
+                  </span>
+                </a>
+                <a role="menuitem" className={item2} href={slipUrl(rr.return_code, "letter")} target="_blank" rel="noreferrer" onClick={() => setMenuFor(null)}>
+                  <Icon d={I.page} size={15} />
+                  <span className="flex flex-col leading-tight">
+                    Letter page
+                    <span className="text-xs text-ink/50">Same sheet the customer gets</span>
+                  </span>
+                </a>
+                <button role="menuitem" className={item} disabled={busy !== null} onClick={() => { setMenuFor(null); printLabel(rr); }}>
+                  {busy === `print-${rr.id}` ? "Opening…" : "Carrier label only"}
+                </button>
+                <div className="my-1 h-px bg-sand/50" />
+              </>
+            )}
+            {rr.label_url && !rr.return_code && (
               <button role="menuitem" className={item} disabled={busy !== null} onClick={() => { setMenuFor(null); printLabel(rr); }}>
                 {busy === `print-${rr.id}` ? "Opening…" : "Print return label"}
               </button>
@@ -439,6 +481,34 @@ export default function ReturnsPage() {
         <div className="mt-4 flex items-start justify-between gap-3 rounded-xl border border-sand/70 bg-sand/25 px-4 py-3 text-sm text-taupe">
           <span>{msg}</span>
           <button onClick={() => setMsg(null)} aria-label="Dismiss" className="shrink-0 rounded-md p-0.5 hover:bg-sand/50"><Icon d={I.close} /></button>
+        </div>
+      )}
+
+      {labelReady && (
+        <div className="card mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="label">Label created</p>
+            <p className="truncate text-lg text-taupe">
+              {labelReady.name} · <span className="font-mono text-base">{labelReady.code}</span>
+            </p>
+            {labelReady.tracking && (
+              <p className="truncate font-mono text-xs text-ink/60">{labelReady.carrier} · {labelReady.tracking}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a href={slipUrl(labelReady.code, "4x6")} target="_blank" rel="noreferrer"
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-taupe px-5 text-sm text-cream transition-colors hover:bg-taupe/90">
+              <Icon d={I.tag} />
+              Print 4×6
+            </a>
+            <a href={slipUrl(labelReady.code, "letter")} target="_blank" rel="noreferrer" className={btnSoft}>
+              <Icon d={I.page} />
+              Print letter
+            </a>
+            <button onClick={() => setLabelReady(null)} aria-label="Hide" className={btnSoft}>
+              Done
+            </button>
+          </div>
         </div>
       )}
 
