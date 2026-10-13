@@ -1,8 +1,14 @@
 // app/api/returns/slip/route.ts
-// GET /api/returns/slip?code=EB-XXXXXX&lang=es
-// One-page return packet (EN/ES):
+// GET /api/returns/slip?code=EB-XXXXXX&lang=es               → letter page (what customers get)
+// GET /api/returns/slip?code=EB-XXXXXX&lang=es&format=4x6    → 4×6 label printer version (admin)
+//
+// Letter (default), one page:
 //   top half    → steps + packing slip + drop-off QR (goes inside the box)
 //   bottom half → the shipping label, turned sideways at its real 6 × 4 size (taped on the box)
+//
+// 4×6, two pages for thermal label printers:
+//   page 1 → the shipping label, full size, nothing to cut
+//   page 2 → packing slip in plain black (prints cleanly on thermal paper)
 //
 // Dependencies (package.json):
 //   "pdf-lib": "^1.17.1",
@@ -53,6 +59,12 @@ const T = {
     returnsTo: "Returns to " + RETURN_ADDRESS,
     findTitle: (c: string) => (c.toUpperCase() === "USPS" ? "Find a post office near you" : "Find a " + c + " drop-off near you"),
     findSub: "Scan with your phone camera to see the closest ones on a map.",
+    // 4×6 packing slip
+    slipCaps: "PACKING SLIP",
+    tracking: "Tracking",
+    insideBox: "Put this slip inside the box.",
+    scanQr: (c: string) => "Scan to find a " + (c.toUpperCase() === "USPS" ? "post office" : c + " drop-off") + " near you.",
+    questions: "Questions? " + WEBSITE,
     locale: "en-US",
   },
   es: {
@@ -76,6 +88,12 @@ const T = {
     returnsTo: "Se devuelve a " + RETURN_ADDRESS,
     findTitle: (c: string) => (c.toUpperCase() === "USPS" ? "Encuentra una oficina de correos cerca" : "Encuentra un punto de " + c + " cerca"),
     findSub: "Escanéala con la cámara de tu teléfono para verlas en el mapa.",
+    // 4×6 packing slip
+    slipCaps: "HOJA DE EMPAQUE",
+    tracking: "Rastreo",
+    insideBox: "Pon esta hoja dentro de la caja.",
+    scanQr: (c: string) => "Escanea para ver " + (c.toUpperCase() === "USPS" ? "oficinas de correos" : "puntos de " + c) + " cerca.",
+    questions: "¿Preguntas? " + WEBSITE,
     locale: "es-MX",
   },
 };
@@ -87,6 +105,10 @@ const LINE = rgb(0xdc / 255, 0xd2 / 255, 0xc5 / 255);
 const SAND = rgb(0xb7 / 255, 0xa6 / 255, 0x93 / 255);
 const INK = rgb(0x33 / 255, 0x2b / 255, 0x23 / 255);
 const WHITE = rgb(1, 1, 1);
+const BLACK = rgb(0, 0, 0);
+
+const SMALL_W = 288; // 4 × 6 in, portrait
+const SMALL_H = 432;
 
 const PAGE_W = 612; // US Letter
 const PAGE_H = 792;
@@ -209,11 +231,140 @@ function dropOffUrl(carrier: string): string {
   return "https://www.google.com/maps/search/" + encodeURIComponent(q + " near me");
 }
 
+// 4×6 version ------------------------------------------------------------
+
+type Lang = keyof typeof T;
+
+function draw4x6(
+  pdf: PDFDocument,
+  o: {
+    t: (typeof T)[Lang];
+    ret: any;
+    carrier: string;
+    heading: PDFFont;
+    body: PDFFont;
+    labelImg: PDFImage | null;
+    labelPage: PDFEmbeddedPage | null;
+    barcode: PDFImage | null;
+    qr: PDFImage | null;
+  }
+) {
+  const { t, ret, carrier, heading, body, labelImg, labelPage, barcode, qr } = o;
+
+  // ----- Page 1: the label, filling the 4×6 page -----
+  const p1 = pdf.addPage([SMALL_W, SMALL_H]);
+  const fit = (w0: number, h0: number, draw: (o: { x: number; y: number; width: number; height: number; rotate?: ReturnType<typeof degrees> }) => void) => {
+    if (h0 >= w0) {
+      // Portrait label → as is
+      const s = Math.min(SMALL_W / w0, SMALL_H / h0);
+      const dw = w0 * s;
+      const dh = h0 * s;
+      draw({ x: (SMALL_W - dw) / 2, y: (SMALL_H - dh) / 2, width: dw, height: dh });
+    } else {
+      // Landscape label → turn it upright
+      const s = Math.min(SMALL_W / h0, SMALL_H / w0);
+      const dw = w0 * s; // becomes the height on the page
+      const dh = h0 * s; // becomes the width on the page
+      draw({ x: (SMALL_W - dh) / 2 + dh, y: (SMALL_H - dw) / 2, width: dw, height: dh, rotate: degrees(90) });
+    }
+  };
+  if (labelImg) {
+    const img = labelImg;
+    fit(img.width, img.height, (opts) => p1.drawImage(img, opts));
+  } else if (labelPage) {
+    const lp = labelPage;
+    fit(lp.width, lp.height, (opts) => p1.drawPage(lp, opts));
+  } else {
+    const lines = wrapWidth(body, safe(body, t.labelFail), 11, SMALL_W - 48);
+    let ly = SMALL_H / 2 + (lines.length * 15) / 2 - 11;
+    for (const line of lines) {
+      centered(p1, body, line, SMALL_W / 2, ly, 11, BLACK);
+      ly -= 15;
+    }
+  }
+
+  // ----- Page 2: packing slip, black only -----
+  const p = pdf.addPage([SMALL_W, SMALL_H]);
+  const m = 18;
+  const w = SMALL_W - m * 2;
+  let y = SMALL_H - m;
+
+  // Name + "PACKING SLIP"
+  text(p, heading, "Erendira's", m, y - 14, 16, BLACK);
+  text(p, heading, "Boutique", m, y - 31, 16, BLACK);
+  const caps = safe(body, t.slipCaps);
+  p.drawText(caps, { x: SMALL_W - m - body.widthOfTextAtSize(caps, 8), y: y - 14, size: 8, font: body, color: BLACK });
+  y -= 42;
+  p.drawLine({ start: { x: m, y }, end: { x: SMALL_W - m, y }, thickness: 2, color: BLACK });
+
+  // Barcode + code
+  y -= 12;
+  const codeText = safe(body, ret.return_code);
+  if (barcode) {
+    p.drawImage(barcode, { x: m, y: y - 52, width: w, height: 52 });
+    y -= 52;
+  }
+  y -= 20;
+  centered(p, body, codeText, SMALL_W / 2, y, 17, BLACK);
+  y -= 16;
+
+  // Detail rows
+  const dateStr = new Date(ret.created_at).toLocaleDateString(t.locale, { year: "numeric", month: "short", day: "numeric" });
+  const rows: [string, string][] = [
+    [t.customer, ret.from_name || "—"],
+    [t.returnDate, dateStr],
+    [t.carrier, carrier],
+  ];
+  if (ret.tracking_number) rows.push([t.tracking, String(ret.tracking_number).replace(/(.{4})/g, "$1 ").trim()]);
+  const valueW = w - 78;
+
+  const rule = () => p.drawLine({ start: { x: m, y }, end: { x: SMALL_W - m, y }, thickness: 0.75, color: BLACK });
+  for (const [label, value] of rows) {
+    rule();
+    const v = safe(body, value);
+    const vs = fitSize(body, v, 10, valueW, 7);
+    text(p, body, label, m, y - 14, 9.5, BLACK);
+    p.drawText(v, { x: SMALL_W - m - body.widthOfTextAtSize(v, vs), y: y - 14, size: vs, font: body, color: BLACK });
+    y -= 21;
+  }
+  if (ret.reason) {
+    rule();
+    const lines = wrapWidth(body, safe(body, String(ret.reason)), 9.5, valueW).slice(0, 3);
+    text(p, body, t.reason, m, y - 14, 9.5, BLACK);
+    lines.forEach((line, i) => {
+      p.drawText(line, { x: SMALL_W - m - body.widthOfTextAtSize(line, 9.5), y: y - 14 - i * 12, size: 9.5, font: body, color: BLACK });
+    });
+    y -= 21 + (lines.length - 1) * 12;
+  }
+  rule();
+
+  // QR + "put this inside the box"
+  const qs = 56;
+  const qy = 34;
+  const tx = qr ? m + qs + 12 : m;
+  if (qr) p.drawImage(qr, { x: m, y: qy, width: qs, height: qs });
+  const inside = wrapWidth(body, safe(body, t.insideBox), 9.5, SMALL_W - m - tx);
+  let ty = qy + qs - 10;
+  for (const line of inside) {
+    p.drawText(line, { x: tx, y: ty, size: 9.5, font: body, color: BLACK });
+    ty -= 12;
+  }
+  if (qr) {
+    ty -= 2;
+    for (const line of wrapWidth(body, safe(body, t.scanQr(carrier)), 8, SMALL_W - m - tx)) {
+      p.drawText(line, { x: tx, y: ty, size: 8, font: body, color: BLACK });
+      ty -= 10;
+    }
+  }
+  centered(p, body, t.questions, SMALL_W / 2, 16, 7, BLACK);
+}
+
 // Route ----------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
   const code = (req.nextUrl.searchParams.get("code") || "").trim().toUpperCase();
   const lang = req.nextUrl.searchParams.get("lang") === "es" ? "es" : "en";
+  const format = req.nextUrl.searchParams.get("format") === "4x6" ? "4x6" : "letter";
   const t = T[lang];
 
   if (!code) {
@@ -303,6 +454,21 @@ export async function GET(req: NextRequest) {
     qr = null;
   }
 
+  // ===== 4×6 version (two pages) =====
+  if (format === "4x6") {
+    draw4x6(pdf, { t, ret, carrier, heading, body, labelImg, labelPage, barcode, qr });
+    const small = await pdf.save();
+    return new NextResponse(Buffer.from(small), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="return-label-4x6-${ret.return_code}.pdf"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // ===== Letter version (one page) =====
   const page = pdf.addPage([PAGE_W, PAGE_H]);
 
   // ===== Header: logo · title · code pill =====
@@ -439,89 +605,4 @@ export async function GET(req: NextRequest) {
 
   // Return address, small, under the card
   const addrY = cardTop - cardH - 14;
-  text(page, body, t.returnsTo, M + 2, addrY, 8, MUTED);
-
-  // ===== "Find a post office near you" QR row =====
-  // Sits right under the slip. Shrinks a little on busy pages, and is skipped if there's no room.
-  const rowTop = addrY - 12;
-  const room = rowTop - (CUT_Y + 14);
-  if (qr && room >= 58) {
-    const rowH = Math.min(72, room);
-    const qs = rowH - 16;
-    roundRect(page, M, rowTop, cardW, rowH, 12, { borderColor: LINE, borderWidth: 1 });
-    page.drawImage(qr, { x: M + 8, y: rowTop - 8 - qs, width: qs, height: qs });
-    const tx = M + 8 + qs + 16;
-    const maxTextW = cardW - (tx - M) - 16;
-    const findTitle = safe(heading, t.findTitle(carrier));
-    const fts = fitSize(heading, findTitle, 16, maxTextW, 11);
-    const sub = safe(body, t.findSub);
-    const subSize = fitSize(body, sub, 9, maxTextW, 7);
-    const midY = rowTop - rowH / 2;
-    page.drawText(findTitle, { x: tx, y: midY + 2, size: fts, font: heading, color: BROWN });
-    page.drawText(sub, { x: tx, y: midY - 13, size: subSize, font: body, color: MUTED });
-  }
-
-  // ===== Cut line =====
-  const cut = safe(body, t.cutHere);
-  const cutSize = 7.5;
-  const cutW = body.widthOfTextAtSize(cut, cutSize);
-  dashed(page, M, PAGE_W / 2 - cutW / 2 - 10, CUT_Y);
-  page.drawText(cut, { x: PAGE_W / 2 - cutW / 2, y: CUT_Y - 2.5, size: cutSize, font: body, color: MUTED });
-  dashed(page, PAGE_W / 2 + cutW / 2 + 10, PAGE_W - M, CUT_Y);
-
-  // ===== Label, sideways, across the bottom =====
-  // Dashed cut box around the label area
-  roundRect(page, LABEL_X - 7, LABEL_Y + LABEL_H + 7, LABEL_W + 14, LABEL_H + 14, 5, {
-    borderColor: SAND,
-    borderWidth: 1,
-    borderDashArray: [4, 4],
-  });
-
-  const placeLabel = (w0: number, h0: number, draw: (o: { x: number; y: number; width: number; height: number; rotate?: ReturnType<typeof degrees> }) => void) => {
-    if (h0 >= w0) {
-      // Portrait label → turn it 90° so it lies sideways. Its top ends up on the left.
-      const s = Math.min(LABEL_W / h0, LABEL_H / w0);
-      const dw = w0 * s; // becomes the height on the page
-      const dh = h0 * s; // becomes the width on the page
-      const left = LABEL_X + (LABEL_W - dh) / 2;
-      const bottom = LABEL_Y + (LABEL_H - dw) / 2;
-      // pdf-lib turns around the bottom-left corner, counter-clockwise
-      draw({ x: left + dh, y: bottom, width: dw, height: dh, rotate: degrees(90) });
-    } else {
-      // Already landscape → just fit it
-      const s = Math.min(LABEL_W / w0, LABEL_H / h0);
-      const dw = w0 * s;
-      const dh = h0 * s;
-      draw({ x: LABEL_X + (LABEL_W - dw) / 2, y: LABEL_Y + (LABEL_H - dh) / 2, width: dw, height: dh });
-    }
-  };
-
-  if (labelImg) {
-    const img = labelImg;
-    placeLabel(img.width, img.height, (o) => page.drawImage(img, o));
-  } else if (labelPage) {
-    const lp = labelPage;
-    placeLabel(lp.width, lp.height, (o) => page.drawPage(lp, o));
-  } else {
-    const lines = wrapWidth(body, safe(body, t.labelFail), 11, LABEL_W - 60);
-    let ly = LABEL_Y + LABEL_H / 2 + (lines.length * 15) / 2 - 11;
-    for (const line of lines) {
-      centered(page, body, line, PAGE_W / 2, ly, 11, BROWN);
-      ly -= 15;
-    }
-  }
-
-  // Under the label
-  centered(page, body, t.warning(carrier), PAGE_W / 2, LABEL_Y - 7 - 15, 8, MUTED);
-
-  const bytes = await pdf.save();
-
-  return new NextResponse(Buffer.from(bytes), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="return-packet-${ret.return_code}.pdf"`,
-      "Cache-Control": "no-store",
-    },
-  });
-}
+  text(page, body,
