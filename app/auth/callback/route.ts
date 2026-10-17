@@ -29,5 +29,10 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(`${origin}/`);
+  // Send them back to the page they were trying to open (e.g. /e).
+  const saved = decodeURIComponent(cookies().get("eb-after-login")?.value || "/");
+  const next = saved.startsWith("/") && !saved.startsWith("//") ? saved : "/";
+  const res = NextResponse.redirect(`${origin}${next}`);
+  res.cookies.set("eb-after-login", "", { path: "/", maxAge: 0 });
+  return res;
 }

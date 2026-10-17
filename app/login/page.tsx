@@ -69,6 +69,9 @@ function LoginInner() {
   const params = useSearchParams();
   const router = useRouter();
   const notStaff = params.get("error") === "not_staff";
+  // Where to go after signing in (e.g. /e). Only paths on this site.
+  const raw = params.get("redirect") || "/";
+  const after = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -78,6 +81,7 @@ function LoginInner() {
 
   async function signInGoogle() {
     setBusy("google");
+    document.cookie = "eb-after-login=" + encodeURIComponent(after) + "; path=/; max-age=600; samesite=lax";
     const supabase = supabaseBrowser();
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -105,7 +109,7 @@ function LoginInner() {
       setError(err.message === "Invalid login credentials" ? "Wrong email or password." : err.message);
       return;
     }
-    router.push("/");
+    router.push(after);
     router.refresh();
   }
 
