@@ -8,7 +8,8 @@ import {
   currentUser,
   findAuthUser,
   isSharedAccount,
-  makeSignInLink,
+  ensureAuthUser,
+  makeInviteLink,
   normEmail,
   requireAdmin,
   setLoginBlocked,
@@ -73,13 +74,15 @@ export async function POST(req: Request) {
     if (staff.active === false) {
       return NextResponse.json({ error: "Restore their access first." }, { status: 400 });
     }
-    const made = await makeSignInLink(origin, staff.email, staff.full_name);
-    if ("error" in made) return NextResponse.json({ error: made.error }, { status: 500 });
+    const authId = staff.auth_user_id || (await ensureAuthUser(staff.email, staff.full_name));
+    if (typeof authId !== "string") return NextResponse.json({ error: authId.error }, { status: 500 });
+    const link = await makeInviteLink(origin, staff.id);
+    if (typeof link !== "string") return NextResponse.json({ error: link.error }, { status: 500 });
     await db
       .from("staff_users")
-      .update({ invited_at: new Date().toISOString(), invited_by: me.staff.email, auth_user_id: staff.auth_user_id ?? made.userId })
+      .update({ invited_at: new Date().toISOString(), invited_by: me.staff.email, auth_user_id: authId })
       .eq("id", staff.id);
-    return NextResponse.json({ link: made.link, staff });
+    return NextResponse.json({ link, staff });
   }
 
   // Invite a new person.
@@ -95,11 +98,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "That's the shared access-code login." }, { status: 400 });
   }
 
-  const made = await makeSignInLink(origin, email, fullName);
-  if ("error" in made) return NextResponse.json({ error: made.error }, { status: 500 });
+  const authId = await ensureAuthUser(email, fullName);
+  if (typeof authId !== "string") return NextResponse.json({ error: authId.error }, { status: 500 });
 
   // If they were removed before, let them sign in again.
-  if (made.userId) await setLoginBlocked(made.userId, false);
+  await setLoginBlocked(authId, false);
 
   const fields = {
     email,
@@ -107,7 +110,7 @@ export async function POST(req: Request) {
     phone,
     role,
     active: true,
-    auth_user_id: made.userId,
+    auth_user_id: authId,
     invited_at: new Date().toISOString(),
     invited_by: me.staff.email,
   };
@@ -117,7 +120,9 @@ export async function POST(req: Request) {
     : await db.from("staff_users").insert(fields).select("*").single();
   if (saved.error) return NextResponse.json({ error: saved.error.message }, { status: 500 });
 
-  return NextResponse.json({ link: made.link, staff: saved.data });
+  const link = await makeInviteLink(origin, saved.data.id);
+  if (typeof link !== "string") return NextResponse.json({ error: link.error }, { status: 500 });
+  return NextResponse.json({ link, staff: saved.data });
 }
 
 export async function PATCH(req: Request) {
@@ -147,6 +152,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "You can't remove yourself." }, { status: 400 });
     }
     changes.active = body.active;
+    if (!body.active) {
+      changes.invite_token = null;
+      changes.invite_expires_at = null;
+    }
     const authId = staff.auth_user_id || (await findAuthUser(staff.email))?.id || null;
     if (authId) {
       await setLoginBlocked(authId, !body.active);

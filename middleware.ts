@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   // Team invite links. The one-time token in the link is the credential.
   "/auth/confirm",
+  "/join",
   "/api/auth/code",
   "/return",
   "/api/returns/submit",

@@ -70,6 +70,7 @@ function LoginInner() {
   const router = useRouter();
   const notStaff = params.get("error") === "not_staff";
   const linkExpired = params.get("error") === "link_expired";
+  const linkWhy = params.get("why");
   // Where to go after signing in (e.g. /e). Only paths on this site.
   const raw = params.get("redirect") || "/";
   const after = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
@@ -147,7 +148,8 @@ function LoginInner() {
 
           {linkExpired && (
             <p className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-center text-sm text-red-700">
-              That invite link expired or was already used. Ask for a new one.
+              That invite link didn&#8217;t work. Ask for a new one.
+              {linkWhy && <span className="mt-1 block text-xs text-red-700/70">Reason: {linkWhy}</span>}
             </p>
           )}
           {notStaff && (

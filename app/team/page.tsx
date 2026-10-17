@@ -225,7 +225,7 @@ export default function TeamPage() {
               <div>
                 <h2 className="text-xl">Invite ready{result.name ? ` for ${result.name.split(" ")[0]}` : ""}</h2>
                 <p className="mt-1 text-sm text-ink/70">
-                  Send it now. It works once and expires soon (usually within an hour). If it expires, tap{" "}
+                  The link works for 7 days. Making a new one cancels the old one, so if you need to resend, tap{" "}
                   <b>New link</b> on their row.
                 </p>
               </div>

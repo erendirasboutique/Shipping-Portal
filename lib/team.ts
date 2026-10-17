@@ -15,6 +15,8 @@ export type StaffRow = {
   phone: string | null;
   invited_at: string | null;
   invited_by: string | null;
+  invite_token: string | null;
+  invite_expires_at: string | null;
 };
 
 export function normEmail(email: string | null | undefined): string {
@@ -84,39 +86,58 @@ export async function findAuthUser(email: string): Promise<User | null> {
   return null;
 }
 
+const INVITE_DAYS = 7;
+
+/** Make sure this email has a login, and return its id. */
+export async function ensureAuthUser(email: string, fullName: string | null): Promise<string | { error: string }> {
+  const existing = await findAuthUser(email);
+  if (existing) return existing.id;
+  const { data, error } = await supabaseAdmin().auth.admin.createUser({
+    email: normEmail(email),
+    email_confirm: true,
+    user_metadata: fullName ? { full_name: fullName } : undefined,
+  });
+  if (error || !data.user) return { error: error?.message || "Couldn't create their login." };
+  return data.user.id;
+}
+
 /**
- * A one-time sign-in link for this person. New people get an invite link;
- * people who already have a login get a fresh sign-in link.
+ * A fresh invite link for this staff row, good for 7 days. Making a new
+ * one replaces the old one.
  */
-export async function makeSignInLink(
-  origin: string,
-  email: string,
-  fullName: string | null
-): Promise<{ link: string; userId: string | null } | { error: string }> {
-  const admin = supabaseAdmin().auth.admin;
-  const clean = normEmail(email);
+export async function makeInviteLink(origin: string, staffId: string): Promise<string | { error: string }> {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  const expires = new Date(Date.now() + INVITE_DAYS * 86400 * 1000).toISOString();
+  const { error } = await supabaseAdmin()
+    .from("staff_users")
+    .update({ invite_token: token, invite_expires_at: expires })
+    .eq("id", staffId);
+  if (error) return { error: error.message };
+  return `${origin}/join/${token}`;
+}
 
-  let res = await admin.generateLink({
-    type: "invite",
-    email: clean,
-    options: { data: fullName ? { full_name: fullName } : undefined },
+/**
+ * Sign this person in right now, inside the current request. Makes a
+ * Supabase sign-in token and uses it immediately, so it can't expire or be
+ * used up by a link preview in between.
+ */
+export async function signInNow(email: string): Promise<{ ok: true } | { error: string }> {
+  const { data, error } = await supabaseAdmin().auth.admin.generateLink({
+    type: "magiclink",
+    email: normEmail(email),
   });
-  let type = "invite";
+  const hash = data?.properties?.hashed_token;
+  if (error || !hash) return { error: "generateLink: " + (error?.message || "no token") };
 
-  if (res.error && /already|registered|exists/i.test(res.error.message)) {
-    res = await admin.generateLink({ type: "magiclink", email: clean });
-    type = "email";
+  const supabase = supabaseServer();
+  let last = "";
+  for (const type of ["magiclink", "email"] as const) {
+    const res = await supabase.auth.verifyOtp({ token_hash: hash, type });
+    if (!res.error && res.data.user) return { ok: true };
+    last = res.error?.message || "no user";
   }
-  if (res.error || !res.data?.properties?.hashed_token) {
-    return { error: res.error?.message || "Couldn't make a link." };
-  }
-
-  const q = new URLSearchParams({
-    token_hash: res.data.properties.hashed_token,
-    type,
-    next: "/welcome",
-  });
-  return { link: `${origin}/auth/confirm?${q.toString()}`, userId: res.data.user?.id ?? null };
+  return { error: "verifyOtp: " + last };
 }
 
 /** Turn a person's login on or off. Off = they can't sign in or stay signed in. */
