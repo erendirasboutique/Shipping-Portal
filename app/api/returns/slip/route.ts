@@ -605,4 +605,89 @@ export async function GET(req: NextRequest) {
 
   // Return address, small, under the card
   const addrY = cardTop - cardH - 14;
-  text(page, body,
+  text(page, body, t.returnsTo, M + 2, addrY, 8, MUTED);
+
+  // ===== "Find a post office near you" QR row =====
+  // Sits right under the slip. Shrinks a little on busy pages, and is skipped if there's no room.
+  const rowTop = addrY - 12;
+  const room = rowTop - (CUT_Y + 14);
+  if (qr && room >= 58) {
+    const rowH = Math.min(72, room);
+    const qs = rowH - 16;
+    roundRect(page, M, rowTop, cardW, rowH, 12, { borderColor: LINE, borderWidth: 1 });
+    page.drawImage(qr, { x: M + 8, y: rowTop - 8 - qs, width: qs, height: qs });
+    const tx = M + 8 + qs + 16;
+    const maxTextW = cardW - (tx - M) - 16;
+    const findTitle = safe(heading, t.findTitle(carrier));
+    const fts = fitSize(heading, findTitle, 16, maxTextW, 11);
+    const sub = safe(body, t.findSub);
+    const subSize = fitSize(body, sub, 9, maxTextW, 7);
+    const midY = rowTop - rowH / 2;
+    page.drawText(findTitle, { x: tx, y: midY + 2, size: fts, font: heading, color: BROWN });
+    page.drawText(sub, { x: tx, y: midY - 13, size: subSize, font: body, color: MUTED });
+  }
+
+  // ===== Cut line =====
+  const cut = safe(body, t.cutHere);
+  const cutSize = 7.5;
+  const cutW = body.widthOfTextAtSize(cut, cutSize);
+  dashed(page, M, PAGE_W / 2 - cutW / 2 - 10, CUT_Y);
+  page.drawText(cut, { x: PAGE_W / 2 - cutW / 2, y: CUT_Y - 2.5, size: cutSize, font: body, color: MUTED });
+  dashed(page, PAGE_W / 2 + cutW / 2 + 10, PAGE_W - M, CUT_Y);
+
+  // ===== Label, sideways, across the bottom =====
+  // Dashed cut box around the label area
+  roundRect(page, LABEL_X - 7, LABEL_Y + LABEL_H + 7, LABEL_W + 14, LABEL_H + 14, 5, {
+    borderColor: SAND,
+    borderWidth: 1,
+    borderDashArray: [4, 4],
+  });
+
+  const placeLabel = (w0: number, h0: number, draw: (o: { x: number; y: number; width: number; height: number; rotate?: ReturnType<typeof degrees> }) => void) => {
+    if (h0 >= w0) {
+      // Portrait label → turn it 90° so it lies sideways. Its top ends up on the left.
+      const s = Math.min(LABEL_W / h0, LABEL_H / w0);
+      const dw = w0 * s; // becomes the height on the page
+      const dh = h0 * s; // becomes the width on the page
+      const left = LABEL_X + (LABEL_W - dh) / 2;
+      const bottom = LABEL_Y + (LABEL_H - dw) / 2;
+      // pdf-lib turns around the bottom-left corner, counter-clockwise
+      draw({ x: left + dh, y: bottom, width: dw, height: dh, rotate: degrees(90) });
+    } else {
+      // Already landscape → just fit it
+      const s = Math.min(LABEL_W / w0, LABEL_H / h0);
+      const dw = w0 * s;
+      const dh = h0 * s;
+      draw({ x: LABEL_X + (LABEL_W - dw) / 2, y: LABEL_Y + (LABEL_H - dh) / 2, width: dw, height: dh });
+    }
+  };
+
+  if (labelImg) {
+    const img = labelImg;
+    placeLabel(img.width, img.height, (o) => page.drawImage(img, o));
+  } else if (labelPage) {
+    const lp = labelPage;
+    placeLabel(lp.width, lp.height, (o) => page.drawPage(lp, o));
+  } else {
+    const lines = wrapWidth(body, safe(body, t.labelFail), 11, LABEL_W - 60);
+    let ly = LABEL_Y + LABEL_H / 2 + (lines.length * 15) / 2 - 11;
+    for (const line of lines) {
+      centered(page, body, line, PAGE_W / 2, ly, 11, BROWN);
+      ly -= 15;
+    }
+  }
+
+  // Under the label
+  centered(page, body, t.warning(carrier), PAGE_W / 2, LABEL_Y - 7 - 15, 8, MUTED);
+
+  const bytes = await pdf.save();
+
+  return new NextResponse(Buffer.from(bytes), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="return-packet-${ret.return_code}.pdf"`,
+      "Cache-Control": "no-store",
+    },
+  });
+}
