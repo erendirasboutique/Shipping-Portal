@@ -32,6 +32,7 @@ const ICON = {
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   menu: "M4 6h16M4 12h16M4 18h16",
   close: "M6 6l12 12M18 6 6 18",
+  team: "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21v-1a6 6 0 0 1 9-5.2M19 15v6M16 18h6",
 };
 
 type NavItem = { href: string; label: string; d: string };
@@ -103,9 +104,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const [dark, setDark] = useState(false);
   const [open, setOpen] = useState(false);
   const [shipDay, setShipDay] = useState("Saturday");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    supabaseBrowser().auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
+    const sb = supabaseBrowser();
+    sb.auth.getUser().then(async ({ data }) => {
+      const e = data.user?.email ?? "";
+      setEmail(e);
+      if (!e) return;
+      // Show "Team" in the menu for admins.
+      const { data: row } = await sb
+        .from("staff_users")
+        .select("role, active")
+        .eq("email", e.toLowerCase())
+        .maybeSingle();
+      setIsAdmin(row?.role === "admin" && row?.active !== false);
+    });
     const saved = localStorage.getItem("theme") === "dark";
     setDark(saved);
     document.documentElement.classList.toggle("dark", saved);
@@ -199,7 +213,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </Link>
 
         <nav aria-label="Main" className="-mx-1 flex flex-1 flex-col gap-[18px] overflow-y-auto px-1">
-          {GROUPS.map((group) => (
+          {GROUPS.map((g) =>
+            isAdmin && g.label === "Manage"
+              ? { ...g, items: [...g.items, { href: "/team", label: "Team", d: ICON.team }] }
+              : g
+          ).map((group) => (
             <div key={group.label || "top"} className="flex flex-col gap-0.5">
               {group.label && (
                 <p className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">

@@ -33,6 +33,7 @@ export const ES: Record<string, string> = {
   "Orders": "Pedidos",
   "Customers": "Clientes",
   "Returns": "Devoluciones",
+  "Team": "Equipo",
   "Insights": "Estadísticas",
   "Shipping Map": "Mapa de envíos",
   "Carrier Performance": "Rendimiento de paqueterías",

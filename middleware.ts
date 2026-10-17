@@ -7,6 +7,8 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = [
   "/login",
   "/auth/callback",
+  // Team invite links. The one-time token in the link is the credential.
+  "/auth/confirm",
   "/api/auth/code",
   "/return",
   "/api/returns/submit",

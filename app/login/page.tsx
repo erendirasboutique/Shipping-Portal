@@ -69,6 +69,7 @@ function LoginInner() {
   const params = useSearchParams();
   const router = useRouter();
   const notStaff = params.get("error") === "not_staff";
+  const linkExpired = params.get("error") === "link_expired";
   // Where to go after signing in (e.g. /e). Only paths on this site.
   const raw = params.get("redirect") || "/";
   const after = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
@@ -144,6 +145,11 @@ function LoginInner() {
             Welcome Back to Erendira&#8217;s Boutique
           </h1>
 
+          {linkExpired && (
+            <p className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-center text-sm text-red-700">
+              That invite link expired or was already used. Ask for a new one.
+            </p>
+          )}
           {notStaff && (
             <p className="mt-5 rounded-2xl bg-red-50 px-4 py-3 text-center text-sm text-red-700">
               That account isn&#8217;t part of Erendira&#8217;s Boutique. Use your work account.

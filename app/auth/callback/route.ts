@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isAllowed } from "@/lib/team";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -26,7 +27,13 @@ export async function GET(request: Request) {
         },
       }
     );
-    await supabase.auth.exchangeCodeForSession(code);
+    const { data } = await supabase.auth.exchangeCodeForSession(code);
+
+    // Only people on the Team page (or anyone, until an admin is set up).
+    if (data?.user && !(await isAllowed(data.user.email))) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(`${origin}/login?error=not_staff`);
+    }
   }
 
   // Send them back to the page they were trying to open (e.g. /e).
