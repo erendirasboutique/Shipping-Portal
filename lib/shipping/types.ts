@@ -96,8 +96,10 @@ export function shipFromAddress(override?: ShipmentInput["from"]) {
       state: override.state,
       zip: override.zip,
       country: override.country || "US",
-      phone: override.phone,
-      email: override.email,
+      // Carriers (Shippo/UPS) require an email and phone on this address.
+      // Use the customer's if given, otherwise fall back to the boutique's.
+      phone: override.phone || process.env.SHIP_FROM_PHONE,
+      email: override.email || process.env.SHIP_FROM_EMAIL,
     };
   }
   return {
