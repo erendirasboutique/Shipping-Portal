@@ -24,6 +24,13 @@ export interface ParcelInput {
 }
 export interface ShipmentInput {
   to: ToAddress;
+  /**
+   * Optional override for the ship-from slot (normally the boutique, from the
+   * SHIP_FROM_* env vars). On return labels (isReturn) the carrier swaps the
+   * two addresses, so this is where the return package gets DELIVERED — used to
+   * send a mis-delivered package straight to the right customer.
+   */
+  from?: ToAddress & { company?: string };
   parcel: ParcelInput;
   signature?: boolean;
   isReturn?: boolean;
@@ -78,11 +85,26 @@ export function toOunces(p: ParcelInput) {
 export function isEnvelope(p: ParcelInput) {
   return p.package_type === "envelope";
 }
-export function shipFromAddress() {
+export function shipFromAddress(override?: ShipmentInput["from"]) {
+  if (override) {
+    return {
+      name: override.name,
+      company: override.company,
+      street1: override.street1,
+      street2: override.street2,
+      city: override.city,
+      state: override.state,
+      zip: override.zip,
+      country: override.country || "US",
+      phone: override.phone,
+      email: override.email,
+    };
+  }
   return {
     name: process.env.SHIP_FROM_NAME!,
     company: process.env.SHIP_FROM_COMPANY,
     street1: process.env.SHIP_FROM_STREET1!,
+    street2: process.env.SHIP_FROM_STREET2 as string | undefined,
     city: process.env.SHIP_FROM_CITY!,
     state: process.env.SHIP_FROM_STATE!,
     zip: process.env.SHIP_FROM_ZIP!,
