@@ -1,58 +1,62 @@
-import type { ToAddress } from "@/lib/shipping/types";
+import { NextResponse } from "next/server";
+import { getProvider } from "@/lib/shipping";
+import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { parseShipTo } from "@/lib/returns/shipTo";
 
-// Where a return label is headed. Left out (or null) = the boutique, as always.
-// Staff can send it somewhere else when a package went to the wrong customer,
-// so the label takes it straight to the right person.
-export type ShipTo = ToAddress;
+// Rates a return shipment (customer -> boutique) across ALL connected carriers
+// (USPS, FedEx Ground Economy, UPS Ground Saver, etc.) and returns the options
+// so staff can pick one before purchasing.
+export async function POST(req: Request) {
+  const supabase = supabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-const clean = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  try {
+    const { request_id, parcel, ship_to } = await req.json();
+    // null = send to the boutique (default); otherwise the address staff typed in
+    const shipTo = parseShipTo(ship_to);
+    const admin = supabaseAdmin();
 
-/**
- * Reads `ship_to` from a request body. Returns null for the default (boutique),
- * the cleaned address when it's filled in, or throws a readable error when a
- * different address was chosen but is missing something.
- */
-export function parseShipTo(raw: unknown): ShipTo | null {
-  if (!raw || typeof raw !== "object") return null;
-  const a = raw as Record<string, unknown>;
+    const { data: rr, error } = await admin
+      .from("return_requests")
+      .select("*")
+      .eq("id", request_id)
+      .single();
+    if (error || !rr) throw new Error("Return request not found");
 
-  const addr: ShipTo = {
-    name: clean(a.name),
-    street1: clean(a.street1),
-    street2: clean(a.street2) || undefined,
-    city: clean(a.city),
-    state: clean(a.state).toUpperCase(),
-    zip: clean(a.zip),
-    country: clean(a.country).toUpperCase() || "US",
-    phone: clean(a.phone) || undefined,
-    email: clean(a.email) || undefined,
-  };
+    const providerName = process.env.RETURNS_PROVIDER || "shippo";
+    const provider = getProvider(providerName);
 
-  const missing = (
-    [
-      ["name", "Name"],
-      ["street1", "Street address"],
-      ["city", "City"],
-      ["state", "State"],
-      ["zip", "ZIP"],
-    ] as const
-  ).filter(([k]) => !addr[k]).map(([, label]) => label);
-  if (missing.length) throw new Error(`Ship-to address is missing: ${missing.join(", ")}`);
-  if (addr.country === "US" && !/^\d{5}(-\d{4})?$/.test(addr.zip)) throw new Error("Ship-to ZIP should be 5 digits");
+    const input = {
+      to: {
+        name: rr.from_name,
+        street1: rr.from_street1,
+        street2: rr.from_street2 || undefined,
+        city: rr.from_city,
+        state: rr.from_state,
+        zip: rr.from_zip,
+        country: rr.from_country || "US",
+        phone: rr.from_phone || undefined,
+        email: rr.from_email || undefined,
+      },
+      parcel: parcel || { length: 14, width: 17, height: 1, weight_lb: 1, weight_oz: 0 },
+      // On return labels the carrier swaps the addresses, so `from` is where
+      // the package ends up. Left out = the boutique (SHIP_FROM_* env vars).
+      ...(shipTo ? { from: shipTo } : {}),
+      isReturn: true,
+    };
 
-  return addr;
-}
+    const { shipmentRef, rates } = await provider.getRates(input);
+    if (!rates.length) throw new Error("No rates returned for this address");
 
-/** Columns saved on return_requests when a label is redirected. */
-export function shipToColumns(addr: ShipTo) {
-  return {
-    ship_to_name: addr.name,
-    ship_to_street1: addr.street1,
-    ship_to_street2: addr.street2 ?? null,
-    ship_to_city: addr.city,
-    ship_to_state: addr.state,
-    ship_to_zip: addr.zip,
-    ship_to_country: addr.country || "US",
-    ship_to_phone: addr.phone ?? null,
-  };
+    // Cheapest first
+    const sorted = [...rates].sort(
+      (a: any, b: any) => parseFloat(String(a.rate)) - parseFloat(String(b.rate))
+    );
+
+    return NextResponse.json({ ok: true, shipment_ref: shipmentRef, rates: sorted });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 400 });
+  }
 }
