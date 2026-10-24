@@ -56,7 +56,7 @@ const T = {
     cutHere: "CUT HERE  ·  TAPE THE LABEL BELOW ON YOUR BOX",
     warning: (c: string) => "Only " + c + " accepts this label  ·  Questions? " + WEBSITE,
     labelFail: "Your label couldn't be added here. Use the Print Return Label button instead.",
-    returnsTo: "Returns to " + RETURN_ADDRESS,
+    returnsTo: (addr: string, redirected: boolean) => (redirected ? "Ships to " : "Returns to ") + addr,
     findTitle: (c: string) => (c.toUpperCase() === "USPS" ? "Find a post office near you" : "Find a " + c + " drop-off near you"),
     findSub: "Scan with your phone camera to see the closest ones on a map.",
     // 4×6 packing slip
@@ -85,7 +85,7 @@ const T = {
     cutHere: "CORTA AQUÍ  ·  PEGA LA ETIQUETA DE ABAJO EN TU CAJA",
     warning: (c: string) => "Solo " + c + " acepta esta etiqueta  ·  ¿Preguntas? " + WEBSITE,
     labelFail: "No se pudo incluir tu etiqueta aquí. Usa el botón Imprimir Etiqueta.",
-    returnsTo: "Se devuelve a " + RETURN_ADDRESS,
+    returnsTo: (addr: string, redirected: boolean) => (redirected ? "Se envía a " : "Se devuelve a ") + addr,
     findTitle: (c: string) => (c.toUpperCase() === "USPS" ? "Encuentra una oficina de correos cerca" : "Encuentra un punto de " + c + " cerca"),
     findSub: "Escanéala con la cámara de tu teléfono para verlas en el mapa.",
     // 4×6 packing slip
@@ -375,9 +375,8 @@ export async function GET(req: NextRequest) {
 
   const { data: ret, error } = await supabase
     .from("return_requests")
-    .select(
-      "id, return_code, from_name, from_email, from_city, from_state, reason, status, tracking_number, carrier, mail_class, label_url, created_at"
-    )
+    // "*" so the optional ship_to_* columns come through when they exist
+    .select("*")
     .eq("return_code", code)
     .maybeSingle();
 
@@ -395,6 +394,14 @@ export async function GET(req: NextRequest) {
   }
 
   const carrier: string = ret.carrier || "USPS";
+
+  // Where the label actually sends the package: the boutique, or the address
+  // staff picked when the package needed to go to a different customer.
+  const shipToAddress: string = ret.ship_to_name
+    ? [ret.ship_to_name, [ret.ship_to_street1, ret.ship_to_street2].filter(Boolean).join(" "),
+        `${ret.ship_to_city || ""}, ${ret.ship_to_state || ""} ${ret.ship_to_zip || ""}`.trim()]
+        .filter(Boolean).join(" · ")
+    : RETURN_ADDRESS;
 
   // ---------- Build PDF ----------
   const pdf = await PDFDocument.create();
@@ -605,7 +612,7 @@ export async function GET(req: NextRequest) {
 
   // Return address, small, under the card
   const addrY = cardTop - cardH - 14;
-  text(page, body, t.returnsTo, M + 2, addrY, 8, MUTED);
+  text(page, body, t.returnsTo(shipToAddress, !!ret.ship_to_name), M + 2, addrY, 8, MUTED);
 
   // ===== "Find a post office near you" QR row =====
   // Sits right under the slip. Shrinks a little on busy pages, and is skipped if there's no room.
