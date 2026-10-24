@@ -14,6 +14,18 @@ type RateOption = {
   days?: number;
 };
 
+// Where the label sends the package. "boutique" = the default (SHIP_FROM_* address).
+// "other" = staff typed an address, e.g. to send a mis-delivered package
+// straight to the customer who should have gotten it.
+type ShipToMode = "boutique" | "other";
+type ShipToForm = { name: string; street1: string; street2: string; city: string; state: string; zip: string; phone: string };
+const EMPTY_SHIP_TO: ShipToForm = { name: "", street1: "", street2: "", city: "", state: "", zip: "", phone: "" };
+const BOUTIQUE_ADDRESS = "17121 Hawthorne Ave, Fontana, CA 92335";
+
+function shipToReady(a: ShipToForm) {
+  return !!(a.name.trim() && a.street1.trim() && a.city.trim() && a.state.trim() && /^\d{5}(-\d{4})?$/.test(a.zip.trim()));
+}
+
 type Tab = "all" | "needsLabel" | "waiting" | "received" | "done";
 
 const NUDGE_DAYS = 14;
@@ -111,20 +123,28 @@ export default function ReturnsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [newCode, setNewCode] = useState<string | null>(null);
   // Shown right after a label is bought, with the two print buttons
-  const [labelReady, setLabelReady] = useState<{ code: string; name: string; carrier: string; tracking: string } | null>(null);
+  const [labelReady, setLabelReady] = useState<{ code: string; name: string; carrier: string; tracking: string; shipTo?: string | null } | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [instrOpen, setInstrOpen] = useState(false);
   const [showCodes, setShowCodes] = useState(false);
 
-  // Rate selection modal state
-  const [rateModal, setRateModal] = useState<{
+  // Create-label modal: step 1 = where it goes, step 2 = pick a rate
+  const [labelFlow, setLabelFlow] = useState<{
     request: any;
-    shipmentRef: string;
-    rates: RateOption[];
+    step: "shipTo" | "rates";
+    mode: ShipToMode;
+    addr: ShipToForm;
+    shipmentRef?: string;
+    rates?: RateOption[];
   } | null>(null);
+  const [flowBusy, setFlowBusy] = useState(false);
+  const [flowErr, setFlowErr] = useState<string | null>(null);
   const [buyingRateId, setBuyingRateId] = useState<string | null>(null);
+  // Customer search to fill in a different ship-to address
+  const [custQ, setCustQ] = useState("");
+  const [custResults, setCustResults] = useState<any[]>([]);
 
   // Scan to receive
   const [scanning, setScanning] = useState(false);
@@ -184,43 +204,102 @@ export default function ReturnsPage() {
     load();
   }
 
-  // Step 1: fetch rates across all carriers, then open the picker
-  async function openRates(rr: any) {
-    setBusy(rr.id);
+  // Open the Create label modal. Starts on "ship to the boutique".
+  function openLabelFlow(rr: any) {
+    setFlowErr(null);
+    setCustQ("");
+    setCustResults([]);
+    setLabelFlow({ request: rr, step: "shipTo", mode: "boutique", addr: { ...EMPTY_SHIP_TO } });
+  }
+
+  function closeLabelFlow() {
+    if (flowBusy || buyingRateId !== null) return;
+    setLabelFlow(null);
+  }
+
+  // The address sent to the API — null means the boutique (default).
+  function shipToPayload(flow: NonNullable<typeof labelFlow>) {
+    if (flow.mode !== "other") return null;
+    const a = flow.addr;
+    return {
+      name: a.name.trim(), street1: a.street1.trim(), street2: a.street2.trim() || undefined,
+      city: a.city.trim(), state: a.state.trim().toUpperCase(), zip: a.zip.trim(), country: "US",
+      phone: a.phone.trim() || undefined,
+    };
+  }
+
+  function setAddr(patch: Partial<ShipToForm>) {
+    setLabelFlow((f) => (f ? { ...f, addr: { ...f.addr, ...patch } } : f));
+  }
+
+  // Look up customers as staff types a name, email or phone.
+  useEffect(() => {
+    const term = custQ.trim().replace(/[%,()]/g, "");
+    if (term.length < 2) {
+      setCustResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("shipping_customers")
+        .select("id, name, email, phone, street1, street2, city, state, zip")
+        .eq("archived", false)
+        .or(`name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
+        .limit(6);
+      setCustResults(data ?? []);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [custQ, supabase]);
+
+  // Step 1 → 2: rate the shipment to the chosen address, across all carriers
+  async function getRates() {
+    if (!labelFlow) return;
+    setFlowErr(null);
+    setFlowBusy(true);
     const res = await fetch("/api/returns/rates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ request_id: rr.id }),
+      body: JSON.stringify({ request_id: labelFlow.request.id, ship_to: shipToPayload(labelFlow) }),
     });
     const data = await res.json();
-    setBusy(null);
-    if (!res.ok) return setMsg(data.error);
-    setRateModal({ request: rr, shipmentRef: data.shipment_ref, rates: data.rates });
+    setFlowBusy(false);
+    if (!res.ok) return setFlowErr(data.error || "Couldn't get rates.");
+    setLabelFlow((f) => (f ? { ...f, step: "rates", shipmentRef: data.shipment_ref, rates: data.rates } : f));
   }
 
   // Step 2: buy the chosen rate
   async function buyRate(rate: RateOption) {
-    if (!rateModal) return;
+    if (!labelFlow?.shipmentRef) return;
+    setFlowErr(null);
     setBuyingRateId(rate.id);
+    const shipTo = shipToPayload(labelFlow);
     const res = await fetch("/api/returns/label", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        request_id: rateModal.request.id,
+        request_id: labelFlow.request.id,
         rate_id: rate.id,
-        shipment_ref: rateModal.shipmentRef,
+        shipment_ref: labelFlow.shipmentRef,
         carrier: rate.carrier,
+        ship_to: shipTo,
       }),
     });
     const data = await res.json();
     setBuyingRateId(null);
-    if (!res.ok) return setMsg(data.error);
-    const rr = rateModal.request;
-    setRateModal(null);
+    if (!res.ok) return setFlowErr(data.error || "Couldn't buy the label.");
+    const rr = labelFlow.request;
+    setLabelFlow(null);
+    if (data.warning) setMsg(data.warning);
     if (rr.return_code) {
-      setLabelReady({ code: rr.return_code, name: rr.from_name || "Customer", carrier: rate.carrier, tracking: data.tracking_number || "" });
+      setLabelReady({
+        code: rr.return_code,
+        name: rr.from_name || "Customer",
+        carrier: rate.carrier,
+        tracking: data.tracking_number || "",
+        shipTo: shipTo ? `${shipTo.name}, ${shipTo.city}, ${shipTo.state}` : null,
+      });
     } else {
-      setMsg(`${rate.carrier} return label created — ${data.tracking_number}`);
+      setMsg(`${rate.carrier} label created${shipTo ? ` to ${shipTo.name}` : ""} — ${data.tracking_number}`);
     }
     load();
   }
@@ -325,6 +404,18 @@ export default function ReturnsPage() {
     );
   }
 
+  // Shown on rows whose label was sent somewhere other than the boutique
+  function ShipToTag({ rr }: { rr: any }) {
+    if (!rr.ship_to_name) return null;
+    const where = [rr.ship_to_city, rr.ship_to_state].filter(Boolean).join(", ");
+    return (
+      <span title={[rr.ship_to_name, rr.ship_to_street1, rr.ship_to_street2, where, rr.ship_to_zip].filter(Boolean).join(" · ")}
+        className="mt-1 inline-flex max-w-full items-center gap-1 truncate rounded-md bg-sand/30 px-2 py-0.5 text-[11px] text-taupe">
+        → Goes to {rr.ship_to_name}{where ? `, ${where}` : ""}
+      </span>
+    );
+  }
+
   function ReasonCell({ reason }: { reason?: string | null }) {
     const tag = reasonTag(reason);
     if (!reason?.trim()) {
@@ -344,8 +435,8 @@ export default function ReturnsPage() {
     const cls = `inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full px-4 text-sm transition-colors disabled:opacity-50 ${full ? "flex-1" : ""}`;
     if (s === "needsLabel")
       return (
-        <button onClick={() => openRates(rr)} disabled={busy !== null} className={`${cls} bg-taupe text-cream hover:bg-taupe/90`}>
-          {busy === rr.id ? "Getting rates…" : "Create label"}
+        <button onClick={() => openLabelFlow(rr)} disabled={busy !== null} className={`${cls} bg-taupe text-cream hover:bg-taupe/90`}>
+          Create label
         </button>
       );
     if (s === "waiting")
@@ -494,6 +585,9 @@ export default function ReturnsPage() {
             {labelReady.tracking && (
               <p className="truncate font-mono text-xs text-ink/60">{labelReady.carrier} · {labelReady.tracking}</p>
             )}
+            {labelReady.shipTo && (
+              <p className="truncate text-xs text-taupe">Goes to {labelReady.shipTo}</p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <a href={slipUrl(labelReady.code, "4x6")} target="_blank" rel="noreferrer"
@@ -578,6 +672,7 @@ export default function ReturnsPage() {
                   {[rr.from_city, rr.from_state].filter(Boolean).join(", ")}
                   {rr.return_code ? ` · ${rr.return_code}` : ""}
                 </p>
+                <ShipToTag rr={rr} />
               </div>
               <StatusCell rr={rr} />
             </div>
@@ -613,6 +708,7 @@ export default function ReturnsPage() {
                     <div className="min-w-0">
                       <p className="truncate font-medium">{rr.from_name || "—"}</p>
                       <p className="truncate text-xs text-ink/60">{[rr.from_city, rr.from_state].filter(Boolean).join(", ")}</p>
+                      <ShipToTag rr={rr} />
                     </div>
                   </div>
                 </td>
@@ -709,59 +805,159 @@ export default function ReturnsPage() {
         />
       )}
 
-      {/* Rate selection modal */}
-      {rateModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
-          onClick={() => buyingRateId === null && setRateModal(null)}
-        >
-          <div
-            className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 sm:max-w-md sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+      {/* Create label: where it goes → pick a rate */}
+      {labelFlow && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={closeLabelFlow}>
+          <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 sm:max-w-md sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-xl">Choose a return rate</h3>
-                <p className="mt-1 text-sm text-ink/60">
-                  {rateModal.request.from_name || "Customer"}
-                  {rateModal.request.from_city ? ` · ${rateModal.request.from_city}, ${rateModal.request.from_state}` : ""}
+              <div className="min-w-0">
+                <p className="label">Create label · step {labelFlow.step === "shipTo" ? "1" : "2"} of 2</p>
+                <h3 className="text-xl">{labelFlow.step === "shipTo" ? "Where should it go?" : "Choose a rate"}</h3>
+                <p className="mt-1 truncate text-sm text-ink/60">
+                  From {labelFlow.request.from_name || "Customer"}
+                  {labelFlow.request.from_city ? ` · ${labelFlow.request.from_city}, ${labelFlow.request.from_state}` : ""}
                 </p>
               </div>
-              <button
-                className="btn-secondary !px-3 !py-1.5 !text-xs"
-                onClick={() => setRateModal(null)}
-                disabled={buyingRateId !== null}
-              >
+              <button className="btn-secondary !px-3 !py-1.5 !text-xs" onClick={closeLabelFlow} disabled={flowBusy || buyingRateId !== null}>
                 Close
               </button>
             </div>
 
-            <div className="mt-4 space-y-2">
-              {rateModal.rates.map((rate) => (
-                <button
-                  key={rate.id}
-                  onClick={() => buyRate(rate)}
-                  disabled={buyingRateId !== null}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-sand/60 bg-white/60 px-4 py-3 text-left transition hover:border-taupe disabled:opacity-50"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium">
-                      {rate.carrier} <span className="text-ink/70">· {rate.service}</span>
-                    </p>
-                    {rate.days != null && (
-                      <p className="text-xs text-ink/60">~{rate.days} day{rate.days === 1 ? "" : "s"}</p>
-                    )}
-                  </div>
-                  <p className="shrink-0 font-mono text-taupe">
-                    {buyingRateId === rate.id ? "Buying…" : `$${Number(rate.rate).toFixed(2)}`}
-                  </p>
-                </button>
-              ))}
-            </div>
+            {labelFlow.step === "shipTo" && (
+              <>
+                <div role="radiogroup" aria-label="Ship to" className="mt-4 space-y-2">
+                  {([
+                    ["boutique", "Erendira's Boutique", BOUTIQUE_ADDRESS + " · default"],
+                    ["other", "A different address", "Send it straight to another customer"],
+                  ] as [ShipToMode, string, string][]).map(([mode, title, sub]) => {
+                    const on = labelFlow.mode === mode;
+                    return (
+                      <button key={mode} role="radio" aria-checked={on} type="button"
+                        onClick={() => { setFlowErr(null); setLabelFlow((f) => (f ? { ...f, mode } : f)); }}
+                        className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition ${on ? "border-taupe bg-white" : "border-sand/60 bg-white/60 hover:border-taupe/60"}`}>
+                        <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${on ? "border-taupe" : "border-sand"}`}>
+                          {on && <span className="h-2.5 w-2.5 rounded-full bg-taupe" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-medium">{title}</span>
+                          <span className="block text-xs text-ink/60">{sub}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            <p className="mt-4 text-xs text-ink/50">
-              Tap a rate to purchase the label. Scan-based rates only bill when the label is used.
-            </p>
+                {labelFlow.mode === "other" && (
+                  <div className="mt-4 space-y-3">
+                    <div className="relative">
+                      <label className="label" htmlFor="st-find">Find a customer (optional)</label>
+                      <input id="st-find" className="input" value={custQ} onChange={(e) => setCustQ(e.target.value)}
+                        placeholder="Name, email or phone" autoComplete="off" />
+                      {custResults.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-2xl border border-sand/60 bg-cream p-1.5 shadow-xl">
+                          {custResults.map((c) => (
+                            <button key={c.id} type="button"
+                              onClick={() => {
+                                setAddr({
+                                  name: c.name || "", street1: c.street1 || "", street2: c.street2 || "",
+                                  city: c.city || "", state: c.state || "", zip: c.zip || "", phone: c.phone || "",
+                                });
+                                setCustQ("");
+                                setCustResults([]);
+                              }}
+                              className="flex w-full flex-col rounded-lg px-3 py-2 text-left hover:bg-sand/20">
+                              <span className="text-sm">{c.name}</span>
+                              <span className="truncate text-xs text-ink/55">
+                                {[c.street1, c.city, c.state].filter(Boolean).join(", ") || "No address on file"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="label" htmlFor="st-name">Full name</label>
+                      <input id="st-name" className="input" value={labelFlow.addr.name} onChange={(e) => setAddr({ name: e.target.value })} autoComplete="off" />
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="st-street1">Street address</label>
+                      <input id="st-street1" className="input" value={labelFlow.addr.street1} onChange={(e) => setAddr({ street1: e.target.value })} autoComplete="off" />
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="st-street2">Apt / Suite (optional)</label>
+                      <input id="st-street2" className="input" value={labelFlow.addr.street2} onChange={(e) => setAddr({ street2: e.target.value })} autoComplete="off" />
+                    </div>
+                    <div className="grid grid-cols-[1fr_72px_96px] gap-2">
+                      <div>
+                        <label className="label" htmlFor="st-city">City</label>
+                        <input id="st-city" className="input" value={labelFlow.addr.city} onChange={(e) => setAddr({ city: e.target.value })} autoComplete="off" />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor="st-state">State</label>
+                        <input id="st-state" className="input !px-3 uppercase" maxLength={2} value={labelFlow.addr.state} onChange={(e) => setAddr({ state: e.target.value })} autoComplete="off" />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor="st-zip">ZIP</label>
+                        <input id="st-zip" className="input !px-3" inputMode="numeric" maxLength={10} value={labelFlow.addr.zip} onChange={(e) => setAddr({ zip: e.target.value })} autoComplete="off" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="st-phone">Phone (optional)</label>
+                      <input id="st-phone" className="input" inputMode="tel" value={labelFlow.addr.phone} onChange={(e) => setAddr({ phone: e.target.value })} autoComplete="off" />
+                    </div>
+                  </div>
+                )}
+
+                {flowErr && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{flowErr}</p>}
+
+                <button onClick={getRates}
+                  disabled={flowBusy || (labelFlow.mode === "other" && !shipToReady(labelFlow.addr))}
+                  className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-full bg-taupe px-5 text-sm text-cream transition-colors hover:bg-taupe/90 disabled:opacity-50">
+                  {flowBusy ? "Getting rates…" : "See rates"}
+                </button>
+              </>
+            )}
+
+            {labelFlow.step === "rates" && (
+              <>
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-sand/25 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 truncate">
+                    <span className="text-ink/60">Ship to </span>
+                    {labelFlow.mode === "other"
+                      ? `${labelFlow.addr.name}, ${labelFlow.addr.city}, ${labelFlow.addr.state.toUpperCase()}`
+                      : "Erendira's Boutique"}
+                  </span>
+                  <button className="shrink-0 text-xs text-taupe underline underline-offset-2 disabled:opacity-50" disabled={buyingRateId !== null}
+                    onClick={() => { setFlowErr(null); setLabelFlow((f) => (f ? { ...f, step: "shipTo", rates: undefined, shipmentRef: undefined } : f)); }}>
+                    Change
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {(labelFlow.rates || []).map((rate) => (
+                    <button key={rate.id} onClick={() => buyRate(rate)} disabled={buyingRateId !== null}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl border border-sand/60 bg-white/60 px-4 py-3 text-left transition hover:border-taupe disabled:opacity-50">
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {rate.carrier} <span className="text-ink/70">· {rate.service}</span>
+                        </p>
+                        {rate.days != null && <p className="text-xs text-ink/60">~{rate.days} day{rate.days === 1 ? "" : "s"}</p>}
+                      </div>
+                      <p className="shrink-0 font-mono text-taupe">
+                        {buyingRateId === rate.id ? "Buying…" : `$${Number(rate.rate).toFixed(2)}`}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+
+                {flowErr && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{flowErr}</p>}
+
+                <p className="mt-4 text-xs text-ink/50">
+                  Tap a rate to purchase the label. Scan-based rates only bill when the label is used.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
