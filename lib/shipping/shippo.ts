@@ -28,12 +28,12 @@ export const shippoProvider: ShippingProvider = {
       throw new Error("Envelope #10 letters ship through EasyPost — switch the provider to EasyPost.");
     }
 
-    const from = shipFromAddress();
+    const from = shipFromAddress(input.from);
     const shipment = await shippo("/shipments/", {
       method: "POST",
       body: JSON.stringify({
         address_from: {
-          name: from.name, company: from.company, street1: from.street1,
+          name: from.name, company: from.company, street1: from.street1, street2: from.street2,
           city: from.city, state: from.state, zip: from.zip,
           country: from.country, phone: from.phone, email: from.email,
         },
