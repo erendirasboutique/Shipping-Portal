@@ -34,7 +34,7 @@ export const easypost: ShippingProvider = {
       body: JSON.stringify({
         shipment: {
           to_address: { ...input.to, country: input.to.country || "US" },
-          from_address: shipFromAddress(),
+          from_address: shipFromAddress(input.from),
           parcel: envelope
             ? {
                 // USPS First-Class letter: EasyPost uses its own letter
