@@ -55,35 +55,140 @@ function initials(name: string | null) {
     .toUpperCase();
 }
 
-function StatusPill({ status }: { status: string }) {
-  if (status === "draft") {
-    return (
-      <span className="rounded-full border border-dashed border-taupe/50 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-taupe">
-        draft
-      </span>
-    );
-  }
-  if (status === "refunded") {
-    return (
-      <span className="rounded-full border border-red-400/50 bg-red-50 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-red-700">
-        refunded
-      </span>
-    );
+// Every label ships from the boutique; shown in the route strip at the top of the page.
+const SHIP_FROM = { city: "Fontana, CA", zip: "92335" };
+
+function fmtShort(dt: string | null) {
+  if (!dt) return "";
+  const d = new Date(dt);
+  return (
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+    " · " +
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  );
+}
+
+function groupTracking(n: string) {
+  return n.replace(/(.{4})(?=.)/g, "$1 ");
+}
+
+function StatusPill({ order }: { order: any }) {
+  let text = "Label purchased";
+  let cls = "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200";
+  let dot = "bg-emerald-700 dark:bg-emerald-300";
+  if (order.delivered_at) {
+    text = "Delivered";
+  } else if (order.status === "draft") {
+    text = "Draft";
+    cls = "border border-dashed border-taupe/60 text-taupe";
+    dot = "bg-taupe";
+  } else if (order.status === "refunded") {
+    text = "Refunded";
+    cls = "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200";
+    dot = "bg-red-700 dark:bg-red-300";
   }
   return (
-    <span className="rounded-full border border-taupe/45 bg-cream px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-ink/80">
-      purchased
+    <span className={"inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] " + cls}>
+      <span aria-hidden="true" className={"h-[7px] w-[7px] rounded-full " + dot} />
+      {text}
     </span>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: any }) {
+function Icon({ d, size = 16 }: { d: string; size?: number }) {
   return (
-    <div className="rounded-2xl border border-taupe/25 bg-white px-4 py-3.5">
-      <p className="text-[11px] uppercase tracking-[0.08em] text-taupe">{label}</p>
-      <p className="mt-1 text-[15px] font-medium text-ink">{value}</p>
-    </div>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={d} />
+    </svg>
   );
+}
+
+const ICONS = {
+  print: "M6 9V3h12v6M5 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-1M7 14h10v7H7z",
+  track: "M3 12h4l3 8 4-16 3 8h4",
+  copy: "M9 9h12v12H9zM5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1",
+  chevron: "m6 9 6 6 6-6",
+  check: "m5 12 5 5 9-10",
+  box: "M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8",
+};
+
+type Step = {
+  key: string;
+  title: string;
+  detail?: string | null;
+  at?: string | null;
+  done: boolean;
+  photo?: string | null;
+};
+
+function journeySteps(order: any): Step[] {
+  const steps: Step[] = [];
+  if (order.status === "draft") {
+    steps.push({ key: "draft", title: "Draft started", at: order.created_at, done: true });
+    steps.push({ key: "buy", title: "Buy the label", detail: "Finish the label to ship this order", done: false });
+    return steps;
+  }
+  steps.push({
+    key: "created",
+    title: "Label created",
+    detail: [order.provider ? "Purchased through " + order.provider : null, order.postage_amount != null ? money(order.postage_amount, order.postage_currency) : null]
+      .filter(Boolean)
+      .join(" · "),
+    at: order.created_at,
+    done: true,
+  });
+  steps.push(
+    order.printed_at
+      ? { key: "printed", title: "Printed", detail: order.printed_by ? "by " + order.printed_by : null, at: order.printed_at, done: true }
+      : { key: "printed", title: "Not printed yet", done: false }
+  );
+  const packed = order.packed_at || order.package_photo_url;
+  steps.push(
+    packed
+      ? {
+          key: "packed",
+          title: order.package_photo_url ? "Packed & photographed" : "Packed",
+          detail: order.packed_by ? "by " + order.packed_by : null,
+          at: order.packed_at,
+          done: true,
+          photo: order.package_photo_url,
+        }
+      : { key: "packed", title: "Not packed yet", done: false }
+  );
+  steps.push(
+    order.customer_notified_at
+      ? {
+          key: "notified",
+          title: "Customer notified",
+          detail: order.notified_via ? "Sent via " + order.notified_via : null,
+          at: order.customer_notified_at,
+          done: true,
+        }
+      : { key: "notified", title: "Customer not notified yet", done: false }
+  );
+  if (order.status === "refunded") {
+    steps.push({ key: "refunded", title: "Label refunded", detail: order.refund_status || null, done: true });
+  } else if (order.delivered_at) {
+    steps.push({ key: "delivered", title: "Delivered", at: order.delivered_at, done: true });
+  } else if (order.tracking_number) {
+    steps.push({
+      key: "carrier",
+      title: order.tracking_status ? "Carrier: " + order.tracking_status : "Awaiting carrier scan",
+      detail: "Updates appear here once " + (order.carrier || "the carrier") + " scans the parcel",
+      done: false,
+    });
+  }
+  return steps;
 }
 
 function methodText(payment: any) {
@@ -295,6 +400,12 @@ export default function OrderDetailPage() {
     setActionsOpen(false);
   }
 
+  function copyTrackingNumber() {
+    if (!order || !order.tracking_number) return;
+    navigator.clipboard.writeText(order.tracking_number);
+    setMsg("Tracking number copied to clipboard.");
+  }
+
   if (loading) {
     return (
       <Shell>
@@ -323,186 +434,298 @@ export default function OrderDetailPage() {
 
   const payment = billing && billing.matched ? billing.payment : null;
   const lifetimeSpend = billing && billing.lifetime ? billing.lifetime.total_spend : null;
+  const steps = journeySteps(order);
+  const canPrint = order.status === "purchased" && order.label_url;
+  const hasCopyItems = !!order.tracking_number || !!portalToken || !!(payment && payment.receipt_url);
+  const menuItem = "flex min-h-[44px] w-full items-center px-4 text-left text-sm text-ink hover:bg-cream/60";
+  const card = "rounded-3xl border border-taupe/25 bg-white";
+  const ghostBtn =
+    "inline-flex h-11 items-center gap-2 rounded-full border border-taupe/40 bg-white px-[18px] text-sm text-ink transition-colors hover:bg-taupe/10 disabled:opacity-50";
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">
-            <button
-              onClick={function () {
-                router.push("/orders");
-              }}
-              className="hover:underline"
-            >
-              Orders
-            </button>
-            {" \u203a "}
-            {order.to_name || "Order"}
-          </p>
-          <h1 className="mt-1 text-5xl">{orderLabel(order)}</h1>
-        </div>
+      <div className="flex flex-col gap-7">
+        {/* ------- header ------- */}
+        <header className="flex flex-wrap items-end justify-between gap-5">
+          <div className="flex flex-col gap-1.5">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px] text-taupe">
+              <button
+                onClick={function () {
+                  router.push("/orders");
+                }}
+                className="hover:underline"
+              >
+                Orders
+              </button>
+              <span aria-hidden="true">/</span>
+              <span className="text-ink/70">{order.to_name || "Order"}</span>
+            </nav>
+            <div className="flex flex-wrap items-center gap-4">
+              <h1 className="text-5xl leading-none sm:text-6xl">{orderLabel(order)}</h1>
+              <StatusPill order={order} />
+            </div>
+          </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={function () {
-              router.push("/orders");
-            }}
-            className="btn-secondary"
-          >
-            Back
-          </button>
-          <div className="relative" ref={actionsRef}>
-            <button
-              onClick={function () {
-                setActionsOpen(!actionsOpen);
-              }}
-              className="btn-primary"
-            >
-              Order Actions {actionsOpen ? "\u2303" : "\u2304"}
-            </button>
-            {actionsOpen && (
-              <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-taupe/25 bg-white py-1.5 shadow-lg">
-                {order.status === "purchased" && order.label_url && (
-                  <button
-                    onClick={function () {
-                      setActionsOpen(false);
-                      printLabel();
-                    }}
-                    disabled={busy !== null}
-                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
-                  >
-                    {busy === "print" ? "Opening..." : "Print label"}
-                  </button>
-                )}
-                {order.tracking_number && (
-                  <a
-                    href={"https://track.erendirasboutique.com/?tracking=" + order.tracking_number}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
-                  >
-                    Track package
-                  </a>
-                )}
-                {order.tracking_number && (
-                  <button
-                    onClick={copyNotification}
-                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
-                  >
-                    Copy notification
-                  </button>
-                )}
-                {order.tracking_number && (
-                  <button
-                    onClick={copyTrackingLink}
-                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
-                  >
-                    Copy tracking link
-                  </button>
-                )}
-                {portalToken && (
-                  <button
-                    onClick={copyPortalLink}
-                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
-                  >
-                    Copy portal link
-                  </button>
-                )}
-                {payment && payment.receipt_url && (
-                  <a
-                    href={payment.receipt_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
-                  >
-                    View receipt
-                  </a>
-                )}
-                {order.status === "draft" && (
-                  <button
-                    onClick={function () {
-                      router.push("/create-label?draft=" + order.id);
-                    }}
-                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-cream/60"
-                  >
-                    Continue label
-                  </button>
-                )}
-                <div className="my-1.5 border-t border-taupe/15" />
-                {order.status === "purchased" && (
-                  <button
-                    onClick={function () {
-                      setActionsOpen(false);
-                      refund();
-                    }}
-                    disabled={busy !== null}
-                    className="block w-full px-4 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
-                  >
-                    {busy === "refund" ? "Refunding..." : "Cancel / refund label"}
-                  </button>
-                )}
+          <div className="flex flex-wrap gap-2.5">
+            {order.tracking_number && (
+              <a
+                href={"https://track.erendirasboutique.com/?tracking=" + order.tracking_number}
+                target="_blank"
+                rel="noreferrer"
+                className={ghostBtn}
+              >
+                <Icon d={ICONS.track} />
+                Track
+              </a>
+            )}
+            {hasCopyItems && (
+              <div className="relative" ref={actionsRef}>
                 <button
                   onClick={function () {
-                    setActionsOpen(false);
-                    deleteOrder();
+                    setActionsOpen(!actionsOpen);
                   }}
-                  disabled={busy !== null}
-                  className="block w-full px-4 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
+                  aria-expanded={actionsOpen}
+                  aria-haspopup="menu"
+                  className={ghostBtn}
                 >
-                  {busy === "delete" ? "Deleting..." : "Delete order"}
+                  <Icon d={ICONS.copy} />
+                  Copy
+                  <Icon d={ICONS.chevron} size={14} />
                 </button>
+                {actionsOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-taupe/25 bg-white py-1.5 shadow-soft"
+                  >
+                    {order.tracking_number && (
+                      <button role="menuitem" onClick={copyNotification} className={menuItem}>
+                        Notification message
+                      </button>
+                    )}
+                    {order.tracking_number && (
+                      <button role="menuitem" onClick={copyTrackingLink} className={menuItem}>
+                        Tracking link
+                      </button>
+                    )}
+                    {portalToken && (
+                      <button role="menuitem" onClick={copyPortalLink} className={menuItem}>
+                        Customer portal link
+                      </button>
+                    )}
+                    {payment && payment.receipt_url && (
+                      <a role="menuitem" href={payment.receipt_url} target="_blank" rel="noreferrer" className={menuItem}>
+                        View receipt
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             )}
+            {order.status === "draft" && (
+              <button
+                onClick={function () {
+                  router.push("/create-label?draft=" + order.id);
+                }}
+                className="btn-primary h-11"
+              >
+                Continue label
+              </button>
+            )}
+            {canPrint && (
+              <button onClick={printLabel} disabled={busy !== null} className="btn-primary h-11">
+                <Icon d={ICONS.print} />
+                {busy === "print" ? "Opening..." : "Print label"}
+              </button>
+            )}
           </div>
-        </div>
-      </div>
+        </header>
 
-      {order && order.rts_at && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#e6c88f]/60 bg-[#fdf8ee] px-4 py-3 text-sm dark:bg-transparent">
-          <span>
-            <span className="font-medium">Returned to sender</span>
-            {order.rts_reason ? ": " + order.rts_reason : ""}
-            <span className="text-ink/50"> &middot; {fmt(order.rts_at)}</span>
-          </span>
-          <a href="/label-tools" className="text-taupe underline underline-offset-2">Re-ship</a>
-        </div>
-      )}
-      {order && order.reship_of && (
-        <div className="mt-4 rounded-2xl bg-sand/25 px-4 py-3 text-sm text-ink/70">
-          This is a re-ship of a package that came back.{" "}
-          <a href={"/orders/" + order.reship_of} className="text-taupe underline underline-offset-2">See the original order</a>
-        </div>
-      )}
-      {msg && (
-        <p
-          className="mt-4 cursor-pointer rounded-2xl bg-white px-4 py-3 text-sm text-taupe"
-          onClick={function () {
-            setMsg(null);
-          }}
-        >
-          {msg}
-        </p>
-      )}
+        {/* ------- notices ------- */}
+        {order.rts_at && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#e6c88f]/60 bg-[#fdf8ee] px-4 py-3 text-sm dark:bg-transparent">
+            <span>
+              <span className="font-medium">Returned to sender</span>
+              {order.rts_reason ? ": " + order.rts_reason : ""}
+              <span className="text-ink/50"> &middot; {fmt(order.rts_at)}</span>
+            </span>
+            <a href="/label-tools" className="text-taupe underline underline-offset-2">
+              Re-ship
+            </a>
+          </div>
+        )}
+        {order.reship_of && (
+          <div className="rounded-2xl bg-sand/25 px-4 py-3 text-sm text-ink/70">
+            This is a re-ship of a package that came back.{" "}
+            <a href={"/orders/" + order.reship_of} className="text-taupe underline underline-offset-2">
+              See the original order
+            </a>
+          </div>
+        )}
+        {msg && (
+          <button
+            role="status"
+            onClick={function () {
+              setMsg(null);
+            }}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-left text-sm text-taupe"
+          >
+            <span>{msg}</span>
+            <span className="text-xs text-ink/50">Dismiss</span>
+          </button>
+        )}
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard label="Order date" value={fmtDate(order.created_at)} />
-        <StatCard label="Postage" value={money(order.postage_amount, order.postage_currency)} />
-        <StatCard label="Package" value={weightText(order)} />
-        <StatCard label="Carrier" value={order.carrier ? order.carrier + " " + (order.mail_class || "") : "Draft"} />
-        <StatCard label="Status" value={<StatusPill status={order.status} />} />
-      </div>
+        {/* ------- route + summary ------- */}
+        <section aria-label="Shipment summary" className={card + " flex flex-wrap items-center gap-x-12 gap-y-6 px-6 py-6 sm:px-8"}>
+          <div className="flex min-w-0 flex-[999_1_420px] items-center gap-5">
+            <div className="flex flex-col">
+              <span className="text-xs uppercase tracking-[0.08em] text-taupe">From</span>
+              <span className="font-heading text-[28px] leading-tight text-ink">{SHIP_FROM.city}</span>
+              <span className="text-[13px] text-ink/60">{SHIP_FROM.zip}</span>
+            </div>
+            <div aria-hidden="true" className="flex flex-1 basis-20 items-center gap-1.5 text-taupe">
+              <span className="h-2 w-2 rounded-full bg-taupe" />
+              <span className="flex-1 border-t-2 border-dashed border-sand" />
+              <Icon d={ICONS.box} size={22} />
+              <span className="flex-1 border-t-2 border-dashed border-sand" />
+              <span className="h-2 w-2 rounded-full border-2 border-taupe" />
+            </div>
+            <div className="flex flex-col text-right">
+              <span className="text-xs uppercase tracking-[0.08em] text-taupe">To</span>
+              <span className="font-heading text-[28px] leading-tight text-ink">
+                {order.to_city ? order.to_city + ", " + (order.to_state || "") : "-"}
+              </span>
+              <span className="text-[13px] text-ink/60">{order.to_zip || ""}</span>
+            </div>
+          </div>
+          <dl className="grid flex-[1_1_380px] grid-cols-3 gap-4 border-taupe/20 sm:border-l sm:pl-8">
+            <div>
+              <dt className="text-xs text-taupe">Carrier</dt>
+              <dd className="mt-0.5">{order.carrier ? order.carrier + " " + (order.mail_class || "") : "Draft"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-taupe">Postage</dt>
+              <dd className="mt-0.5">{money(order.postage_amount, order.postage_currency)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-taupe">Ordered</dt>
+              <dd className="mt-0.5">{fmtDate(order.created_at)}</dd>
+            </div>
+          </dl>
+        </section>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_1fr]">
-        {/* ------- left column ------- */}
-        <div className="space-y-5">
-          <div className="rounded-3xl border border-taupe/25 bg-white p-6">
-            <h2 className="text-2xl">Recipient</h2>
-            <dl className="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-[15px] sm:grid-cols-[130px_1fr]">
-              <dt className="text-taupe">Name</dt>
-              <dd>{order.to_name || "-"}</dd>
-              <dt className="text-taupe">Address</dt>
-              <dd>
+        <div className="flex flex-wrap items-start gap-7">
+          {/* ------- left column ------- */}
+          <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-7">
+            <section className={card + " px-6 py-7 sm:px-8"}>
+              <h2 className="mb-6 text-[34px] leading-none">Journey</h2>
+              <ol className="flex flex-col">
+                {steps.map(function (s, i) {
+                  const last = i === steps.length - 1;
+                  return (
+                    <li key={s.key} className={"relative grid grid-cols-[28px_minmax(0,1fr)_auto] gap-x-4" + (last ? "" : " pb-[22px]")}>
+                      {!last && <span aria-hidden="true" className="absolute bottom-0 left-[13px] top-[22px] w-0.5 bg-taupe/20" />}
+                      {s.done ? (
+                        <span aria-hidden="true" className="relative z-[1] flex h-7 w-7 items-center justify-center rounded-full bg-taupe text-cream">
+                          <Icon d={ICONS.check} size={14} />
+                        </span>
+                      ) : (
+                        <span aria-hidden="true" className="relative z-[1] h-7 w-7 rounded-full border-2 border-dashed border-sand bg-white" />
+                      )}
+                      <div className="flex min-w-0 flex-col gap-3">
+                        <div>
+                          <div className={s.done ? "font-medium" : "font-medium text-ink/60"}>{s.title}</div>
+                          {s.detail && <div className="break-words text-[13px] text-ink/60">{s.detail}</div>}
+                        </div>
+                        {s.photo && (
+                          <a href={s.photo} target="_blank" rel="noreferrer" className="block max-w-[440px]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={s.photo}
+                              alt={"Packed parcel for " + (order.to_name || "this order")}
+                              className="aspect-[1208/550] w-full rounded-xl border border-taupe/20 object-cover"
+                            />
+                          </a>
+                        )}
+                      </div>
+                      {s.at ? (
+                        <time dateTime={s.at} className="whitespace-nowrap text-[13px] text-ink/60">
+                          {fmtShort(s.at)}
+                        </time>
+                      ) : (
+                        <span />
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+
+            <section className={card + " flex flex-col gap-5 px-6 py-7 sm:px-8"}>
+              <h2 className="text-[34px] leading-none">Package</h2>
+              {order.tracking_number && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cream/70 px-4 py-3.5">
+                  <div className="min-w-0">
+                    <div className="text-xs text-taupe">{(order.carrier || "Carrier") + " tracking"}</div>
+                    <div className="break-all font-mono text-[17px] tracking-[0.04em]">{groupTracking(order.tracking_number)}</div>
+                  </div>
+                  <button onClick={copyTrackingNumber} aria-label="Copy tracking number" className={ghostBtn + " text-[13px]"}>
+                    Copy
+                  </button>
+                </div>
+              )}
+              <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div>
+                  <dt className="text-xs text-taupe">Dimensions</dt>
+                  <dd className="mt-0.5">
+                    {order.length} &times; {order.width} &times; {order.height} in
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-taupe">Weight</dt>
+                  <dd className="mt-0.5">{weightText(order)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-taupe">Signature</dt>
+                  <dd className="mt-0.5">{order.signature_confirmation ? "Required" : "Not required"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-taupe">Provider</dt>
+                  <dd className="mt-0.5 capitalize">{order.provider || "-"}</dd>
+                </div>
+                {order.refund_status && (
+                  <div>
+                    <dt className="text-xs text-taupe">Refund</dt>
+                    <dd className="mt-0.5">{order.refund_status}</dd>
+                  </div>
+                )}
+              </dl>
+              {order.notes && (
+                <div className="border-t border-taupe/15 pt-4">
+                  <div className="text-xs text-taupe">Notes</div>
+                  <p className="mt-1 whitespace-pre-wrap">{order.notes}</p>
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* ------- right column ------- */}
+          <aside className="flex min-w-0 flex-[1_1_340px] flex-col gap-7">
+            <section className={card + " flex flex-col gap-5 p-7"}>
+              <div className="flex items-center gap-3.5">
+                <span
+                  aria-hidden="true"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cream font-heading text-[22px] text-taupe"
+                >
+                  {initials(order.to_name)}
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-[28px] leading-tight">{order.to_name || "Unknown"}</h2>
+                  <div className="text-[13px] text-ink/60">
+                    {lifetimeShipments != null && lifetimeShipments > 1 ? "Returning customer" : "Customer"}
+                  </div>
+                </div>
+              </div>
+              <address className="not-italic leading-relaxed">
                 {order.to_street1}
                 {order.to_street2 ? (
                   <>
@@ -512,176 +735,111 @@ export default function OrderDetailPage() {
                 ) : null}
                 <br />
                 {order.to_city}, {order.to_state} {order.to_zip}
-              </dd>
-              {order.to_phone && (
-                <>
-                  <dt className="text-taupe">Phone</dt>
-                  <dd>{order.to_phone}</dd>
-                </>
+              </address>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-cream/70 px-4 py-3.5">
+                  <div className="text-xs text-taupe">Shipments</div>
+                  <div className="font-heading text-[32px] leading-tight">{lifetimeShipments == null ? "..." : lifetimeShipments}</div>
+                </div>
+                <div className="rounded-2xl bg-cream/70 px-4 py-3.5">
+                  <div className="text-xs text-taupe">Lifetime spend</div>
+                  <div className="font-heading text-[32px] leading-tight">
+                    {billingLoading ? "..." : lifetimeSpend != null && lifetimeSpend > 0 ? money(lifetimeSpend) : "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 border-t border-taupe/15 pt-4 text-[13px]">
+                {order.to_email || order.to_phone ? (
+                  <>
+                    {order.to_email && <span className="break-all">{order.to_email}</span>}
+                    {order.to_phone && <span>{order.to_phone}</span>}
+                  </>
+                ) : (
+                  <span className="text-ink/60">No contact info on file</span>
+                )}
+              </div>
+              {portalToken && (
+                <button onClick={copyPortalLink} className={ghostBtn + " justify-center"}>
+                  Copy customer portal link
+                </button>
               )}
-              {order.to_email && (
-                <>
-                  <dt className="text-taupe">Email</dt>
-                  <dd className="break-all">{order.to_email}</dd>
-                </>
-              )}
-            </dl>
-          </div>
+            </section>
 
-          <div className="rounded-3xl border border-taupe/25 bg-white p-6">
-            <h2 className="text-2xl">Label &amp; tracking</h2>
-            <dl className="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-[15px] sm:grid-cols-[130px_1fr]">
-              <dt className="text-taupe">Dimensions</dt>
-              <dd>
-                {order.length} &times; {order.width} &times; {order.height} in
-              </dd>
-              <dt className="text-taupe">Weight</dt>
-              <dd>{weightText(order)}</dd>
-              <dt className="text-taupe">Signature</dt>
-              <dd>{order.signature_confirmation ? "Required" : "Not required"}</dd>
-              <dt className="text-taupe">Tracking</dt>
-              <dd className="break-all">{order.tracking_number || "-"}</dd>
-              <dt className="text-taupe">Provider</dt>
-              <dd>{order.provider || "-"}</dd>
-              <dt className="text-taupe">Created</dt>
-              <dd>{fmt(order.created_at)}</dd>
-              <dt className="text-taupe">Printed</dt>
-              <dd>
-                {fmt(order.printed_at)}
-                {order.printed_by ? <span className="text-ink/50"> &middot; {order.printed_by}</span> : null}
-              </dd>
-              {order.refund_status && (
-                <>
-                  <dt className="text-taupe">Refund</dt>
-                  <dd>{order.refund_status}</dd>
-                </>
-              )}
-              {order.notes && (
-                <>
-                  <dt className="text-taupe">Notes</dt>
-                  <dd className="whitespace-pre-wrap">{order.notes}</dd>
-                </>
-              )}
-              {order.customer_notified_at && (
-                <>
-                  <dt className="text-taupe">Customer told</dt>
-                  <dd>
-                    {fmt(order.customer_notified_at)}
-                    {order.notified_via ? <span className="text-ink/50"> &middot; {order.notified_via}</span> : null}
-                  </dd>
-                </>
-              )}
-            </dl>
-            {order.package_photo_url && (
-              <div className="mt-5">
-                <p className="label">Package photo</p>
-                <a href={order.package_photo_url} target="_blank" rel="noreferrer">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={order.package_photo_url} alt="Package" className="w-full rounded-2xl border border-taupe/20 object-cover" style={{ maxHeight: 420 }} />
-                </a>
-                <p className="mt-1.5 text-xs text-ink/50">
-                  Packed {fmt(order.packed_at)}
-                  {order.packed_by ? " \u00b7 " + order.packed_by : ""}
-                </p>
+            <section className={card + " flex flex-col gap-3 p-7"}>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[28px] leading-none">Payment</h2>
+                {billingLoading ? (
+                  <span className="rounded-full bg-cream px-2.5 py-1 text-xs text-taupe">Checking...</span>
+                ) : payment ? (
+                  <span className="rounded-full bg-cream px-2.5 py-1 text-xs text-ink/80">Matched &middot; {billing.matchedBy}</span>
+                ) : (
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+                    Paid manually
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* ------- right column ------- */}
-        <div className="space-y-5">
-          <div className="rounded-3xl border border-taupe/25 bg-white p-6">
-            <h2 className="text-2xl">Customer</h2>
-            <div className="mt-4 flex items-center gap-3.5">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-cream text-sm text-taupe">
-                {initials(order.to_name)}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-medium">{order.to_name || "Unknown"}</p>
-                <p className="truncate text-xs text-ink/60">{order.to_email || order.to_phone || "No contact info"}</p>
-              </div>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-cream/60 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-taupe">Lifetime shipments</p>
-                <p className="mt-1 text-xl font-medium">
-                  {lifetimeShipments == null ? "..." : lifetimeShipments}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-cream/60 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.08em] text-taupe">Lifetime spend</p>
-                <p className="mt-1 text-xl font-medium">
-                  {billingLoading ? "..." : lifetimeSpend != null && lifetimeSpend > 0 ? money(lifetimeSpend) : "\u2014"}
-                </p>
-              </div>
-            </div>
-            {portalToken && (
-              <button onClick={copyPortalLink} className="btn-secondary mt-4 w-full">
-                Copy portal link
-              </button>
-            )}
-          </div>
-
-          <div className="rounded-3xl border border-taupe/25 bg-white p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-2xl">Payment</h2>
-              {billingLoading ? (
-                <span className="rounded-full bg-cream px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-taupe">
-                  checking...
-                </span>
-              ) : payment ? (
-                <span className="rounded-full border border-taupe/45 bg-cream px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-ink/80">
-                  matched &middot; {billing.matchedBy}
-                </span>
+              {payment ? (
+                <dl className="mt-1 grid grid-cols-[100px_1fr] gap-y-2.5 text-[15px]">
+                  <dt className="text-taupe">Amount</dt>
+                  <dd>{money(payment.amount, payment.currency)}</dd>
+                  <dt className="text-taupe">Method</dt>
+                  <dd>{methodText(payment)}</dd>
+                  <dt className="text-taupe">Status</dt>
+                  <dd>{payment.status || "-"}</dd>
+                  {payment.refund_status && (
+                    <>
+                      <dt className="text-taupe">Refund</dt>
+                      <dd>{payment.refund_status}</dd>
+                    </>
+                  )}
+                  {payment.description && (
+                    <>
+                      <dt className="text-taupe">Description</dt>
+                      <dd>{payment.description}</dd>
+                    </>
+                  )}
+                  <dt className="text-taupe">Paid</dt>
+                  <dd>{fmt(payment.created_at)}</dd>
+                  {payment.receipt_url && (
+                    <>
+                      <dt className="text-taupe">Receipt</dt>
+                      <dd>
+                        <a href={payment.receipt_url} target="_blank" rel="noreferrer" className="text-taupe underline underline-offset-2">
+                          View receipt
+                        </a>
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              ) : billingLoading ? (
+                <p className="text-sm text-ink/60">Looking for a matching payment in the billing portal...</p>
               ) : (
-                <span className="rounded-full border border-dashed border-taupe/50 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-taupe">
-                  manual
-                </span>
+                <p className="text-sm text-ink/60">
+                  No matching charge in the billing portal &mdash; likely cash, in-person, or outside Stripe.
+                </p>
               )}
-            </div>
+            </section>
 
-            {payment ? (
-              <dl className="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-[15px] sm:grid-cols-[130px_1fr]">
-                <dt className="text-taupe">Amount</dt>
-                <dd>{money(payment.amount, payment.currency)}</dd>
-                <dt className="text-taupe">Method</dt>
-                <dd>{methodText(payment)}</dd>
-                <dt className="text-taupe">Status</dt>
-                <dd>{payment.status || "-"}</dd>
-                {payment.refund_status && (
-                  <>
-                    <dt className="text-taupe">Refund</dt>
-                    <dd>{payment.refund_status}</dd>
-                  </>
-                )}
-                {payment.description && (
-                  <>
-                    <dt className="text-taupe">Description</dt>
-                    <dd>{payment.description}</dd>
-                  </>
-                )}
-                <dt className="text-taupe">Paid</dt>
-                <dd>{fmt(payment.created_at)}</dd>
-                {payment.receipt_url && (
-                  <>
-                    <dt className="text-taupe">Receipt</dt>
-                    <dd>
-                      <a href={payment.receipt_url} target="_blank" rel="noreferrer" className="underline">
-                        View receipt
-                      </a>
-                    </dd>
-                  </>
-                )}
-              </dl>
-            ) : billingLoading ? (
-              <p className="mt-4 text-sm text-ink/50">Looking for a matching payment in the billing portal...</p>
-            ) : (
-              <p className="mt-4 text-sm text-ink/60">
-                No matching payment found in the billing portal. This order was likely paid manually (cash, in-person, or
-                outside Stripe).
-              </p>
-            )}
-          </div>
+            <section aria-label="Danger zone" className="flex flex-col gap-1 rounded-3xl border border-dashed border-red-300/70 px-6 py-5">
+              <span className="mb-1 text-xs uppercase tracking-[0.08em] text-ink/60">Danger zone</span>
+              {order.status === "purchased" && (
+                <button
+                  onClick={refund}
+                  disabled={busy !== null}
+                  className="min-h-[44px] text-left text-sm text-red-700 hover:underline disabled:opacity-50 dark:text-red-300"
+                >
+                  {busy === "refund" ? "Refunding..." : "Cancel & refund label"}
+                </button>
+              )}
+              <button
+                onClick={deleteOrder}
+                disabled={busy !== null}
+                className="min-h-[44px] text-left text-sm text-red-700 hover:underline disabled:opacity-50 dark:text-red-300"
+              >
+                {busy === "delete" ? "Deleting..." : "Delete order"}
+              </button>
+            </section>
+          </aside>
         </div>
       </div>
     </Shell>
