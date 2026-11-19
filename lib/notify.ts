@@ -48,7 +48,7 @@ export async function sendEmailPackage(opts: {
     ? '<p style="text-align:center;margin:0 0 28px;"><a href="' + esc(link) + '" style="display:inline-block;background:#957f67;color:#F5F3EF;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:15px;">Rastrear mi paquete · Track package</a></p>'
     : "";
   const html =
-    '<div style="background:#F5F3EF;padding:32px 16px;font-family:Edinburgh, Georgia, serif;color:#332b23;">' +
+    '<div style="background:#F5F3EF;padding:32px 16px;font-family:Evolve Early, Georgia, serif;color:#332b23;">' +
     '<div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e6ddd2;border-radius:24px;padding:32px 24px;">' +
     '<p style="margin:0 0 4px;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#957f67;text-align:center;">Erendira&#39;s Boutique</p>' +
     '<h1 style="margin:0 0 20px;font-size:28px;font-weight:400;color:#957f67;text-align:center;">¡Tu paquete va en camino!</h1>' +

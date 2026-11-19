@@ -13,7 +13,7 @@ const config: Config = {
         white: "rgb(var(--c-surface) / <alpha-value>)",
       },
       fontFamily: {
-        // Headings: TAN Nightingale. Everything else: Edinburgh.
+        // Headings: The Silver Editorial. Everything else: Evolve Early.
         heading: ["var(--font-heading)", "Georgia", "serif"],
         display: ["var(--font-heading)", "Georgia", "serif"],
         body: ["var(--font-body)", "Georgia", "serif"],

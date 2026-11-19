@@ -29,9 +29,9 @@ export const dynamic = "force-dynamic";
 
 // ====== CONFIG ======
 // Fonts live in public/fonts. The first file that exists is used.
-// Headings: TAN Nightingale. Body and everything else: Edinburgh.
-const HEADING_FONTS = ["TAN-Nightingale-Regular.otf", "sltfthesilvereditorial-regular.otf"];
-const BODY_FONTS = ["Edinburgh-Regular.otf", "CooperLtBT-Regular.ttf"];
+// Headings: The Silver Editorial. Body and everything else: Evolve Early.
+const HEADING_FONTS = ["TheSilverEditorial-Regular.otf", "sltfthesilvereditorial-regular.otf"];
+const BODY_FONTS = ["EvolveEarly-Medium.otf", "CooperLtBT-Regular.ttf"];
 const LOGO_FILE = "EB_Logo_Fall BGBLANK.png";
 
 const RETURN_ADDRESS = "Erendira's Boutique — Returns · 17121 Hawthorne Ave, Fontana, CA 92335";
