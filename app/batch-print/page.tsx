@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Figtree } from "next/font/google";
 import Shell from "@/components/Shell";
 import { supabaseBrowser } from "@/lib/supabase/client";
-
-const ui = Figtree({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 // Every merged PDF is kept in this Supabase Storage bucket and listed in this table.
 const BATCH_BUCKET = "label-batches";
@@ -250,7 +247,7 @@ export default function BatchPrintPage() {
 
   return (
     <Shell>
-      <div className={`${ui.className} flex flex-col gap-6 text-[#2f261f] lg:flex-row dark:text-[#f1e9e0]`}>
+      <div className={`font-body flex flex-col gap-6 text-[#2f261f] lg:flex-row dark:text-[#f1e9e0]`}>
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-4xl">Batch Print</h1>

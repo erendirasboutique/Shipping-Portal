@@ -460,7 +460,7 @@ export default function PublicReturnPage() {
 
             {stage === "code" && (
               <>
-                <h1 className="font-body mt-8 text-[28px] leading-tight sm:text-[32px]">{t.homeTitle}</h1>
+                <h1 className="font-heading mt-8 text-[28px] leading-tight sm:text-[32px]">{t.homeTitle}</h1>
                 <p className="mx-auto mt-2.5 max-w-[340px] text-base leading-relaxed text-[#7A6A57]">
                   {t.homeSub}
                 </p>
@@ -522,7 +522,7 @@ export default function PublicReturnPage() {
                 <div className="mx-auto mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-[#F5F3EF] text-[#5B4A38] ring-1 ring-[#CFC3B4]">
                   <CheckIcon size={26} />
                 </div>
-                <h1 className="font-body mt-5 text-[28px] leading-tight sm:text-[32px]">{t.received}</h1>
+                <h1 className="font-heading mt-5 text-[28px] leading-tight sm:text-[32px]">{t.received}</h1>
                 <p className="mx-auto mt-3 max-w-[360px] text-base leading-relaxed text-[#7A6A57]">
                   {t.receivedMsg(form.name.trim().split(" ")[0])}
                 </p>
@@ -617,7 +617,7 @@ export default function PublicReturnPage() {
             className={`flex min-w-0 flex-1 flex-col gap-8 rounded-3xl bg-white p-5 sm:gap-9 sm:p-11 ${cardShadow}`}
           >
             <div>
-              <h1 className="font-body text-[30px] leading-tight sm:text-[38px]">{t.addrTitle}</h1>
+              <h1 className="font-heading text-[30px] leading-tight sm:text-[38px]">{t.addrTitle}</h1>
               <p className="mt-2.5 max-w-[520px] text-base leading-relaxed text-[#7A6A57]">{t.addrSub}</p>
 
               {/* Code (phones and tablets; desktop shows it in the sidebar) */}
@@ -829,7 +829,7 @@ export default function PublicReturnPage() {
             </div>
 
             <div className="rounded-[20px] bg-white p-6 shadow-[0_2px_4px_rgba(59,48,38,0.05)]">
-              <h2 className="font-body mb-4 text-xl">{t.nextTitle}</h2>
+              <h2 className="font-heading mb-4 text-xl">{t.nextTitle}</h2>
               <ul className="flex flex-col gap-4 text-sm leading-relaxed text-[#7A6A57]">
                 <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><ClockIcon /></span>{t.next1}</li>
                 <li className="flex gap-3"><span className="shrink-0 text-[#5B4A38]"><MailIcon /></span>{t.next2}</li>

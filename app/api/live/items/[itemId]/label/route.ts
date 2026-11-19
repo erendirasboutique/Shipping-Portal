@@ -9,7 +9,7 @@ type Ctx = { params: { itemId: string } };
 /**
  * A 2.25 x 1.25" thermal label for a catalog item — the item CODE big and
  * centered (e.g. "A1"), with the description underneath. Same label engine
- * and Recoleta font as the pickup label; here the "tagline" slot carries
+ * and Edinburgh font as the pickup label; here the "tagline" slot carries
  * the code so it prints large.
  *
  * Print it and stick it on the item during the live so the code is easy to

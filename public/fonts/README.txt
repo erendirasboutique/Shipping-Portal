@@ -1,5 +1,4 @@
-Drop your licensed font files here:
-  LaLuxesSerif.woff2
-  Recoleta-Regular.woff2
-  Recoleta-Medium.woff2
-  Recoleta-SemiBold.woff2
+Brand fonts (loaded in app/globals.css and used by the PDF slips/labels):
+  TAN-Nightingale-Regular.otf  - headings
+  Edinburgh-Regular.otf        - body text and everything else
+  Edinburgh-Regular.ttf        - TrueType copy of Edinburgh for lib/live/label.ts
