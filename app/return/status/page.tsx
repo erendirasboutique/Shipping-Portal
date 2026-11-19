@@ -348,7 +348,7 @@ export default function ReturnStatusPage() {
             priority
             className="mx-auto h-auto w-[190px] sm:w-[220px]"
           />
-          <h1 className="font-body mt-6 text-center text-[28px] leading-tight sm:text-[32px]">{t.title}</h1>
+          <h1 className="font-heading mt-6 text-center text-[28px] leading-tight sm:text-[32px]">{t.title}</h1>
           <p className="mt-2 text-center text-base text-[#7A6A57]">{t.subtitle}</p>
 
           {/* Code lookup */}
@@ -414,7 +414,7 @@ export default function ReturnStatusPage() {
 
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 {info.first_name ? (
-                  <h2 className="font-body text-xl">{t.hi(info.first_name)}</h2>
+                  <h2 className="font-heading text-xl">{t.hi(info.first_name)}</h2>
                 ) : (
                   <span />
                 )}

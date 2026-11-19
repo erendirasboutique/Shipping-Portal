@@ -1,19 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* Licensed brand fonts — files live in public/fonts/. Missing files fall back to Georgia. */
-/* Heading font */
+/* Brand fonts — files live in public/fonts/. Missing files fall back to Georgia. */
+/* Heading font. Declared for every weight so browsers never fake a bold version of it. */
 @font-face {
-  font-family: "Silver Editorial";
-  src: url("/fonts/sltfthesilvereditorial-regular.otf") format("opentype");
-  font-weight: 400;
+  font-family: "TAN Nightingale";
+  src: url("/fonts/TAN-Nightingale-Regular.otf") format("opentype");
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
-/* Body text font */
+/* Body text and everything else */
 @font-face {
-  font-family: "Cooper Lt BT";
-  src: url("/fonts/CooperLtBT-Regular.ttf") format("truetype");
+  font-family: "Edinburgh";
+  src: url("/fonts/Edinburgh-Regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -26,11 +26,11 @@
   --c-sand: 207 189 169;    /* everything else  #cfbda9 */
   --c-ink: 51 43 35;        /* body text        #332b23 */
   --c-surface: 255 255 255; /* cards, inputs    white   */
-  --font-heading: "Silver Editorial", Georgia, serif;
+  --font-heading: "TAN Nightingale", Georgia, serif;
   /* Old name kept so anything in tailwind.config still pointing at it gets the heading font too */
   --font-laluxes: var(--font-heading);
-  --font-body: "Cooper Lt BT", Georgia, serif;
-  /* Old name kept so anything in tailwind.config still pointing at it gets Cooper too */
+  --font-body: "Edinburgh", Georgia, serif;
+  /* Old name kept so anything in tailwind.config still pointing at it gets the body font too */
   --font-recoleta: var(--font-body);
 }
 .dark {
@@ -49,6 +49,9 @@
   }
   h1, h2, h3 {
     @apply font-heading text-taupe;
+    font-family: var(--font-heading);
+  }
+  h4, h5, h6 {
     font-family: var(--font-heading);
   }
 }

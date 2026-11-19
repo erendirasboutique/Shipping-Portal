@@ -8,8 +8,8 @@
 // Barcodes, address block, and the bottom-right Data Matrix are untouched.
 //
 // The order's EB number (e.g. "EB-1234") is printed in the same strip,
-// right-aligned, in the brand font (Silver Editorial, the packing slip
-// heading font), so every package can be matched to its order at a glance.
+// right-aligned, in the brand body font (Edinburgh), so every package
+// can be matched to its order at a glance.
 //
 // Used by /api/batch/merge for outbound labels. NOT used by the returns
 // flow — return labels stay unbranded.
@@ -43,7 +43,7 @@ const ORDER_NO = { size: 9, minSize: 7, padRight: 4, gapFromLogo: 6 };
 
 // File in public/fonts. .otf (CFF) fonts are embedded whole — subsetting
 // them can garble letters (same rule as the return slip).
-export const ORDER_FONT_FILE = "sltfthesilvereditorial-regular.otf";
+export const ORDER_FONT_FILE = "Edinburgh-Regular.otf";
 
 // Ligatures off — pdf-lib measures joined letters wrong (same as the slip).
 const PLAIN_LETTERS = { liga: false, clig: false, dlig: false, hlig: false, calt: false, rlig: false };
@@ -118,9 +118,8 @@ function stampBranding(
     const { text, font } = orderNo;
     const right = MASK.x + MASK.w - ORDER_NO.padRight;
     const room = right - (logoRight + ORDER_NO.gapFromLogo);
-    // Silver Editorial's hyphen sits tight against its neighbours, so
-    // "EB-1234" reads as "EB1234". Draw it in pieces with a small gap on
-    // each side of the hyphen instead.
+    // Draw the order number in pieces with a small gap on each side of the
+    // hyphen so "EB-1234" never reads as "EB1234" (brand fonts set hyphens tight).
     const parts = text.split("-");
     const gapFor = (sz: number) => sz * 0.12;
     const widthAt = (sz: number) =>

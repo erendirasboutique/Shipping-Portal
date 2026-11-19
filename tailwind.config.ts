@@ -13,9 +13,13 @@ const config: Config = {
         white: "rgb(var(--c-surface) / <alpha-value>)",
       },
       fontFamily: {
-        heading: ["var(--font-laluxes)", "Georgia", "serif"],
-        body: ["var(--font-recoleta)", "Georgia", "serif"],
-        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        // Headings: TAN Nightingale. Everything else: Edinburgh.
+        heading: ["var(--font-heading)", "Georgia", "serif"],
+        display: ["var(--font-heading)", "Georgia", "serif"],
+        body: ["var(--font-body)", "Georgia", "serif"],
+        sans: ["var(--font-body)", "Georgia", "serif"],
+        serif: ["var(--font-body)", "Georgia", "serif"],
+        mono: ["var(--font-body)", "Georgia", "serif"],
       },
       boxShadow: {
         soft: "0 2px 16px rgba(90, 74, 58, 0.14)",
