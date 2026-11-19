@@ -8,7 +8,7 @@
 // Barcodes, address block, and the bottom-right Data Matrix are untouched.
 //
 // The order's EB number (e.g. "EB-1234") is printed in the same strip,
-// right-aligned, in the brand body font (Edinburgh), so every package
+// right-aligned, in the brand body font (Evolve Early), so every package
 // can be matched to its order at a glance.
 //
 // Used by /api/batch/merge for outbound labels. NOT used by the returns
@@ -43,7 +43,7 @@ const ORDER_NO = { size: 9, minSize: 7, padRight: 4, gapFromLogo: 6 };
 
 // File in public/fonts. .otf (CFF) fonts are embedded whole — subsetting
 // them can garble letters (same rule as the return slip).
-export const ORDER_FONT_FILE = "Edinburgh-Regular.otf";
+export const ORDER_FONT_FILE = "EvolveEarly-Medium.otf";
 
 // Ligatures off — pdf-lib measures joined letters wrong (same as the slip).
 const PLAIN_LETTERS = { liga: false, clig: false, dlig: false, hlig: false, calt: false, rlig: false };

@@ -57,8 +57,8 @@ function Storefront() {
       <rect x="202" y="350" width="30" height="26" fill="#b98a45" stroke="#5c4a38" strokeWidth="3" />
       <rect x="210" y="356" width="13" height="13" fill="#fdf9f1" stroke="#5c4a38" strokeWidth="2.5" />
       <rect x="194" y="380" width="46" height="40" fill="#b98a45" stroke="#5c4a38" strokeWidth="3" />
-      <text x="330" y="384" textAnchor="middle" fontFamily="Edinburgh, Georgia, serif" fontStyle="italic" fontSize="30" fill="#4a3a2a">Erendira&#8217;s</text>
-      <text x="352" y="412" textAnchor="middle" fontFamily="Edinburgh, Georgia, serif" fontStyle="italic" fontSize="17" fill="#5c4a38">boutique</text>
+      <text x="330" y="384" textAnchor="middle" fontFamily="Evolve Early, Georgia, serif" fontStyle="italic" fontSize="30" fill="#4a3a2a">Erendira&#8217;s</text>
+      <text x="352" y="412" textAnchor="middle" fontFamily="Evolve Early, Georgia, serif" fontStyle="italic" fontSize="17" fill="#5c4a38">boutique</text>
       <rect x="356" y="418" width="34" height="42" fill="#b98a45" stroke="#5c4a38" strokeWidth="3" />
       <rect x="364" y="428" width="14" height="12" fill="#fdf9f1" stroke="#5c4a38" strokeWidth="2.5" />
     </svg>
