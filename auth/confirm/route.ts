@@ -37,15 +37,15 @@ export async function GET(request: Request) {
 <meta name="robots" content="noindex">
 <title>Erendira's Boutique · Team invite</title>
 <style>
-  @font-face{font-family:"The Silver Editorial";src:url("/fonts/TheSilverEditorial-Regular.otf") format("opentype");font-weight:100 900;font-display:swap}
-  @font-face{font-family:"Evolve Early";src:url("/fonts/EvolveEarly-Medium.otf") format("opentype");font-weight:400;font-display:swap}
-  h1,h2,h3,h4,h5,h6{font-family:"The Silver Editorial",Georgia,serif;font-weight:400}
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F5F3EF;font-family:Evolve Early, Georgia, serif;color:#3c3024;padding:16px;box-sizing:border-box}
+  @font-face{font-family:"Charman Serif";src:url("/fonts/CharmanSerif-Regular.otf") format("opentype");font-weight:100 900;font-display:swap}
+  @font-face{font-family:"Ltt Recoleta";src:url("/fonts/LttRecoleta-CondensedMedium.otf") format("opentype");font-weight:400;font-display:swap}
+  h1,h2,h3,h4,h5,h6{font-family:"Charman Serif",Georgia,serif;font-weight:400}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F5F3EF;font-family:Ltt Recoleta, Georgia, serif;color:#3c3024;padding:16px;box-sizing:border-box}
   .card{background:#fff;border:1px solid #D9CFC1;border-radius:24px;padding:32px 28px;max-width:400px;width:100%;text-align:center;box-shadow:0 2px 16px rgba(90,74,58,.14)}
   img{height:44px;width:auto}
   h1{font-size:24px;margin:20px 0 6px}
   p{margin:0;color:#6b5d4f;font-size:15px;line-height:1.5}
-  button{margin-top:24px;width:100%;height:52px;border:0;border-radius:999px;background:#8B7D6B;color:#F5F3EF;font:600 17px Evolve Early,Georgia,serif;cursor:pointer}
+  button{margin-top:24px;width:100%;height:52px;border:0;border-radius:999px;background:#8B7D6B;color:#F5F3EF;font:600 17px Ltt Recoleta,Georgia,serif;cursor:pointer}
   button:active{opacity:.85}
 </style>
 </head>

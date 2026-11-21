@@ -13,7 +13,7 @@ const config: Config = {
         white: "rgb(var(--c-surface) / <alpha-value>)",
       },
       fontFamily: {
-        // Headings: The Silver Editorial. Everything else: Evolve Early.
+        // Headings: Charman Serif. Everything else: Ltt Recoleta.
         heading: ["var(--font-heading)", "Georgia", "serif"],
         display: ["var(--font-heading)", "Georgia", "serif"],
         body: ["var(--font-body)", "Georgia", "serif"],

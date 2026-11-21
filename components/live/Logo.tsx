@@ -5,7 +5,7 @@ import { useState } from 'react';
 /**
  * The boutique mark.
  *
- * Falls back to a wordmark in the heading font (The Silver Editorial) if the image can't load,
+ * Falls back to a wordmark in the heading font (Charman Serif) if the image can't load,
  * because a missing logo shouldn't leave a broken-image icon in the
  * header of a screen you're using in front of a live audience. Set
  * NEXT_PUBLIC_BRAND_LOGO_URL to point at your file — otherwise it tries
