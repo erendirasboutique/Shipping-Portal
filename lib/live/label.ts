@@ -1,7 +1,7 @@
 /**
  * A 2.25 x 1.25 inch thermal pickup label, as a PDF, with no dependencies.
  *
- * Embeds the boutique's EvolveEarly font by parsing the TTF and writing a
+ * Embeds the boutique's LttRecoleta font by parsing the TTF and writing a
  * CIDFontType2 with Identity-H encoding by hand. pdf-lib would do this too,
  * but it isn't installable in this build environment, and a hand-rolled
  * embed adds nothing to the dependency tree — which matters for a repo
@@ -97,11 +97,11 @@ function parseTTF(buf: Buffer): Font | null {
 
 let fontCache: Font | null | undefined;
 
-async function loadEvolveEarly(): Promise<Font | null> {
+async function loadLttRecoleta(): Promise<Font | null> {
   if (fontCache !== undefined) return fontCache;
   try {
-    // TrueType copy of Evolve Early (this parser reads TrueType outlines, not .otf/CFF)
-    const p = path.join(process.cwd(), 'public', 'fonts', 'EvolveEarly-Medium.ttf');
+    // TrueType copy of Ltt Recoleta (this parser reads TrueType outlines, not .otf/CFF)
+    const p = path.join(process.cwd(), 'public', 'fonts', 'LttRecoleta-CondensedMedium.ttf');
     fontCache = parseTTF(await readFile(p));
   } catch {
     fontCache = null;
@@ -150,7 +150,7 @@ export async function buildPickupLabel(opts: {
   name: string;
   sub?: string;
 }): Promise<Uint8Array> {
-  const font = await loadEvolveEarly();
+  const font = await loadLttRecoleta();
   return font ? embeddedPDF(opts, font) : helveticaPDF(opts);
 }
 
@@ -167,7 +167,7 @@ export async function buildStickerPair(opts: {
   name: string;
   sub?: string;
 }): Promise<Uint8Array> {
-  const font = await loadEvolveEarly();
+  const font = await loadLttRecoleta();
   // The Helvetica fallback writes raw bytes, so it can't draw the middle dot.
   const sep = font ? ' · ' : ' - ';
   const pages = (['Inside', 'Outside'] as const).map((side) => ({
@@ -189,7 +189,7 @@ export async function buildItemLabel(opts: {
   code: string;
   description?: string;
 }): Promise<Uint8Array> {
-  const font = await loadEvolveEarly();
+  const font = await loadLttRecoleta();
   return font
     ? itemEmbeddedPDF(opts, font)
     : itemHelveticaPDF(opts);
@@ -270,7 +270,7 @@ function itemHelveticaPDF(opts: { code: string; description?: string }): Uint8Ar
   return assembleHelvetica(ops.join('\n'));
 }
 
-// ---- path A: EvolveEarly embedded ----
+// ---- path A: LttRecoleta embedded ----
 function embeddedPDF(opts: { tagline: string; name: string; sub?: string }, f: Font): Uint8Array {
   return assembleEmbedded(pickupOpsEmbedded(opts, f), f);
 }
@@ -306,7 +306,7 @@ function pickupOpsEmbedded(opts: { tagline: string; name: string; sub?: string }
 }
 
 /**
- * Wrap one or more content streams + embedded EvolveEarly into a finished PDF.
+ * Wrap one or more content streams + embedded LttRecoleta into a finished PDF.
  * Each content stream becomes one label-sized page; the font is shared.
  */
 function assembleEmbedded(content: string | string[], f: Font): Uint8Array {
@@ -321,9 +321,9 @@ function assembleEmbedded(content: string | string[], f: Font): Uint8Array {
   const objs: (string | { fontStream: true; body: string })[] = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`,
-    '<< /Type /Font /Subtype /Type0 /BaseFont /EvolveEarly /Encoding /Identity-H /DescendantFonts [4 0 R] >>',
-    `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /EvolveEarly /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 5 0 R /CIDToGIDMap /Identity /W ${wArr} >>`,
-    '<< /Type /FontDescriptor /FontName /EvolveEarly /Flags 4 /FontBBox [0 -300 1000 900] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /FontFile2 6 0 R >>',
+    '<< /Type /Font /Subtype /Type0 /BaseFont /LttRecoleta /Encoding /Identity-H /DescendantFonts [4 0 R] >>',
+    `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /LttRecoleta /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 5 0 R /CIDToGIDMap /Identity /W ${wArr} >>`,
+    '<< /Type /FontDescriptor /FontName /LttRecoleta /Flags 4 /FontBBox [0 -300 1000 900] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /FontFile2 6 0 R >>',
     { fontStream: true, body: `<< /Length ${f.bytes.length} /Length1 ${f.bytes.length} >>\nstream\n<<FONT>>\nendstream` },
   ];
   pages.forEach((c, i) => {

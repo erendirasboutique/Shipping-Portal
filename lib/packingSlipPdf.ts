@@ -45,8 +45,8 @@ export const DEFAULT_SETTINGS: SlipSettings = {
 };
 
 // Brand files (same ones the portal uses)
-const HEADING_FONT = "/fonts/TheSilverEditorial-Regular.otf";
-const BODY_FONT = "/fonts/EvolveEarly-Medium.otf";
+const HEADING_FONT = "/fonts/CharmanSerif-Regular.otf";
+const BODY_FONT = "/fonts/LttRecoleta-CondensedMedium.otf";
 const LOGO = "/EB_Logo_Fall BGBLANK.png";
 const FONTKIT = "https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/+esm";
 
