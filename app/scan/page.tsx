@@ -9,7 +9,7 @@ import Link from "next/link";
 import PortalTranslator from "@/components/PortalTranslator";
 import MessengerLink from "@/components/MessengerLink";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 
 declare global {
   interface Window {
@@ -214,6 +214,8 @@ function ScanPageInner() {
   const [torchOn, setTorchOn] = useState(false);
   const [autoState, setAutoState] = useState<AutoState>("idle");
   const [autoLeft, setAutoLeft] = useState(AUTO_SECONDS);
+  const [foundAt, setFoundAt] = useState<string | null>(null);
+  const [trackCopied, setTrackCopied] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -248,6 +250,8 @@ function ScanPageInner() {
         if (!res.ok) throw new Error(data.error || "Lookup failed.");
         stopCamera();
         setFound(data);
+        setFoundAt(new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+        setTrackCopied(false);
         setSavedBlob(null);
         setCopied(false);
         if (data.order?.photo) {
@@ -629,6 +633,18 @@ function ScanPageInner() {
       });
   }
 
+  function copyTracking() {
+    const t = found?.order.tracking;
+    if (!t) return;
+    navigator.clipboard?.writeText(t).then(
+      () => {
+        setTrackCopied(true);
+        window.setTimeout(() => setTrackCopied(false), 1500);
+      },
+      () => {}
+    );
+  }
+
   async function toggleTorch() {
     const track: any = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
@@ -678,6 +694,11 @@ function ScanPageInner() {
     scan: "M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10",
     send: "M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13",
     copy: "M9 9h11v11H9zM5 15H4V4h11v1",
+    messenger: "M12 3C7 3 3 6.6 3 11.2c0 2.6 1.3 4.9 3.4 6.4V21l3.1-1.7c.8.2 1.6.3 2.5.3 5 0 9-3.6 9-8.2S17 3 12 3z",
+    suite: "M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+    spark: "M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z",
+    more: "M4 6h16M4 12h16M4 18h10",
+    chevron: "M9 6l6 6-6 6",
   };
   const Ico = ({ d, size = 20, w = 1.9 }: { d: string; size?: number; w?: number }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -798,55 +819,80 @@ function ScanPageInner() {
   }
 
   // ---------- Found & Done: light pages ----------
+  const Dashes = ({ n }: { n: number }) => (
+    <span className="flex gap-[3px]" aria-hidden="true">
+      {[1, 2, 3].map((i) => (
+        <span key={i} className={`h-1 w-2.5 rounded-full ${i <= n ? "bg-taupe" : "bg-taupe/30"}`} />
+      ))}
+    </span>
+  );
+  const StepRow = ({ n, active, children }: { n: number; active?: boolean; children: ReactNode }) => (
+    <div className="flex items-start gap-3">
+      <span className={`grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full text-[13px] ${active ? "bg-taupe text-cream" : "bg-sand/30 text-taupe"}`}>{n}</span>
+      <p className="pt-0.5 text-[15px] leading-snug text-ink/85">{children}</p>
+    </div>
+  );
+  const card = "rounded-[24px] border border-sand/60 bg-white dark:bg-transparent";
+  const trackingText = (found?.order.tracking || "").replace(/\s+/g, "").replace(/(.{4})(?=.)/g, "$1 ");
+  const chatName = firstName ? firstName + "'s" : "their";
+
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-4 bg-cream px-5 text-ink" style={{ paddingTop: "max(16px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-      <header className="flex items-center justify-between">
-        <button onClick={next} aria-label={stage === "found" ? "Not this one, scan again" : "Back to scanning"} className="grid h-11 w-11 place-items-center rounded-full border border-sand/60 bg-white dark:bg-transparent">
-          <Ico d={stage === "found" ? ICON.close : ICON.back} />
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-4 bg-cream px-[18px] text-ink" style={{ paddingTop: "max(16px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+      <header className="relative flex h-11 items-center justify-center">
+        <button onClick={next} aria-label={stage === "found" ? "Not this one, scan again" : "Back to scanning"} className="absolute left-0 grid h-11 w-11 place-items-center rounded-full border border-sand/60 bg-white dark:bg-transparent">
+          <Ico d={stage === "found" ? ICON.close : ICON.back} size={18} w={1.7} />
         </button>
-        <span className="rounded-full bg-sand/30 px-3 py-1.5 text-[13px] text-taupe">
+        <span className="flex items-center gap-2 rounded-full bg-sand/30 px-3.5 py-1.5 text-[13.5px] text-taupe">
+          <Dashes n={stage === "found" ? 2 : 3} />
           {stage === "found" ? "Step 2 · Photo & send" : sentCount > 0 ? `${sentCount} sent this session` : "Done"}
         </span>
-        <span className="h-11 w-11" />
       </header>
 
       {stage === "found" && found && (
         <>
           {/* Who it's for */}
-          <section className="flex flex-col gap-3 rounded-[22px] border border-sand/60 bg-white dark:bg-transparent p-4">
-            <span className="flex items-center gap-2 text-[13.5px] text-taupe">
-              <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-sand/30"><Ico d={ICON.check} size={13} w={3} /></span>
-              Label found
-            </span>
+          <section className={card + " flex flex-col gap-3.5 p-4"}>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[13.5px] text-taupe">
+                <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-taupe text-cream"><Ico d={ICON.check} size={12} w={3} /></span>
+                Label found
+              </span>
+              {foundAt && <span className="text-xs text-ink/50">{foundAt}</span>}
+            </div>
             <div className="flex items-center gap-3.5">
-              <span className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl bg-sand/30 text-[17px] text-taupe">{initials}</span>
+              <span className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl bg-sand/30 font-heading text-[20px] text-taupe">{initials}</span>
               <div className="min-w-0">
-                <p className="truncate font-heading text-[26px] leading-tight">{found.order.name || "Customer"}</p>
-                <p className="truncate text-sm text-ink/60">
+                <p className="truncate font-heading text-[32px] leading-none">{found.order.name || "Customer"}</p>
+                <p className="mt-1 truncate text-sm text-ink/60">
                   {found.order.label}
                   {found.order.place ? " · " + found.order.place : ""}
                 </p>
               </div>
             </div>
             {found.order.tracking && (
-              <p className="break-all rounded-xl bg-cream px-3 py-2 font-mono text-xs text-ink/80">
-                {found.order.carrier ? found.order.carrier + " · " : ""}
-                {found.order.tracking}
-              </p>
+              <div className="flex items-center gap-2.5 rounded-[14px] bg-cream py-2 pl-3.5 pr-2">
+                <div className="min-w-0 flex-1">
+                  {found.order.carrier && <p className="text-[11px] uppercase tracking-[0.1em] text-taupe">{found.order.carrier}</p>}
+                  <p className="break-all text-sm tracking-[0.04em] text-ink/85">{trackingText}</p>
+                </div>
+                <button onClick={copyTracking} aria-label={trackCopied ? "Tracking number copied" : "Copy tracking number"} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-taupe dark:bg-transparent">
+                  <Ico d={trackCopied ? ICON.check : ICON.copy} size={16} w={1.8} />
+                </button>
+              </div>
             )}
             {found.order.notifiedAt && (
-              <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e]">
+              <p className="rounded-[14px] bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e]">
                 Already sent by {found.order.notifiedVia || "message"} on {timeAgo(found.order.notifiedAt)}.
               </p>
             )}
             {!found.order.notifiedAt && found.order.museStatus === "queued" && (
-              <p className="rounded-xl bg-sand/20 px-3.5 py-2.5 text-[13px] text-ink/60">
+              <p className="rounded-[14px] bg-sand/20 px-3.5 py-2.5 text-[13px] text-ink/60">
                 Waiting for Muse to send it
                 {found.order.museQueuedAt ? " (queued " + timeAgo(found.order.museQueuedAt) + ")" : ""}. Sending it yourself now is fine too; Muse will skip it.
               </p>
             )}
             {!found.order.notifiedAt && found.order.museStatus === "flagged" && (
-              <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">
+              <p className="rounded-[14px] bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">
                 Muse couldn&apos;t send this one
                 {found.order.museFlagReason ? ": " + found.order.museFlagReason : ""}. Send it yourself below.
               </p>
@@ -868,10 +914,14 @@ function ScanPageInner() {
           {/* Package photo */}
           <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPhotoPicked} />
           {photoSrc ? (
-            <section className="relative overflow-hidden rounded-[22px] bg-black">
+            <section className="relative overflow-hidden rounded-[24px] bg-sand/30">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={photoSrc} alt="Package" className="w-full object-cover" style={{ maxHeight: 380 }} />
-              <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 flex h-10 items-center gap-2 rounded-full bg-black/60 px-4 text-sm text-white backdrop-blur">
+              <span className="absolute left-3 top-3 flex h-8 items-center gap-1.5 rounded-full bg-white/90 pl-2 pr-3 text-[13px] text-ink dark:bg-cream/90">
+                <span className="text-taupe"><Ico d={ICON.check} size={14} w={2.6} /></span>
+                {photoUploaded || (!photo && found.order.photo) ? "Saved to order" : "Photo ready"}
+              </span>
+              <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 flex h-10 items-center gap-2 rounded-full bg-white/90 px-4 text-sm text-ink dark:bg-cream/90">
                 <Ico d={ICON.camera} size={16} w={1.8} />
                 Retake
               </button>
@@ -880,12 +930,17 @@ function ScanPageInner() {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={!!busy}
-              className="flex h-[230px] w-full flex-col items-center justify-center gap-4 rounded-[22px] border-2 border-dashed border-taupe/40 bg-sand/20 text-taupe"
+              className="flex h-[220px] w-full flex-col items-center justify-center gap-3.5 rounded-[24px] border-2 border-dashed border-taupe/35 bg-sand/20 text-taupe"
             >
-              <span className="grid h-[76px] w-[76px] place-items-center rounded-full border-4 border-taupe p-1">
-                <span className="block h-full w-full rounded-full bg-taupe" />
+              <span className="grid h-[72px] w-[72px] place-items-center rounded-full border-[3px] border-taupe p-[4px]">
+                <span className="grid h-full w-full place-items-center rounded-full bg-taupe text-cream">
+                  <Ico d={ICON.camera} size={24} w={1.6} />
+                </span>
               </span>
-              <span className="text-base">{busy || "Take a photo of the box"}</span>
+              <span className="flex flex-col items-center gap-0.5">
+                <span className="text-[17px]">{busy || "Take a photo of the box"}</span>
+                {!busy && <span className="text-[13px] text-ink/50">Show the label side</span>}
+              </span>
             </button>
           )}
 
@@ -923,101 +978,109 @@ function ScanPageInner() {
           {/* Send */}
           <section className="flex flex-col gap-2.5">
             {!found.messenger?.openUrl && (
-            <div role="radiogroup" aria-label="Open in" className="grid grid-cols-2 gap-1 rounded-[14px] bg-sand/30 p-1">
-              {(["messenger", "suite"] as AppTarget[]).map((t) => (
-                <button
-                  key={t}
-                  role="radio"
-                  aria-checked={target === t}
-                  onClick={() => chooseTarget(t)}
-                  className={`h-10 rounded-[11px] text-sm ${target === t ? "bg-white dark:bg-transparent text-ink shadow-sm" : "text-ink/60"}`}
-                >
-                  {APP_NAMES[t]}
-                </button>
-              ))}
-            </div>
+              <div role="radiogroup" aria-label="Open in" className="grid grid-cols-2 gap-1 rounded-[16px] bg-sand/30 p-1">
+                {(["messenger", "suite"] as AppTarget[]).map((t) => (
+                  <button
+                    key={t}
+                    role="radio"
+                    aria-checked={target === t}
+                    onClick={() => chooseTarget(t)}
+                    className={`flex h-[44px] items-center justify-center gap-2 rounded-[12px] text-[15px] ${target === t ? "bg-white text-ink shadow-sm dark:bg-transparent" : "text-ink/60"}`}
+                  >
+                    <span className={target === t ? "text-taupe" : ""}><Ico d={t === "messenger" ? ICON.messenger : ICON.suite} size={16} w={1.7} /></span>
+                    {APP_NAMES[t]}
+                  </button>
+                ))}
+              </div>
             )}
             <button
               onClick={openApp}
               disabled={!!busy || !hasPhoto || autoState === "countdown" || autoState === "sending"}
-              className={found.messenger?.autoSend && autoState !== "failed" ? softBtn + " h-[52px] w-full" : bigBtn}
+              className={found.messenger?.autoSend && autoState !== "failed" ? softBtn + " h-[54px] w-full" : bigBtn + " h-[58px] rounded-[18px] text-[17px]"}
             >
-              <Ico d={ICON.send} size={19} w={2} />
-              {found.messenger?.openUrl ? "Open " + (firstName ? firstName + "'s" : "their") + " chat" : busy || "Send to " + APP_NAMES[target]}
+              <Ico d={ICON.send} size={19} w={1.8} />
+              {found.messenger?.openUrl ? "Open " + chatName + " chat" : busy || "Send to " + APP_NAMES[target]}
             </button>
-            <p className="text-center text-xs text-ink/60">
+            <p className="px-2 text-center text-[13px] leading-snug text-ink/60">
               {found.messenger?.openUrl
                 ? "Copies the photo and opens their chat. Press and hold the message box and tap Paste."
                 : "Copies the photo and opens " + APP_NAMES[target] + ". In the chat, press and hold the message box and tap Paste."}
             </p>
+          </section>
+
+          {/* Muse + message & other options */}
+          <section className="overflow-hidden rounded-[20px] border border-sand/60 bg-white dark:bg-transparent">
             <button
               onClick={() => record("muse")}
               disabled={!!busy || !hasPhoto || !!found.order.notifiedAt}
-              className={softBtn + " h-[52px] w-full"}
+              className="flex h-14 w-full items-center gap-3 border-b border-sand/40 px-4 text-[15px] text-ink disabled:opacity-50"
             >
-              {found.order.museStatus === "queued" ? "Queued for Muse ✓" : "Send with Muse"}
+              <span className="text-taupe"><Ico d={ICON.spark} size={18} w={1.7} /></span>
+              <span className="flex-1 text-left">{found.order.museStatus === "queued" ? "Queued for Muse ✓" : "Send with Muse"}</span>
+              <span className="text-ink/30"><Ico d={ICON.chevron} size={16} w={1.8} /></span>
             </button>
-          </section>
-
-          {/* Message + other options */}
-          <details className="group rounded-[18px] border border-sand/60 bg-white dark:bg-transparent">
-            <summary className="flex h-[52px] cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden justify-between px-4 text-[15px]">
-              Message &amp; other options
-              <span className="text-ink/50 transition-transform group-open:rotate-90"><Ico d="M9 6l6 6-6 6" size={18} /></span>
-            </summary>
-            <div className="flex flex-col gap-2.5 px-4 pb-4">
-              <p className="whitespace-pre-line rounded-xl bg-cream px-3.5 py-3 text-sm text-ink/80">{found.message}</p>
-              <button onClick={copyMessage} className={softBtn}>
-                <Ico d={ICON.copy} size={17} w={1.8} />
-                {copied ? "Message copied" : "Copy message"}
-              </button>
-              {canShareFiles ? (
-                <button onClick={share} disabled={!!busy || !hasPhoto} className={softBtn}>Share photo and message</button>
-              ) : (
-                <div className="grid grid-cols-2 gap-2.5">
-                  {photoSrc && (
-                    <a href={photoSrc} download={"paquete-" + found.order.label + ".jpg"} className={softBtn}>Save photo</a>
-                  )}
-                  <button onClick={() => record("shared")} disabled={!!busy} className={softBtn}>Mark as sent</button>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2.5">
-                {found.email && (
-                  <button onClick={() => record("email")} disabled={!!busy || !hasPhoto} className={softBtn}>Email instead</button>
+            <details className="group">
+              <summary className="flex h-14 cursor-pointer list-none items-center gap-3 px-4 text-[15px] [&::-webkit-details-marker]:hidden">
+                <span className="text-taupe"><Ico d={ICON.more} size={18} w={1.7} /></span>
+                <span className="flex-1">Message &amp; other options</span>
+                <span className="text-ink/30 transition-transform group-open:rotate-90"><Ico d={ICON.chevron} size={16} w={1.8} /></span>
+              </summary>
+              <div className="flex flex-col gap-2.5 px-4 pb-4">
+                <p className="whitespace-pre-line rounded-[14px] bg-cream px-3.5 py-3 text-sm text-ink/80">{found.message}</p>
+                <button onClick={copyMessage} className={softBtn}>
+                  <Ico d={ICON.copy} size={17} w={1.8} />
+                  {copied ? "Message copied" : "Copy message"}
+                </button>
+                {canShareFiles ? (
+                  <button onClick={share} disabled={!!busy || !hasPhoto} className={softBtn}>Share photo and message</button>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {photoSrc && (
+                      <a href={photoSrc} download={"paquete-" + found.order.label + ".jpg"} className={softBtn}>Save photo</a>
+                    )}
+                    <button onClick={() => record("shared")} disabled={!!busy} className={softBtn}>Mark as sent</button>
+                  </div>
                 )}
-                <button onClick={() => record("save")} disabled={!!busy || !photo} className={softBtn + (found.email ? "" : " col-span-2")}>Save photo only</button>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {found.email && (
+                    <button onClick={() => record("email")} disabled={!!busy || !hasPhoto} className={softBtn}>Email instead</button>
+                  )}
+                  <button onClick={() => record("save")} disabled={!!busy || !photo} className={softBtn + (found.email ? "" : " col-span-2")}>Save photo only</button>
+                </div>
               </div>
-            </div>
-          </details>
+            </details>
+          </section>
         </>
       )}
 
       {stage === "done" && found && result && (
         <>
-          <section className="mt-2 flex flex-col items-center gap-2.5 text-center">
-            <div className="relative h-[168px] w-[168px] overflow-hidden rounded-[28px] bg-sand/30 shadow-lg">
-              {photoSrc && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photoSrc} alt="Package" className="h-full w-full object-cover" />
-              )}
-              <span className="absolute bottom-2.5 right-2.5 grid h-[34px] w-[34px] place-items-center rounded-full bg-taupe text-cream ring-[3px] ring-cream">
-                <Ico d={ICON.check} size={18} w={3} />
+          <section className="mt-2 flex flex-col items-center gap-3 text-center">
+            <div className="relative h-[150px] w-[150px]">
+              <div className="h-full w-full overflow-hidden rounded-[30px] bg-sand/40 shadow-soft">
+                {photoSrc && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photoSrc} alt="Package" className="h-full w-full object-cover" />
+                )}
+              </div>
+              <span className="absolute -bottom-2 -right-2 grid h-10 w-10 place-items-center rounded-full bg-taupe text-cream ring-4 ring-cream">
+                <Ico d={ICON.check} size={17} w={3} />
               </span>
             </div>
-            <h1 className="mt-1.5 font-heading text-[30px] leading-tight">
+            <h1 className="mt-2 font-heading text-[38px] leading-none text-taupe">
               {result.via === "auto"
                 ? `Sent to ${firstName || "customer"}`
                 : result.via === "muse"
                 ? "Queued for Muse"
                 : result.via === "opened"
-                ? "Now paste the photo"
+                ? `Now send it${firstName ? " to " + firstName : ""}`
                 : result.via === "shared"
                 ? `Sent to ${firstName || "customer"}`
                 : result.via === "email"
                 ? "Email sent"
                 : "Photo saved"}
             </h1>
-            <p className="text-[15px] text-ink/60">
+            <p className="text-sm text-ink/60">
               {found.order.label}
               {firstName ? " · " + found.order.name : ""}
               {result.to ? " · " + result.to : ""}
@@ -1025,63 +1088,80 @@ function ScanPageInner() {
           </section>
 
           {result.via === "auto" && (
-            <p className="rounded-2xl bg-white dark:bg-transparent px-4 py-3 text-sm text-ink/80 ring-1 ring-inset ring-sand/60">
+            <p className={card + " px-4 py-3.5 text-sm text-ink/80"}>
               The photo and tracking message went out automatically from your Page on Messenger.
             </p>
           )}
 
           {result.via === "muse" && (
-            <p className="rounded-2xl bg-white dark:bg-transparent px-4 py-3 text-sm text-ink/80 ring-1 ring-inset ring-sand/60">
+            <p className={card + " px-4 py-3.5 text-sm text-ink/80"}>
               Muse will send the photo and message next time it runs. Anything it can&apos;t match shows up as flagged on the Packing List.
             </p>
           )}
 
           {result.via === "shared" && (
-            <div className="flex flex-col gap-2.5 rounded-2xl bg-white dark:bg-transparent p-4 ring-1 ring-inset ring-sand/60">
+            <div className={card + " flex flex-col gap-3 p-4"}>
               <p className="text-sm text-ink/80">
                 Messenger only sends the photo. The message is already copied: in the chat, press and hold the message box and tap Paste.
               </p>
               <div className="grid grid-cols-2 gap-2.5">
-                <button onClick={copyMessage} className={softBtn + (canShareFiles ? "" : " col-span-2")}>{copied ? "Message copied" : "Copy again"}</button>
+                <button onClick={copyMessage} className={softBtn + (canShareFiles ? "" : " col-span-2")}>
+                  <Ico d={ICON.copy} size={17} w={1.8} />
+                  {copied ? "Message copied" : "Copy again"}
+                </button>
                 {canShareFiles && <button onClick={shareText} className={softBtn}>Share message</button>}
               </div>
             </div>
           )}
 
           {result.via === "opened" && (
-            <div className="flex flex-col gap-3 rounded-2xl bg-white dark:bg-transparent p-4 ring-1 ring-inset ring-sand/60">
+            <div className={card + " flex flex-col gap-3.5 p-4"}>
               {photoCopied === false && (
-                <p className="rounded-xl bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e]">
+                <p className="rounded-[14px] bg-[#fbf1dc] px-3.5 py-2.5 text-[13px] text-[#7a5a1e]">
                   This phone didn&apos;t let the photo be copied. Use Share photo below instead.
                 </p>
               )}
-              <ol className="flex flex-col gap-2 text-sm text-ink/80">
-                {[
-                  found.messenger?.openUrl
-                    ? `${firstName ? firstName + "'s" : "Their"} chat opens by itself.`
-                    : `In ${APP_NAMES[target]}, open ${firstName ? firstName + "'s" : "the customer's"} chat.`,
-                  "Press and hold the message box, tap Paste, and send the photo.",
-                  "Come back here, tap Copy message, and paste that too.",
-                ].map((step, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sand/30 text-xs text-taupe">{i + 1}</span>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button onClick={copyMessage} className={softBtn}>{copied ? "Copied" : "Copy message"}</button>
-                <button onClick={() => { window.location.href = found.messenger?.openUrl || appLink(target); }} className={softBtn}>
-                  {found.messenger?.openUrl ? "Open chat" : "Open " + APP_NAMES[target]}
-                </button>
-              </div>
-              {canShareFiles && <button onClick={share} className={softBtn}>Share photo</button>}
+              {canShareFiles ? (
+                <>
+                  <StepRow n={1} active>
+                    Tap <span className="text-ink">Share photo</span>, choose {found.messenger?.openUrl ? "Messenger" : APP_NAMES[target]}, then pick {chatName} chat.
+                  </StepRow>
+                  <button onClick={share} className={bigBtn + " h-[54px] rounded-[16px] text-[17px]"}>
+                    <Ico d={ICON.send} size={18} w={1.8} />
+                    Share photo
+                  </button>
+                  <span className="h-px bg-sand/40" />
+                  <StepRow n={2}>
+                    Come back, tap <span className="text-ink">Copy message</span>, and paste it in the same chat.
+                  </StepRow>
+                  <button onClick={copyMessage} className={softBtn + " h-[54px] text-[17px]"}>
+                    <span className="text-taupe"><Ico d={copied ? ICON.check : ICON.copy} size={18} w={1.8} /></span>
+                    {copied ? "Message copied" : "Copy message"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <StepRow n={1} active>
+                    {found.messenger?.openUrl
+                      ? `${firstName ? firstName + "'s" : "Their"} chat opens by itself.`
+                      : `In ${APP_NAMES[target]}, open ${firstName ? firstName + "'s" : "the customer's"} chat.`}
+                  </StepRow>
+                  <StepRow n={2}>Press and hold the message box, tap Paste, and send the photo.</StepRow>
+                  <StepRow n={3}>Come back here, tap Copy message, and paste that too.</StepRow>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button onClick={copyMessage} className={softBtn}>{copied ? "Copied" : "Copy message"}</button>
+                    <button onClick={() => { window.location.href = found.messenger?.openUrl || appLink(target); }} className={softBtn}>
+                      {found.messenger?.openUrl ? "Open chat" : "Open " + APP_NAMES[target]}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           <span className="flex-1" />
-          <button onClick={next} className={bigBtn}>
-            <Ico d={ICON.scan} size={19} w={2} />
+          <button onClick={next} className={bigBtn + " h-[58px] rounded-[18px] text-[17px]"}>
+            <Ico d={ICON.scan} size={19} w={1.8} />
             Scan next package
           </button>
         </>
