@@ -1,6 +1,6 @@
 // app/api/customers/[id]/portal-short-link/route.ts
 // "Copy portal link" (order page and customer profile) calls this.
-// Returns the customer's saved my.ebtq.io link, or makes one on Dub, saves it
+// Returns the customer's saved my.ebtq.io link (e.g. my.ebtq.io/dm42), or makes one on Dub, saves it
 // on the customer, and returns it. If Dub fails, returns the full portal link
 // so the button still copies something that works.
 import { NextResponse } from "next/server";
@@ -21,7 +21,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const admin: any = supabaseAdmin();
   const { data: cust, error } = await admin
     .from("shipping_customers")
-    .select("id, portal_token, account_short_url")
+    .select("id, name, portal_token, account_short_url")
     .eq("id", params.id)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -33,7 +33,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ url: cust.account_short_url, short: true, created: false, longUrl });
   }
 
-  const made = await createAccountShortLink(cust.id, cust.portal_token);
+  const made = await createAccountShortLink(cust.id, cust.portal_token, cust.name);
   if ("error" in made) {
     return NextResponse.json({ url: longUrl, short: false, created: false, longUrl, reason: made.error });
   }
