@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import { shippingNotice } from "@/lib/shipNotice";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { copyCustomerPortalLink, copiedMessage } from "@/lib/copyPortalLink";
 
 function orderLabel(o: any) {
   if (o && o.order_number != null) return "#EB-" + o.order_number;
@@ -214,7 +215,8 @@ export default function OrderDetailPage() {
   const [billing, setBilling] = useState<any | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [lifetimeShipments, setLifetimeShipments] = useState<number | null>(null);
-  const [portalToken, setPortalToken] = useState<string | null>(null);
+  // Matching customer, for "Copy customer portal link" (needs their id and a portal token).
+  const [portalCustomerId, setPortalCustomerId] = useState<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -271,32 +273,32 @@ export default function OrderDetailPage() {
         setLifetimeShipments(count == null ? 0 : count);
       })();
 
-      // Matching customer's portal token (email first, then name)
+      // Matching customer for the portal link (email first, then name)
       (async function () {
-        let token: string | null = null;
+        let custId: string | null = null;
         if (o.to_email) {
           const res = await supabase
             .from("shipping_customers")
-            .select("portal_token")
+            .select("id, portal_token")
             .ilike("email", o.to_email)
             .or("archived.is.null,archived.eq.false")
             .is("merged_into", null)
             .limit(1)
             .maybeSingle();
-          token = res.data && res.data.portal_token ? res.data.portal_token : null;
+          custId = res.data && res.data.portal_token ? res.data.id : null;
         }
-        if (!token && o.to_name) {
+        if (!custId && o.to_name) {
           const res = await supabase
             .from("shipping_customers")
-            .select("portal_token")
+            .select("id, portal_token")
             .ilike("name", o.to_name)
             .or("archived.is.null,archived.eq.false")
             .is("merged_into", null)
             .limit(1)
             .maybeSingle();
-          token = res.data && res.data.portal_token ? res.data.portal_token : null;
+          custId = res.data && res.data.portal_token ? res.data.id : null;
         }
-        setPortalToken(token);
+        setPortalCustomerId(custId);
       })();
 
       // Billing portal match
@@ -393,11 +395,16 @@ export default function OrderDetailPage() {
     setActionsOpen(false);
   }
 
-  function copyPortalLink() {
-    if (!portalToken) return;
-    navigator.clipboard.writeText("https://my.erendirasboutique.com/account?t=" + portalToken);
-    setMsg("Portal link copied to clipboard.");
+  // Copies the customer's my.ebtq.io short link; the first copy creates and saves it.
+  async function copyPortalLink() {
+    if (!portalCustomerId) return;
     setActionsOpen(false);
+    setMsg("Getting the portal link…");
+    try {
+      setMsg(copiedMessage(await copyCustomerPortalLink(portalCustomerId)));
+    } catch (e: any) {
+      setMsg(e.message || "Couldn't copy the portal link.");
+    }
   }
 
   function copyTrackingNumber() {
@@ -436,7 +443,7 @@ export default function OrderDetailPage() {
   const lifetimeSpend = billing && billing.lifetime ? billing.lifetime.total_spend : null;
   const steps = journeySteps(order);
   const canPrint = order.status === "purchased" && order.label_url;
-  const hasCopyItems = !!order.tracking_number || !!portalToken || !!(payment && payment.receipt_url);
+  const hasCopyItems = !!order.tracking_number || !!portalCustomerId || !!(payment && payment.receipt_url);
   const menuItem = "flex min-h-[44px] w-full items-center px-4 text-left text-sm text-ink hover:bg-cream/60";
   const card = "rounded-3xl border border-taupe/25 bg-white";
   const ghostBtn =
@@ -507,7 +514,7 @@ export default function OrderDetailPage() {
                         Tracking link
                       </button>
                     )}
-                    {portalToken && (
+                    {portalCustomerId && (
                       <button role="menuitem" onClick={copyPortalLink} className={menuItem}>
                         Customer portal link
                       </button>
@@ -758,7 +765,7 @@ export default function OrderDetailPage() {
                   <span className="text-ink/60">No contact info on file</span>
                 )}
               </div>
-              {portalToken && (
+              {portalCustomerId && (
                 <button onClick={copyPortalLink} className={ghostBtn + " justify-center"}>
                   Copy customer portal link
                 </button>
