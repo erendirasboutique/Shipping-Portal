@@ -7,6 +7,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import MessengerLink from "@/components/MessengerLink";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fetchAll } from "@/lib/fetchAll";
+import { copyCustomerPortalLink, copiedMessage } from "@/lib/copyPortalLink";
 
 const empty = {
   name: "", email: "", phone: "", street1: "", street2: "",
@@ -161,6 +162,7 @@ export default function CustomersPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [linkNote, setLinkNote] = useState("Copy portal link");
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
@@ -321,11 +323,23 @@ export default function CustomersPage() {
     setLinkCopied(false);
   }
 
-  function copyPortalLink() {
-    if (!editing?.portal_token) return;
-    navigator.clipboard.writeText("https://my.erendirasboutique.com/account?t=" + editing.portal_token);
+  // Copies the customer's my.ebtq.io short link; the first copy creates and saves it.
+  async function copyPortalLink() {
+    if (!editing?.id || !editing?.portal_token) return;
+    const id = editing.id;
+    try {
+      const link = await copyCustomerPortalLink(id);
+      if (link.short) {
+        setCustomers((cs: any[]) => cs.map((c) => (c.id === id ? { ...c, account_short_url: link.url } : c)));
+        setEditing((e: any) => (e && e.id === id ? { ...e, account_short_url: link.url } : e));
+      }
+      setLinkNote(link.short ? "\u2713 Copied " + link.url.replace(/^https?:\/\//, "") : "\u2713 Copied full link (short link failed)");
+      if (!link.short) setMsg(copiedMessage(link));
+    } catch (e: any) {
+      setLinkNote("Couldn't copy, try again");
+    }
     setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
+    setTimeout(() => setLinkCopied(false), 4000);
   }
 
   async function save() {
@@ -786,7 +800,7 @@ export default function CustomersPage() {
               )}
               {editing.id && editing.portal_token && (
                 <button onClick={copyPortalLink} className="rounded-xl px-3 py-2 text-sm font-medium text-taupe hover:bg-sand/40">
-                  {linkCopied ? "✓ Link copied" : "Copy portal link"}
+                  {linkCopied ? linkNote : "Copy portal link"}
                 </button>
               )}
               <div className="ml-auto flex gap-2">
