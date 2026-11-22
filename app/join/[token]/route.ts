@@ -5,6 +5,7 @@
 // POST (the tap) checks the invite and signs the person in right then.
 
 import { NextResponse } from "next/server";
+import { BRAND_LOGO } from "@/lib/brand";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { signInNow, type StaffRow } from "@/lib/team";
 
@@ -38,7 +39,7 @@ function page(body: string) {
   );
 }
 
-const LOGO = `<img src="/EB_Logo_Fall%20BGBLANK.png" alt="Erendira's Boutique">`;
+const LOGO = `<img src="${BRAND_LOGO}" alt="Erendira's Boutique">`;
 
 async function findInvite(token: string): Promise<StaffRow | null> {
   if (!/^[0-9a-f]{48}$/.test(token)) return null;

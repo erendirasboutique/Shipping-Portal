@@ -8,11 +8,12 @@
 // portal uses, so picking Español here keeps the other pages in Spanish too.
 
 import Image from "next/image";
+import { BRAND_LOGO } from "@/lib/brand";
 import Link from "next/link";
 import { useEffect } from "react";
 import { setPortalLocale, usePortalLocale, type PortalLocale } from "@/components/PortalTranslator";
 
-const LOGO = "/EB_Logo_Fall BGBLANK.png";
+const LOGO = BRAND_LOGO; // shared brand logo (lib/brand.ts)
 
 type Item = {
   href: string;

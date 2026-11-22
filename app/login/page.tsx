@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { BRAND_LOGO } from "@/lib/brand";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -135,7 +136,7 @@ function LoginInner() {
       <div className="grid w-full max-w-5xl items-stretch gap-8 lg:grid-cols-2">
         <div className="card flex flex-col justify-center !rounded-[1.5rem] border-2 !border-ink/70 bg-white px-8 py-10 shadow-[6px_6px_0_rgba(60,48,36,0.85)] sm:px-12">
           <Image
-            src="/EB_Logo_Fall BGBLANK.png"
+            src={BRAND_LOGO}
             alt="Erendira&#8217;s Boutique"
             width={170}
             height={74}

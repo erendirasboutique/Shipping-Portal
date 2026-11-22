@@ -1,4 +1,5 @@
 import BasketLookup from '@/components/live/BasketLookup';
+import { BRAND_LOGO } from "@/lib/brand";
 import '@/styles/live.css';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export default function BuscarPage() {
     <div className="live order">
       <div className="order__shell">
         <header className="order__head">
-          <img className="order__logo" src="/logo.png" alt="Erendira's Boutique" />
+          <img className="order__logo" src={BRAND_LOGO} alt="Erendira's Boutique" />
         </header>
 
         <BasketLookup />

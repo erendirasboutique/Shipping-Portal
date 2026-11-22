@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { BRAND_LOGO } from "@/lib/brand";
 import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 
@@ -10,7 +11,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 
 // Same background as the return page. Swap the file in /public to change it.
 const BG_IMAGE = "/return-bg.jpg";
-const LOGO = "/EB_Logo_Fall BGBLANK.png";
+const LOGO = BRAND_LOGO; // shared brand logo (lib/brand.ts)
 const MESSENGER_URL = "https://ebtq.io/messenger";
 const POLICY_URL = "https://www.erendirasboutique.com/return-policy";
 const RETURN_URL = "/return";

@@ -9,6 +9,7 @@
 // • ← / → or Enter move between steps, Esc closes. English or Spanish follows the EN | ES switch.
 
 import { usePathname, useRouter } from "next/navigation";
+import { BRAND_LOGO } from "@/lib/brand";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { usePortalLocale } from "@/components/PortalTranslator";
@@ -852,7 +853,7 @@ export default function QuickStartGuide() {
           >
             {first && (
               <div className="-mx-1 mb-4 flex items-center justify-center rounded-[22px] bg-sand/20 py-5">
-                <img src="/EB_Logo_Fall BGBLANK.png" alt="" className="h-16 w-auto" />
+                <img src={BRAND_LOGO} alt="" className="h-16 w-auto" />
               </div>
             )}
             {body}

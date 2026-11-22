@@ -4,6 +4,7 @@
 // branded PDF (4×6 for the thermal printer, or full letter).
 
 import { useEffect, useMemo, useState } from "react";
+import { BRAND_LOGO } from "@/lib/brand";
 import Shell from "@/components/Shell";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import {
@@ -303,7 +304,7 @@ export default function PackingSlipsPage() {
                 <div className="mx-auto w-full max-w-[300px]">
                   <div className="flex aspect-[4/6] flex-col overflow-hidden rounded-xl border border-sand/70 bg-white p-4 text-ink shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/EB_Logo_Fall BGBLANK.png" alt="" className="mx-auto h-9 w-auto object-contain" />
+                    <img src={BRAND_LOGO} alt="" className="mx-auto h-9 w-auto object-contain" />
                     <div className="mt-2 h-px bg-sand" />
                     <div className="mt-2 flex items-baseline justify-between text-[7px] uppercase tracking-[0.3em] text-taupe">
                       <span>Packing slip</span>

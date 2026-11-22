@@ -1,4 +1,5 @@
 import { getBasketsForPortalToken } from '@/lib/live/queries';
+import { BRAND_LOGO } from "@/lib/brand";
 import { isUuid } from '@/lib/live/schema';
 import PortalBaskets from '@/components/live/PortalBaskets';
 import '@/styles/live.css';
@@ -39,7 +40,7 @@ export default async function OrderPage({ params }: { params: { token: string } 
     <div className="live order">
       <div className="order__shell">
         <header className="order__head">
-          <img className="order__logo" src="/logo.png" alt="Erendira's Boutique" />
+          <img className="order__logo" src={BRAND_LOGO} alt="Erendira's Boutique" />
         </header>
 
         {!known ? (

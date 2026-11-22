@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { BRAND_LOGO } from "@/lib/brand";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,7 +10,7 @@ import KeyboardShortcuts, { ShortcutsHint } from "@/components/KeyboardShortcuts
 import PortalTranslator, { LanguageToggle } from "@/components/PortalTranslator";
 import QuickStartGuide, { QuickStartButton } from "@/components/QuickStartGuide";
 
-const LOGO = "/EB_Logo_Fall BGBLANK.png";
+const LOGO = BRAND_LOGO; // shared brand logo (lib/brand.ts)
 
 const ICON = {
   home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
