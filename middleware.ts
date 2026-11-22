@@ -24,6 +24,9 @@ const PUBLIC_PATHS = [
   "/api/muse",
   // Facebook's Messenger webhook. Checks FB_APP_SECRET on every call.
   "/api/messenger/webhook",
+  // Shippo and EasyPost tracking webhooks. Each checks its own secret
+  // (SHIPPO_WEBHOOK_TOKEN / EASYPOST_WEBHOOK_USER + PASS) on every call.
+  "/api/webhooks",
 ];
 
 // A v4 uuid, which is what portal_token is. Used to spot a bare token at
