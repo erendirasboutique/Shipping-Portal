@@ -4,12 +4,13 @@
 // password for next time (or skip), then go to the employee start page (/e).
 
 import Image from "next/image";
+import { BRAND_LOGO } from "@/lib/brand";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { setPortalLocale, usePortalLocale } from "@/components/PortalTranslator";
 
-const LOGO = "/EB_Logo_Fall BGBLANK.png";
+const LOGO = BRAND_LOGO; // shared brand logo (lib/brand.ts)
 
 const COPY = {
   en: {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { BRAND_CSS } from "@/lib/brand";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
@@ -39,6 +40,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Shared brand colors and fonts (served by the Customer Portal) */}
+        <link rel="stylesheet" href={BRAND_CSS} />
+      </head>
       <body className="min-h-screen bg-cream font-body text-ink antialiased">
         {children}
       </body>

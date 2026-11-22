@@ -1,29 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* Brand fonts — files live in public/fonts/. Missing files fall back to Georgia. */
-/* Heading font. Declared for every weight so browsers never fake a bold version of it. */
-@font-face {
-  font-family: "Charman Serif";
-  src: url("/fonts/CharmanSerif-Regular.otf") format("opentype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-/* Body text and everything else */
-@font-face {
-  font-family: "Ltt Recoleta";
-  src: url("/fonts/LttRecoleta-CondensedMedium.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Brand fonts (Charman Serif, Ltt Recoleta) come from the shared brand.css
+   loaded in app/layout.tsx. If it can't load, text falls back to Georgia. */
 
 /* ---- Theme palettes (RGB triplets so Tailwind opacity modifiers work) ---- */
 :root {
-  --c-cream: 245 243 239;   /* background       #F5F3EF */
-  --c-taupe: 149 127 103;   /* text/buttons     #957f67 */
-  --c-sand: 207 189 169;    /* everything else  #cfbda9 */
+  --c-cream: var(--brand-cream-rgb, 245 243 239);   /* background #F5F3EF (shared brand) */
+  --c-taupe: var(--brand-taupe-rgb, 149 127 103);   /* text/buttons #957f67 (shared brand) */
+  --c-sand: var(--brand-sand-rgb, 207 189 169);     /* everything else #cfbda9 (shared brand) */
   --c-ink: 51 43 35;        /* body text        #332b23 */
   --c-surface: 255 255 255; /* cards, inputs    white   */
   --font-heading: "Charman Serif", Georgia, serif;
