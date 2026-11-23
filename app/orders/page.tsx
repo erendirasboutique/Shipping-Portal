@@ -164,9 +164,10 @@ function trackingLink(o: any): string | null {
   return "https://tools.usps.com/go/TrackConfirmAction?tLabels=" + tn;
 }
 
-// Pop-up on desktop; on phones and tablets an order always opens its full page.
+// Pop-up on bigger screens (iPad, iPhone Duo open, computers); on phones,
+// including phones turned sideways, an order always opens its full page.
 function isDesktop() {
-  return typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+  return typeof window !== "undefined" && window.matchMedia("(min-width: 600px) and (min-height: 560px)").matches;
 }
 
 const DATE_RANGES = [

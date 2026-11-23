@@ -38,6 +38,20 @@ const ICON = {
 
 type NavItem = { href: string; label: string; d: string };
 
+// Short names for the tablet icon sidebar, where there's room for one word.
+const SHORT: Record<string, string> = {
+  "Live List": "Live",
+  "Create Label": "Create",
+  "Batch Print": "Print",
+  "Packing List": "Packing",
+  "Packing Slips": "Slips",
+  "Scan & Send": "Send",
+  "Scan a Label": "Scan",
+  "Shipping Map": "Map",
+  "Carrier Performance": "Carriers",
+  "Monthly Recap": "Recap",
+};
+
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "", items: [{ href: "/", label: "Dashboard", d: ICON.home }] },
   {
@@ -151,10 +165,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen rail:flex lg:flex">
       {/* Phone top bar */}
       <header
-        className={`sticky top-0 z-30 flex h-16 items-center justify-between border-b border-sand/60 bg-cream/95 px-4 backdrop-blur lg:hidden`}
+        className={`sticky top-0 z-30 flex h-16 items-center justify-between border-b border-sand/60 bg-cream/95 px-4 backdrop-blur rail:hidden lg:hidden`}
       >
         <Link href="/" aria-label="Dashboard">
           <Image src={LOGO} alt="Erendira's Boutique" width={170} height={72} className="h-9 w-auto" priority />
@@ -176,6 +190,63 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
         />
       )}
+
+      {/* Tablet icon sidebar (iPad mini upright, iPhone Duo open and sideways).
+          The full menu still opens from the top button. */}
+      <nav
+        aria-label="Main (compact)"
+        className="sticky top-0 hidden h-screen w-[84px] shrink-0 flex-col items-center gap-1.5 border-r border-sand/60 bg-cream px-2 pb-3 pt-[max(12px,env(safe-area-inset-top))] rail:flex"
+      >
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Open full menu"
+          title="Menu"
+          className="grid h-11 w-11 place-items-center rounded-xl text-ink/80 hover:bg-sand/20"
+        >
+          <Icon d={ICON.menu} size={22} />
+        </button>
+        <Link
+          href="/create-label"
+          aria-label="Create label"
+          title="Create label"
+          className="grid h-11 w-11 place-items-center rounded-xl bg-taupe text-cream transition-colors hover:bg-taupe/90"
+        >
+          <Icon d={ICON.plus} size={20} width={2.2} />
+        </Link>
+        <span aria-hidden="true" className="my-1 h-px w-10 bg-sand/60" />
+        <div className="-mx-1 flex w-[calc(100%+8px)] flex-1 flex-col items-center gap-0.5 overflow-y-auto px-1">
+          {GROUPS.flatMap((g) =>
+            isAdmin && g.label === "Manage" ? [...g.items, { href: "/team", label: "Team", d: ICON.team }] : g.items
+          ).map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                title={item.label}
+                className={`flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10.5px] leading-tight transition-colors ${
+                  active ? "bg-sand/25 font-semibold text-ink" : "text-ink/70 hover:bg-sand/20"
+                }`}
+              >
+                <span className={active ? "text-taupe" : "text-ink/55"}>
+                  <Icon d={item.d} size={20} />
+                </span>
+                <span aria-hidden="true" className="w-full truncate">{SHORT[item.label] ?? item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <button
+          onClick={toggleDark}
+          aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+          title={dark ? "Light mode" : "Dark mode"}
+          className="grid h-11 w-11 place-items-center rounded-xl text-ink/55 hover:bg-sand/20"
+        >
+          <Icon d={dark ? ICON.sun : ICON.moon} size={18} />
+        </button>
+      </nav>
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col gap-4 border-r border-sand/60 bg-cream px-3.5 pb-3.5 pt-5 transition-transform duration-200 ${
@@ -293,7 +364,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">{children}</main>
 
       <KeyboardShortcuts />
       <QuickStartGuide />
