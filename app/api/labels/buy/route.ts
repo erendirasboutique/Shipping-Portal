@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getProvider } from "@/lib/shipping";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { notifyOrder } from "@/lib/customerNotify";
 export async function POST(req: Request) {
   const supabase = supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -82,7 +83,9 @@ export async function POST(req: Request) {
       console.error("[labels/buy] failed to update order", error);
       throw new Error(error.message);
     }
-    return NextResponse.json({ ok: true, ...update });
+    // Email/text #1 "Your order has been packed". Never blocks the label.
+    const notified = await notifyOrder(order_id, "packed");
+    return NextResponse.json({ ok: true, ...update, notified });
   } catch (e: any) {
     console.error("[labels/buy] error", e);
     return NextResponse.json({ error: e.message }, { status: 400 });

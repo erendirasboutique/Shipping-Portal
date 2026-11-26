@@ -9,6 +9,7 @@
 
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { notifyOrder, stageForStatus } from "@/lib/customerNotify";
 
 export type TrackingEvent = {
   at: string | null;
@@ -186,6 +187,11 @@ export async function saveTrackingUpdate(u: TrackingUpdate): Promise<number> {
     const { error: upErr } = await admin.from("shipping_orders").update(patch).eq("id", row.id);
     if (upErr) throw new Error(upErr.message);
     updated++;
+
+    // Emails/texts #2–4 (on the way, out for delivery, delivered).
+    // Each one only goes out once, so webhook retries are harmless.
+    const stage = stageForStatus(u.status);
+    if (stage && !u.test) await notifyOrder(row.id, stage);
   }
   return updated;
 }
