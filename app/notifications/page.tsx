@@ -235,7 +235,7 @@ export default function NotificationsPage() {
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
           <span className="pill">{settings?.enabled ? "Notifications on" : "Notifications off"}</span>
           <span className="pill">{ready.email ? "Email ready" : "Email not set up"}</span>
-          <span className="pill">{ready.sms ? "Texting ready" : "Texting not set up (Twilio)"}</span>
+          <span className="pill">{ready.sms ? "Texting ready" : "Texting not set up (Plivo)"}</span>
         </div>
 
         <div className="mt-5 flex gap-1 border-b border-taupe/20">
