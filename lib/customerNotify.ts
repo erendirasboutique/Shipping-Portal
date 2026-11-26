@@ -87,6 +87,8 @@ export function stageForStatus(status: string | null | undefined): Stage | null 
 
 // The shop website ("Visita nuestra tienda"). NEXT_PUBLIC_BRAND_URL is the brand-files folder, not this.
 const STORE_URL = (process.env.NEXT_PUBLIC_STORE_URL || "https://erendirasboutique.com").replace(/\/$/, "");
+// Text sign-up page lives in the Customer Portal.
+const SMS_SIGNUP_URL = process.env.NEXT_PUBLIC_SMS_SIGNUP_URL || "https://my.erendirasboutique.com/sms";
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://ship.erendirasboutique.com").replace(/\/$/, "");
 
 export function emailConfigured() {
@@ -331,7 +333,7 @@ export function renderEmail(t: Template, s: Settings, vars: Vars): { subject: st
   const replyTo = s.reply_to || DEFAULT_SETTINGS.reply_to || "";
   const footer = `<tr><td style="padding:28px 0 0;">
       <div style="border-top:1px solid ${line};padding-top:24px;font-family:${BODY};font-size:13px;line-height:1.6;color:${muted};">
-        <div style="padding-bottom:10px;">📱 ¿Quieres recibir estas actualizaciones por texto? <a href="${esc(SITE)}/sms" style="color:${accent};">Suscríbete aquí</a>.</div>
+        <div style="padding-bottom:10px;">📱 ¿Quieres recibir estas actualizaciones por texto? <a href="${esc(SMS_SIGNUP_URL)}" style="color:${accent};">Suscríbete aquí</a>.</div>
         ¿Preguntas? Responde a este correo${replyTo ? `, escríbenos a <a href="mailto:${esc(replyTo)}" style="color:${accent};">${esc(replyTo)}</a>` : ""} o por <a href="https://ebtq.io/messenger" style="color:${accent};">Messenger</a>.
         ${s.tagline ? `<div style="font-family:${HEAD};font-size:16px;color:${accent};padding-top:10px;">${esc(s.tagline)}</div>` : ""}
         <div style="font-size:12px;padding-top:10px;">${s.business_address ? esc(s.business_address) + " · " : ""}<a href="https://erendirasboutique.com/return-policy" style="color:${accent};">Política de devoluciones</a></div>
@@ -393,7 +395,7 @@ export function renderSms(t: Template, vars: Vars) {
   return body + "\n\nResponde STOP para cancelar.";
 }
 
-/** True if this number signed up on /sms and hasn't opted out. */
+/** True if this number signed up on my.erendirasboutique.com/sms and hasn't opted out. */
 export async function smsOptedIn(admin: any, phone: string): Promise<boolean> {
   const { data, error } = await admin.from("sms_subscribers").select("opted_out_at").eq("phone", phone).maybeSingle();
   if (error) return false;
