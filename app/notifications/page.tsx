@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Shell from "@/components/Shell";
+import BroadcastComposer from "@/components/BroadcastComposer";
 
 type Stage = "packed" | "in_transit" | "out_for_delivery" | "delivered";
 type Template = {
@@ -70,7 +71,7 @@ function when(iso: string) {
 }
 
 export default function NotificationsPage() {
-  const [tab, setTab] = useState<"messages" | "branding" | "history">("messages");
+  const [tab, setTab] = useState<"messages" | "send" | "branding" | "history">("messages");
   const [templates, setTemplates] = useState<Template[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [ready, setReady] = useState<{ email: boolean; sms: boolean }>({ email: false, sms: false });
@@ -225,9 +226,9 @@ export default function NotificationsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {notice && <span className="text-sm text-ink/70">{notice}</span>}
-            <button className="btn-primary" onClick={save} disabled={!dirty || busy === "save"}>
+            {tab !== "send" && <button className="btn-primary" onClick={save} disabled={!dirty || busy === "save"}>
               {busy === "save" ? "Saving…" : dirty ? "Save changes" : "Saved"}
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -239,13 +240,13 @@ export default function NotificationsPage() {
         </div>
 
         <div className="mt-5 flex gap-1 border-b border-taupe/20">
-          {(["messages", "branding", "history"] as const).map((t) => (
+          {(["messages", "send", "branding", "history"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={"px-4 py-2.5 text-sm " + (tab === t ? "border-b-2 border-taupe text-ink" : "text-taupe")}
             >
-              {t === "messages" ? "Messages" : t === "branding" ? "Branding" : "Send history"}
+              {t === "messages" ? "Shipping messages" : t === "send" ? "Send a message" : t === "branding" ? "Branding" : "Send history"}
             </button>
           ))}
         </div>
@@ -383,6 +384,8 @@ export default function NotificationsPage() {
             </div>
           </div>
         )}
+
+        {tab === "send" && <BroadcastComposer />}
 
         {tab === "branding" && settings && (
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
