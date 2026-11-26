@@ -404,9 +404,18 @@ export async function smsOptedIn(admin: any, phone: string): Promise<boolean> {
 
 // ---------------------------------------------------------------- sending
 
-export async function sendEmail(to: string, subject: string, html: string, text: string, replyTo?: string | null): Promise<string | null> {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  replyTo?: string | null,
+  extra?: { attachments?: { filename: string; content: string }[]; headers?: Record<string, string> }
+): Promise<string | null> {
   const payload: Record<string, any> = { from: process.env.EMAIL_FROM, to: [to], subject, html, text };
   if (replyTo) payload.reply_to = replyTo;
+  if (extra?.attachments?.length) payload.attachments = extra.attachments;
+  if (extra?.headers) payload.headers = extra.headers;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: "Bearer " + process.env.RESEND_API_KEY, "Content-Type": "application/json" },
@@ -443,8 +452,9 @@ export function quietHoursSendAt(state: string | null | undefined, now = new Dat
  * Sends a text through Telnyx. With sendAt, Telnyx holds it and sends it then.
  * key (our log id) stops a retry from sending the same text twice.
  */
-export async function sendSms(to: string, body: string, sendAt: Date | null = null, key?: string): Promise<string | null> {
-  const payload: Record<string, any> = { from: process.env.TELNYX_FROM, to, text: body, type: "SMS" };
+export async function sendSms(to: string, body: string, sendAt: Date | null = null, key?: string, mediaUrls?: string[]): Promise<string | null> {
+  const payload: Record<string, any> = { from: process.env.TELNYX_FROM, to, text: body, type: mediaUrls?.length ? "MMS" : "SMS" };
+  if (mediaUrls?.length) payload.media_urls = mediaUrls;
   if (process.env.TELNYX_MESSAGING_PROFILE_ID) payload.messaging_profile_id = process.env.TELNYX_MESSAGING_PROFILE_ID;
   if (sendAt) payload.send_at = new Date(Math.max(sendAt.getTime(), Date.now() + 5 * 60000)).toISOString();
   const headers: Record<string, string> = {

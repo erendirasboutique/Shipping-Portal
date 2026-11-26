@@ -27,6 +27,10 @@ const PUBLIC_PATHS = [
   // Shippo and EasyPost tracking webhooks. Each checks its own secret
   // (SHIPPO_WEBHOOK_TOKEN / EASYPOST_WEBHOOK_USER + PASS) on every call.
   "/api/webhooks",
+  // Contact card (.vcf) for texts/emails, and one-click email unsubscribe.
+  // The unsubscribe link carries a signed token; the card is public info.
+  "/api/public",
+  "/unsubscribe",
 ];
 
 // A v4 uuid, which is what portal_token is. Used to spot a bare token at
