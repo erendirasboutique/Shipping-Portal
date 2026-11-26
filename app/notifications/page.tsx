@@ -14,9 +14,7 @@ type Template = {
   sms_enabled: boolean;
   subject: string;
   heading_es: string;
-  heading_en: string;
   body_es: string;
-  body_en: string;
   sms_body: string;
 };
 type Settings = {
@@ -24,6 +22,7 @@ type Settings = {
   logo_url: string | null;
   tagline: string | null;
   business_address: string | null;
+  reply_to: string | null;
   color_background: string;
   color_accent: string;
   color_border: string;
@@ -53,13 +52,13 @@ const STAGE_WHEN: Record<Stage, string> = {
   out_for_delivery: "USPS: out for delivery",
   delivered: "USPS: delivered",
 };
-const VARS = ["first_name", "order_number", "ship_date", "eta", "carrier", "tracking_number", "tracking_link", "address", "scan_location", "delivered_time"];
+const VARS = ["first_name", "customer_name", "order_number", "live_week", "ship_date", "eta", "carrier", "tracking_number", "tracking_link", "address", "scan_location", "delivered_time"];
 
-type Field = "subject" | "heading_es" | "body_es" | "heading_en" | "body_en" | "sms_body";
+type Field = "subject" | "heading_es" | "body_es" | "sms_body";
 
 /** Rough text-message segment count (emoji/accents switch to the 70-character kind). */
 function segments(text: string) {
-  const full = text + "\n\nResponde STOP para cancelar · Reply STOP to opt out";
+  const full = text + "\n\nResponde STOP para cancelar.";
   const gsm = /^[\n\r A-Za-z0-9@£$¥èéùìòÇØøÅå_ÆæßÉ!"#%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[~\]|€]*$/.test(full);
   const len = Array.from(full).length;
   const per = gsm ? (len <= 160 ? 160 : 153) : len <= 70 ? 70 : 67;
@@ -296,28 +295,18 @@ export default function NotificationsPage() {
                     <label className="label">Subject line</label>
                     <input className="input" value={current.subject} onChange={(e) => editTemplate({ subject: e.target.value })} {...fieldProps("subject")} />
                   </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="flex flex-col gap-3">
-                      <div>
-                        <label className="label">Heading · Español</label>
-                        <input className="input" value={current.heading_es} onChange={(e) => editTemplate({ heading_es: e.target.value })} {...fieldProps("heading_es")} />
-                      </div>
-                      <div>
-                        <label className="label">Message · Español</label>
-                        <textarea className="input min-h-[120px]" value={current.body_es} onChange={(e) => editTemplate({ body_es: e.target.value })} {...fieldProps("body_es")} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <div>
-                        <label className="label">Heading · English</label>
-                        <input className="input" value={current.heading_en} onChange={(e) => editTemplate({ heading_en: e.target.value })} {...fieldProps("heading_en")} />
-                      </div>
-                      <div>
-                        <label className="label">Message · English</label>
-                        <textarea className="input min-h-[120px]" value={current.body_en} onChange={(e) => editTemplate({ body_en: e.target.value })} {...fieldProps("body_en")} />
-                      </div>
-                    </div>
+                  <div>
+                    <label className="label">Heading</label>
+                    <input className="input" value={current.heading_es} onChange={(e) => editTemplate({ heading_es: e.target.value })} {...fieldProps("heading_es")} />
                   </div>
+                  <div>
+                    <label className="label">Message</label>
+                    <textarea className="input min-h-[110px]" value={current.body_es} onChange={(e) => editTemplate({ body_es: e.target.value })} {...fieldProps("body_es")} />
+                  </div>
+                  <p className="text-xs leading-relaxed text-ink/60">
+                    The progress bar, button, tracking details and "Artículos en este envío" ({"{customer_name}"} · Live · {"{live_week}"}) are added
+                    automatically.
+                  </p>
                 </div>
 
                 <div className="card flex flex-col gap-3">
@@ -330,7 +319,7 @@ export default function NotificationsPage() {
                   </div>
                   <textarea className="input min-h-[200px]" value={current.sms_body} onChange={(e) => editTemplate({ sms_body: e.target.value })} {...fieldProps("sms_body")} />
                   <div className="flex flex-wrap justify-between gap-2 text-xs text-ink/60">
-                    <span>"Reply STOP to opt out" is added automatically. Texts late at night wait until 8am.</span>
+                    <span>"Responde STOP para cancelar." is added automatically. Texts late at night wait until 8am.</span>
                     <span>
                       ~{seg.len} characters · {seg.count} text segment{seg.count === 1 ? "" : "s"}
                     </span>
@@ -430,6 +419,16 @@ export default function NotificationsPage() {
                 />
                 <p className="mt-1 text-xs text-ink/60">Marketing-style emails are required to show a mailing address. A PO box works.</p>
               </div>
+              <div>
+                <label className="label">Customer replies go to</label>
+                <input
+                  className="input"
+                  type="email"
+                  value={settings.reply_to || ""}
+                  placeholder="hello@erendirasboutique.com"
+                  onChange={(e) => editSettings({ reply_to: e.target.value.trim() || null })}
+                />
+              </div>
             </div>
             <div className="card flex flex-col gap-4">
               <h2 className="text-2xl">Colors</h2>
@@ -460,8 +459,8 @@ export default function NotificationsPage() {
                 Reset to brand colors
               </button>
               <p className="text-xs leading-relaxed text-ink/60">
-                Fonts: Charman Serif (headings) and Ltt Recoleta (text), loaded from your portal. Apple Mail and iPhone show them; Gmail and Outlook
-                fall back to Georgia.
+                Fonts: Palatino for headings and Avenir Next for text. Both are built into iPhones, Macs and most computers, so they look the
+                same in Gmail and Apple Mail. (Android Gmail uses its own font.)
               </p>
             </div>
           </div>

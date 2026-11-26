@@ -32,8 +32,8 @@ export async function GET() {
   });
 }
 
-const TEMPLATE_FIELDS = ["email_enabled", "sms_enabled", "subject", "heading_es", "heading_en", "body_es", "body_en", "sms_body"] as const;
-const SETTINGS_FIELDS = ["enabled", "logo_url", "tagline", "business_address", "color_background", "color_accent", "color_border", "color_text"] as const;
+const TEMPLATE_FIELDS = ["email_enabled", "sms_enabled", "subject", "heading_es", "body_es", "sms_body"] as const;
+const SETTINGS_FIELDS = ["enabled", "logo_url", "tagline", "business_address", "reply_to", "color_background", "color_accent", "color_border", "color_text"] as const;
 
 export async function PUT(req: Request) {
   if (!(await signedIn())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -48,6 +48,9 @@ export async function PUT(req: Request) {
       if (k in patch && !/^#[0-9a-fA-F]{3,8}$/.test(String(patch[k] || ""))) {
         return NextResponse.json({ error: "Colors must look like #957f67." }, { status: 400 });
       }
+    }
+    if (patch.reply_to && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(patch.reply_to).trim())) {
+      return NextResponse.json({ error: "The reply-to email doesn't look right." }, { status: 400 });
     }
     if (patch.logo_url && !/^https:\/\//.test(patch.logo_url)) {
       return NextResponse.json({ error: "The logo link must start with https://" }, { status: 400 });
