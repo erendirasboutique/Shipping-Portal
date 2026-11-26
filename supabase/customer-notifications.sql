@@ -90,10 +90,9 @@ create unique index if not exists notification_log_once
   where status in ('sending', 'sent', 'scheduled') and test = false;
 create index if not exists notification_log_recent on notification_log (created_at desc);
 create index if not exists notification_log_order on notification_log (order_id);
--- Texts held until 8am (quiet hours) wait here with their wording.
+-- The text that was sent, and when a quiet-hours text is set to go out.
 alter table notification_log add column if not exists body text;
 alter table notification_log add column if not exists send_at timestamptz;
-create index if not exists notification_log_due on notification_log (send_at) where status = 'scheduled';
 
 -- Only the server (service role) touches these tables.
 alter table notification_settings enable row level security;

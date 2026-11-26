@@ -4,12 +4,11 @@
 //
 // Rules:
 //   - Email goes to the order's email (or the customer's profile email).
-//   - Text goes to the order's phone (or the profile phone), through Plivo once it's set up.
+//   - Text goes to the order's phone (or the profile phone), through Telnyx once it's set up.
 //   - No email and no phone -> nothing is sent (no Messenger fallback).
 //   - Each message goes out once per order (notification_log has a unique index).
 //   - Never send an earlier step after a later one went out.
-//   - Texts outside 8am–9pm (customer's local time) wait in notification_log and go out
-//     after 8am (sent by the next tracking webhook or the daily cron, whichever is first).
+//   - Texts outside 8am–9pm (customer's local time) are scheduled with Telnyx for 8am.
 //   - The wording, logo, colors and on/off switches come from Settings › Notifications.
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -93,7 +92,7 @@ export function emailConfigured() {
   return !!process.env.RESEND_API_KEY && !!process.env.EMAIL_FROM;
 }
 export function smsConfigured() {
-  return !!process.env.PLIVO_AUTH_ID && !!process.env.PLIVO_AUTH_TOKEN && !!(process.env.PLIVO_FROM || process.env.PLIVO_POWERPACK_UUID);
+  return !!process.env.TELNYX_API_KEY && !!process.env.TELNYX_FROM;
 }
 
 // ---------------------------------------------------------------- helpers
@@ -426,60 +425,31 @@ export function quietHoursSendAt(state: string | null | undefined, now = new Dat
   return new Date(now.getTime() + (hoursUntil8 * 60 - minute) * 60000 + 2 * 60000);
 }
 
-/** Sends a text now through Plivo. Returns Plivo's message id. */
-export async function sendSms(to: string, body: string): Promise<string | null> {
-  const id = process.env.PLIVO_AUTH_ID!;
-  const payload: Record<string, string> = { dst: to, text: body };
-  if (process.env.PLIVO_POWERPACK_UUID) payload.powerpack_uuid = process.env.PLIVO_POWERPACK_UUID;
-  else payload.src = process.env.PLIVO_FROM!;
-  const res = await fetch(`https://api.plivo.com/v1/Account/${id}/Message/`, {
+/**
+ * Sends a text through Telnyx. With sendAt, Telnyx holds it and sends it then.
+ * key (our log id) stops a retry from sending the same text twice.
+ */
+export async function sendSms(to: string, body: string, sendAt: Date | null = null, key?: string): Promise<string | null> {
+  const payload: Record<string, any> = { from: process.env.TELNYX_FROM, to, text: body, type: "SMS" };
+  if (process.env.TELNYX_MESSAGING_PROFILE_ID) payload.messaging_profile_id = process.env.TELNYX_MESSAGING_PROFILE_ID;
+  if (sendAt) payload.send_at = new Date(Math.max(sendAt.getTime(), Date.now() + 5 * 60000)).toISOString();
+  const headers: Record<string, string> = {
+    Authorization: "Bearer " + process.env.TELNYX_API_KEY,
+    "Content-Type": "application/json",
+  };
+  if (key) headers["Idempotency-Key"] = key.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 255);
+  const res = await fetch("https://api.telnyx.com/v2/messages", {
     method: "POST",
-    headers: {
-      Authorization: "Basic " + Buffer.from(id + ":" + process.env.PLIVO_AUTH_TOKEN).toString("base64"),
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(payload),
     cache: "no-store",
   });
   const data: any = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || data?.message || "Text error (" + res.status + ")");
-  return Array.isArray(data?.message_uuid) ? data.message_uuid[0] || null : null;
-}
-
-/**
- * Sends texts that were held for quiet hours and are now due.
- * Safe to call often (every webhook does); each text is claimed before sending.
- */
-export async function sendDueTexts(limit = 25): Promise<number> {
-  if (!smsConfigured()) return 0;
-  const admin: any = supabaseAdmin();
-  const { data: due } = await admin
-    .from("notification_log")
-    .select("id, sent_to, body")
-    .eq("channel", "sms")
-    .eq("status", "scheduled")
-    .lte("send_at", new Date().toISOString())
-    .order("send_at")
-    .limit(limit);
-  let sent = 0;
-  for (const row of due || []) {
-    // Claim it so two runs at once can't both send it.
-    const { data: claimed } = await admin
-      .from("notification_log")
-      .update({ status: "sending" })
-      .eq("id", row.id)
-      .eq("status", "scheduled")
-      .select("id");
-    if (!claimed?.length || !row.sent_to || !row.body) continue;
-    try {
-      const providerId = await sendSms(row.sent_to, row.body);
-      await admin.from("notification_log").update({ status: "sent", provider_id: providerId }).eq("id", row.id);
-      sent++;
-    } catch (e: any) {
-      await admin.from("notification_log").update({ status: "failed", error: e?.message || "failed" }).eq("id", row.id);
-    }
+  if (!res.ok) {
+    const e = data?.errors?.[0];
+    throw new Error((e && (e.detail || e.title)) || "Text error (" + res.status + ")");
   }
-  return sent;
+  return data?.data?.id || null;
 }
 
 /** Claims the (order, stage, channel) slot. False = it was already sent. */
@@ -569,16 +539,14 @@ export async function notifyOrder(orderId: string, stage: Stage, opts: { force?:
       else {
         try {
           const body = renderSms(t, vars);
+          // Too late/early where they are: Telnyx holds it until 8am.
           const sendAt = quietHoursSendAt(order.to_state);
-          if (sendAt) {
-            // Too late/early where they are: hold it until 8am.
-            await admin.from("notification_log").update({ status: "scheduled", body, send_at: sendAt.toISOString() }).eq("id", id);
-            out.sms = "scheduled";
-          } else {
-            const providerId = await sendSms(phone, body);
-            await admin.from("notification_log").update({ status: "sent", provider_id: providerId, body }).eq("id", id);
-            out.sms = "sent";
-          }
+          const providerId = await sendSms(phone, body, sendAt, id);
+          await admin
+            .from("notification_log")
+            .update({ status: sendAt ? "scheduled" : "sent", provider_id: providerId, body, send_at: sendAt ? sendAt.toISOString() : null })
+            .eq("id", id);
+          out.sms = sendAt ? "scheduled" : "sent";
         } catch (e: any) {
           await admin.from("notification_log").update({ status: "failed", error: e?.message || "failed" }).eq("id", id);
           out.sms = "failed: " + (e?.message || "");
@@ -614,7 +582,7 @@ export async function sendTest(stage: Stage, to: { email?: string | null; phone?
   const phone = toE164(to.phone);
   if (to.phone) {
     if (!phone) result.sms = "That phone number doesn't look right.";
-    else if (!smsConfigured()) result.sms = "Texting isn't set up yet (Plivo).";
+    else if (!smsConfigured()) result.sms = "Texting isn't set up yet (Telnyx).";
     else {
       try {
         const id = await sendSms(phone, "[PRUEBA] " + renderSms(t, SAMPLE_VARS));
