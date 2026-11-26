@@ -85,7 +85,8 @@ export function stageForStatus(status: string | null | undefined): Stage | null 
   }
 }
 
-const STORE_URL = (process.env.NEXT_PUBLIC_BRAND_URL || "https://erendirasboutique.com").replace(/\/$/, "");
+// The shop website ("Visita nuestra tienda"). NEXT_PUBLIC_BRAND_URL is the brand-files folder, not this.
+const STORE_URL = (process.env.NEXT_PUBLIC_STORE_URL || "https://erendirasboutique.com").replace(/\/$/, "");
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://ship.erendirasboutique.com").replace(/\/$/, "");
 
 export function emailConfigured() {
@@ -330,6 +331,7 @@ export function renderEmail(t: Template, s: Settings, vars: Vars): { subject: st
   const replyTo = s.reply_to || DEFAULT_SETTINGS.reply_to || "";
   const footer = `<tr><td style="padding:28px 0 0;">
       <div style="border-top:1px solid ${line};padding-top:24px;font-family:${BODY};font-size:13px;line-height:1.6;color:${muted};">
+        <div style="padding-bottom:10px;">📱 ¿Quieres recibir estas actualizaciones por texto? <a href="${esc(SITE)}/sms" style="color:${accent};">Suscríbete aquí</a>.</div>
         ¿Preguntas? Responde a este correo${replyTo ? `, escríbenos a <a href="mailto:${esc(replyTo)}" style="color:${accent};">${esc(replyTo)}</a>` : ""} o por <a href="https://ebtq.io/messenger" style="color:${accent};">Messenger</a>.
         ${s.tagline ? `<div style="font-family:${HEAD};font-size:16px;color:${accent};padding-top:10px;">${esc(s.tagline)}</div>` : ""}
         <div style="font-size:12px;padding-top:10px;">${s.business_address ? esc(s.business_address) + " · " : ""}<a href="https://erendirasboutique.com/return-policy" style="color:${accent};">Política de devoluciones</a></div>
@@ -385,7 +387,17 @@ export function renderEmail(t: Template, s: Settings, vars: Vars): { subject: st
 }
 
 export function renderSms(t: Template, vars: Vars) {
-  return fill(t.sms_body, vars) + "\n\nResponde STOP para cancelar.";
+  let body = fill(t.sms_body, vars);
+  // Carriers want the business name up front, matching the registered samples.
+  if (!/^erendira/i.test(body)) body = "Erendira's Boutique: " + body;
+  return body + "\n\nResponde STOP para cancelar.";
+}
+
+/** True if this number signed up on /sms and hasn't opted out. */
+export async function smsOptedIn(admin: any, phone: string): Promise<boolean> {
+  const { data, error } = await admin.from("sms_subscribers").select("opted_out_at").eq("phone", phone).maybeSingle();
+  if (error) return false;
+  return !!data && !data.opted_out_at;
 }
 
 // ---------------------------------------------------------------- sending
@@ -533,6 +545,7 @@ export async function notifyOrder(orderId: string, stage: Stage, opts: { force?:
     if (!t.sms_enabled) out.sms = "off";
     else if (!phone) out.sms = "no phone";
     else if (!smsConfigured()) out.sms = "texting not set up";
+    else if (!(await smsOptedIn(admin, phone))) out.sms = "not signed up for texts";
     else {
       const id = await claim(admin, orderId, stage, "sms", phone);
       if (!id) out.sms = "already sent";
