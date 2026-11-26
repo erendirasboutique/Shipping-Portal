@@ -1,4 +1,4 @@
--- Customer notifications: 4 bilingual emails + texts
+-- Customer notifications: 4 Spanish emails + texts
 --   packed            -> when the label is bought
 --   in_transit        -> USPS's first scan ("on the way")
 --   out_for_delivery  -> out for delivery
@@ -22,6 +22,9 @@ create table if not exists notification_settings (
   updated_at timestamptz default now()
 );
 insert into notification_settings (id) values (1) on conflict (id) do nothing;
+-- Where customer replies go.
+alter table notification_settings add column if not exists reply_to text default 'hello@erendirasboutique.com';
+update notification_settings set reply_to = 'hello@erendirasboutique.com' where id = 1 and reply_to is null;
 
 -- ---------- The 4 messages (editable in Settings › Notifications) ----------
 create table if not exists notification_templates (
@@ -38,36 +41,36 @@ create table if not exists notification_templates (
   updated_at timestamptz default now()
 );
 
-insert into notification_templates (stage, sort, subject, heading_es, heading_en, body_es, body_en, sms_body) values
+-- The starting wording (Spanish). Edit it any time in Settings › Notifications.
+-- Running this file again never overwrites your edits (it only swaps out the old bilingual starting text).
+insert into notification_templates (stage, sort, subject, heading_es, body_es, sms_body) values
 ('packed', 1,
- '📦 {first_name}, tu pedido está empacado · Your order has been packed',
- '¡Tu pedido está empacado!',
- 'Your order has been packed!',
- 'Hola {first_name}, ¡muchas gracias por tu compra! Tu pedido ya está empacado y lo estamos preparando para enviarlo. Sale con nuestro envío del {ship_date}.',
- 'Hi {first_name}, thank you so much for shopping with us! Your order is packed and we''re preparing it for shipment. It goes out with our {ship_date} shipment.',
- E'¡Hola {first_name}! Es Erendira''s Boutique 🤍\nTu pedido {order_number} está empacado y lo estamos preparando para enviarlo. Sale el {ship_date}.\n\nHi {first_name}! Your order {order_number} is packed and we''re preparing it for shipment. It ships {ship_date}.\n\n🚚 {carrier}\n🔢 {tracking_number}\nRastrear / Track: {tracking_link}'),
+ '📦 {first_name}, tu pedido está empacado',
+ 'Tu pedido está empacado',
+ '¡Gracias por tu compra, {first_name}! Ya empacamos tu pedido y lo estamos preparando para enviarlo con nuestro envío del sábado.',
+ E'¡Hola {first_name}! Es Erendira''s Boutique 🤍 Tu pedido {order_number} ya está empacado y sale el {ship_date}.\nRastréalo aquí: {tracking_link}'),
 ('in_transit', 2,
- '🚚 ¡Tu pedido va en camino! · Your order is on the way!',
- '¡Tu pedido va en camino!',
- 'Your order is on the way!',
- 'Hola {first_name}, ¡buenas noticias! USPS acaba de escanear tu paquete y ya va en camino. ¡No podemos esperar a que lo estrenes!',
- 'Hi {first_name}, great news! USPS just scanned your package and it''s officially on its way. We can''t wait for you to try everything on.',
- E'¡Hola {first_name}! 🎉 Tu pedido {order_number} va en camino. USPS lo escaneó en {scan_location}.\nEntrega estimada: {eta}\n\nHi {first_name}! Your order {order_number} is on the way. USPS scanned it in {scan_location}.\nEstimated delivery: {eta}\n\nRastrear / Track: {tracking_link}'),
+ '🚚 Tu pedido va en camino',
+ 'Tu pedido va en camino',
+ 'USPS ya tiene tu paquete. Rastrea tu envío para ver el estado de la entrega.',
+ E'¡Hola {first_name}! 🎉 Tu pedido {order_number} va en camino.\nEntrega estimada: {eta}\nRastréalo aquí: {tracking_link}'),
 ('out_for_delivery', 3,
- '📍 ¡Llega hoy, {first_name}! · Your order is out for delivery',
- '¡Tu pedido sale a entrega hoy!',
- 'Your order is out for delivery!',
- 'Hola {first_name}, ¡hoy es el día! Tu paquete ya va en el camión de entrega y debe llegar hoy.',
- 'Hi {first_name}, today''s the day! Your package is on the delivery truck and should arrive today.',
- E'¡Buenos días {first_name}! ☀️ Tu pedido {order_number} sale a entrega y llega HOY a {address}.\n\nGood morning {first_name}! Your order {order_number} is out for delivery and arriving TODAY.\n\nRastrear / Track: {tracking_link}'),
+ '📍 Tu pedido llega hoy',
+ 'Tu pedido llega hoy',
+ 'Tu paquete ya va en el camión de entrega y debe llegar hoy. ¡Estate pendiente!',
+ E'¡Buenos días {first_name}! ☀️ Tu pedido {order_number} sale a entrega y llega HOY.\nRastréalo aquí: {tracking_link}'),
 ('delivered', 4,
- '🛍️ ¡Tu pedido fue entregado! · Your order has been delivered',
- '¡Tu pedido fue entregado!',
- 'Your order has been delivered!',
- 'Hola {first_name}, ¡tu paquete llegó! Gracias por apoyar a nuestro pequeño negocio. Esperamos que te encante cada pieza.',
- 'Hi {first_name}, your package has arrived! Thank you for supporting our small business. We hope you love every piece.',
- E'¡Hola {first_name}! 🛍️ Tu pedido {order_number} fue entregado ({delivered_time}). ¡Esperamos que te encante!\n\nHi {first_name}! Your order {order_number} was delivered ({delivered_time}). We hope you love everything!\n\n¿No lo ves? / Don''t see it? ebtq.io/messenger\nGracias por comprar con Erendira''s Boutique 🤍')
-on conflict (stage) do nothing;
+ '🛍️ Tu pedido fue entregado',
+ 'Tu pedido fue entregado',
+ '¡Tu paquete llegó, {first_name}! Gracias por apoyar a nuestro pequeño negocio. Esperamos que te encante todo.',
+ E'¡Hola {first_name}! 🛍️ Tu pedido {order_number} fue entregado. ¡Esperamos que te encante! ¿No lo ves? Escríbenos: ebtq.io/messenger')
+on conflict (stage) do update set
+  subject = excluded.subject,
+  heading_es = excluded.heading_es,
+  body_es = excluded.body_es,
+  sms_body = excluded.sms_body,
+  updated_at = now()
+where notification_templates.sms_body like '%Hi {first_name}%';  -- only the old bilingual starting text
 
 -- ---------- Send log (also stops anyone getting the same message twice) ----------
 create table if not exists notification_log (
