@@ -94,7 +94,7 @@ create index if not exists notification_log_order on notification_log (order_id)
 alter table notification_log add column if not exists body text;
 alter table notification_log add column if not exists send_at timestamptz;
 
--- ---------- Text sign-ups from /sms (who agreed to texts, and when) ----------
+-- ---------- Text sign-ups from my.erendirasboutique.com/sms (who agreed to texts, and when) ----------
 -- Texts only go to numbers in here that haven't opted out.
 create table if not exists sms_subscribers (
   id uuid primary key default gen_random_uuid(),
@@ -102,7 +102,7 @@ create table if not exists sms_subscribers (
   name text,
   opted_in_at timestamptz not null default now(),
   opted_out_at timestamptz,
-  source text,                         -- web:/sms
+  source text,                         -- web:my/sms
   consent_text text,                   -- the exact words they agreed to
   ip text,
   user_agent text,

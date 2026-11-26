@@ -27,10 +27,6 @@ const PUBLIC_PATHS = [
   // Shippo and EasyPost tracking webhooks. Each checks its own secret
   // (SHIPPO_WEBHOOK_TOKEN / EASYPOST_WEBHOOK_USER + PASS) on every call.
   "/api/webhooks",
-  // Text-message sign-up page + its SMS terms and privacy pages (linked in the
-  // Telnyx campaign, so they must open without a login), and the form's API.
-  "/sms",
-  "/api/sms/subscribe",
 ];
 
 // A v4 uuid, which is what portal_token is. Used to spot a bare token at
