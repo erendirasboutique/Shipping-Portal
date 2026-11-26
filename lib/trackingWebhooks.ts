@@ -9,7 +9,7 @@
 
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { notifyOrder, stageForStatus } from "@/lib/customerNotify";
+import { notifyOrder, sendDueTexts, stageForStatus } from "@/lib/customerNotify";
 
 export type TrackingEvent = {
   at: string | null;
@@ -193,5 +193,7 @@ export async function saveTrackingUpdate(u: TrackingUpdate): Promise<number> {
     const stage = stageForStatus(u.status);
     if (stage && !u.test) await notifyOrder(row.id, stage);
   }
+  // Any texts that were waiting for 8am and are now due.
+  await sendDueTexts().catch((e) => console.error("[sendDueTexts]", e?.message));
   return updated;
 }

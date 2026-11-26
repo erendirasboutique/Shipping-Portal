@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/webhooks/notifications-cron", "schedule": "5 16 * * *" }
+  ]
+}
