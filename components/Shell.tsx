@@ -35,6 +35,7 @@ const ICON = {
   close: "M6 6l12 12M18 6 6 18",
   team: "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21v-1a6 6 0 0 1 9-5.2M19 15v6M16 18h6",
   bell: "M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
+  money: "M2 7h20v10H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 12h.01M18 12h.01",
 };
 
 type NavItem = { href: string; label: string; d: string };
@@ -59,6 +60,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Shipping day",
     items: [
+      { href: "/pagos", label: "Pagos", d: ICON.money },
       { href: "/live-list", label: "Live List", d: ICON.users },
       { href: "/create-label", label: "Create Label", d: ICON.create },
       { href: "/batch-print", label: "Batch Print", d: ICON.print },
