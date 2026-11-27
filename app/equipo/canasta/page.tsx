@@ -31,6 +31,32 @@ export default function CanastaPage() {
   const [msg, setMsg] = useState<{ text: string; warn?: boolean } | null>(null);
   const [done, setDone] = useState<{ basket: EBasket; message: string; auto: "sent" | "failed" | "none" } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [newPhone, setNewPhone] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  async function addCustomer() {
+    const name = q.trim();
+    if (name.length < 2) return;
+    setAdding(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/equipo/clienta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone: newPhone }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.customer) throw new Error(json.error || "No se pudo agregar.");
+      setCustomer({ id: json.customer.id, name: json.customer.name });
+      setChangingCustomer(false);
+      setQ("");
+      setNewPhone("");
+      setMsg({ text: json.existed ? `${json.customer.name} ya estaba en tus clientas.` : `${json.customer.name} agregada a tus clientas.` });
+    } catch (e: any) {
+      setMsg({ text: e.message, warn: true });
+    }
+    setAdding(false);
+  }
   const [shareFile, setShareFile] = useState<File | null>(null);
 
   // Get the photo ready for the share sheet before the tap.
@@ -253,8 +279,20 @@ export default function CanastaPage() {
                       </button>
                     </li>
                   ))}
-                  {q.trim().length >= 2 && !found.length && <li className="px-1 text-[14px] text-ink/60">No la encontramos. Agrégala en Clientes primero.</li>}
                 </ul>
+                {q.trim().length >= 2 && !found.some((c) => c.name.trim().toLowerCase() === q.trim().toLowerCase()) && (
+                  <div className="mt-3 rounded-2xl bg-cream p-3 dark:bg-transparent dark:ring-1 dark:ring-taupe/20">
+                    <p className="text-[14.5px] text-ink/70">{found.length ? "¿No es ninguna? Es clienta nueva:" : "No la encontramos. ¿Es clienta nueva?"}</p>
+                    <label className="mt-2 block">
+                      <span className="label">Celular (opcional)</span>
+                      <input className="input !text-base" inputMode="tel" placeholder="(909) 555-0123" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+                    </label>
+                    <button type="button" className="btn-primary mt-2 w-full !py-3" disabled={adding} onClick={addCustomer}>
+                      {adding ? "Agregando…" : `+ Agregar a “${q.trim()}”`}
+                    </button>
+                    <p className="mt-1.5 text-[13px] text-ink/55">Se crea con su propio enlace. La dirección la confirma ella después.</p>
+                  </div>
+                )}
               </div>
             )}
 
