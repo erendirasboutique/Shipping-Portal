@@ -152,7 +152,7 @@ function clean(s: string | null | undefined): string | null {
 function niceName(s: string | null): string | null {
   if (!s) return null;
   if (s === s.toUpperCase()) {
-    return s.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_m, a, b) => a + b.toUpperCase());
+    return s.toLowerCase().replace(/(^|[\s'-])([a-z\u00e0-\u00ff])/g, (_m: string, a: string, b: string) => a + b.toUpperCase());
   }
   return s;
 }
