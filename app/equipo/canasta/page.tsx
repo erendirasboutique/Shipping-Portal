@@ -4,17 +4,21 @@
 // Number → photo → total with shipping → "Mandar e imprimir calcomanía":
 // the basket is closed (waiting for payment), the photo + "Hola Chula
 // Serian $X" go to her on Messenger (from the Page by itself when she wrote
-// in the last 24 h, otherwise the share sheet), and the sticker prints.
+// in the last 24 h, otherwise the share sheet), then the sticker prints
+// right here (no new tab: on iPhone a new tab could reload this page and
+// lose everything typed). What's typed is also kept on the phone until the
+// basket is sent, so a reload (camera, switching apps) doesn't erase it.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Station from "@/components/equipo/Station";
+import Sticker from "@/components/equipo/Sticker";
 import { money, useEquipo, type EBasket } from "@/components/equipo/useEquipo";
 import { copyText, preparePhoto, shareNow } from "@/components/equipo/share";
 import { getOperator } from "@/lib/live/operator";
 
 type Customer = { id: string; name: string; phone?: string | null; email?: string | null };
 
-const PRINT_KEY = "eb-equipo-print";
+const DRAFT_KEY = "eb-equipo-draft";
 
 export default function CanastaPage() {
   const { data, error, reload, setSale } = useEquipo();
@@ -26,7 +30,6 @@ export default function CanastaPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [total, setTotal] = useState("");
-  const [print, setPrint] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; warn?: boolean } | null>(null);
   const [done, setDone] = useState<{ basket: EBasket; message: string; auto: "sent" | "failed" | "none" } | null>(null);
@@ -65,11 +68,22 @@ export default function CanastaPage() {
     if (done && done.auto !== "sent") preparePhoto(done.basket.photo_url).then(setShareFile);
   }, [done]);
 
+  // Bring back what was typed if the page reloaded before sending.
+  const restoredNum = useRef<string | null>(null);
   useEffect(() => {
     try {
-      setPrint(window.localStorage.getItem(PRINT_KEY) !== "0");
+      const d = JSON.parse(window.sessionStorage.getItem(DRAFT_KEY) || "null");
+      if (d && typeof d === "object") {
+        if (d.num) {
+          restoredNum.current = String(d.num);
+          setNum(String(d.num));
+        }
+        if (d.customer && d.customer.id) setCustomer(d.customer);
+        if (d.photo) setPhoto(d.photo);
+        if (d.total) setTotal(String(d.total));
+      }
     } catch {
-      // keep default
+      // nothing saved
     }
   }, []);
 
@@ -79,14 +93,45 @@ export default function CanastaPage() {
     [data, n]
   );
 
-  // When the number changes, show what that basket already has.
+  // When the number changes, show what that basket already has. When the
+  // same number's basket just loaded (or a draft was restored), only fill
+  // in what's still empty, never wipe what was typed.
+  const lastNum = useRef<string | null>(null);
   useEffect(() => {
-    setCustomer(current?.customer ? { id: current.customer.id, name: current.customer.name } : null);
-    setChangingCustomer(false);
-    setPhoto(current?.photo_url || null);
-    setTotal(current && current.total_cents > 0 ? String(current.total_cents / 100) : "");
-    setMsg(null);
-  }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const numChanged = lastNum.current !== null && lastNum.current !== num;
+    lastNum.current = num;
+    // The number coming back from a saved draft isn't a "new" number:
+    // keep the restored photo / total / customer.
+    const keep = restoredNum.current !== null && restoredNum.current === num;
+    if (keep && current) restoredNum.current = null;
+    const fromBasket = {
+      customer: current?.customer ? { id: current.customer.id, name: current.customer.name } : null,
+      photo: current?.photo_url || null,
+      total: current && current.total_cents > 0 ? String(current.total_cents / 100) : "",
+    };
+    if (numChanged && !keep) {
+      setCustomer(fromBasket.customer);
+      setChangingCustomer(false);
+      setPhoto(fromBasket.photo);
+      setTotal(fromBasket.total);
+      setMsg(null);
+    } else {
+      setCustomer((c) => c || fromBasket.customer);
+      setPhoto((p) => p || fromBasket.photo);
+      setTotal((t) => t || fromBasket.total);
+    }
+  }, [num, current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep what's typed on the phone until it's sent.
+  useEffect(() => {
+    if (done) return;
+    try {
+      if (!num && !photo && !total && !customer) window.sessionStorage.removeItem(DRAFT_KEY);
+      else window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ num, customer, photo, total }));
+    } catch {
+      // private mode
+    }
+  }, [num, customer, photo, total, done]);
 
   // Customer search
   useEffect(() => {
@@ -147,10 +192,6 @@ export default function CanastaPage() {
     if (!photo) return setMsg({ text: "Toma la foto de la canasta.", warn: true });
     if (!(cents > 0)) return setMsg({ text: "Escribe el total con envío.", warn: true });
 
-    // Open the sticker tab now, while this is still the tap (phones block
-    // pop-ups opened later).
-    const stickerTab = print ? window.open("", "_blank") : null;
-
     setBusy(true);
     setMsg(null);
     try {
@@ -163,8 +204,6 @@ export default function CanastaPage() {
       if (!res.ok) throw new Error(json.error || "No se pudo guardar.");
       const basket: EBasket = json.basket;
 
-      if (stickerTab) stickerTab.location.href = "/equipo/calcomania/" + basket.id + "?auto=1";
-
       let auto: "sent" | "failed" | "none" = "none";
       if (basket.messenger?.auto && json.message) {
         const r = await fetch("/api/equipo/canasta/enviar", {
@@ -176,9 +215,9 @@ export default function CanastaPage() {
       }
       if (auto !== "sent" && json.message) await copyText(json.message);
       setDone({ basket, message: json.message || "", auto });
+      try { window.sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       reload();
     } catch (err: any) {
-      if (stickerTab) stickerTab.close();
       setMsg({ text: err.message, warn: true });
     }
     setBusy(false);
@@ -224,10 +263,18 @@ export default function CanastaPage() {
           )}
 
           {msg && <p role="status" className="mt-3 rounded-2xl bg-cream px-4 py-3 text-[15px] dark:bg-transparent">{msg.text}</p>}
-          <p className="mt-4 text-[15px] text-ink/70">Pega la calcomanía en la canasta. La bolsa va en la fila <b className="font-heading text-xl text-ink">{done.basket.letter}</b>.</p>
+          <div className="mt-5 flex flex-col items-center gap-3 rounded-2xl bg-cream p-4 dark:bg-transparent dark:ring-1 dark:ring-taupe/20">
+            <div className="overflow-hidden rounded-lg shadow-soft">
+              <Sticker id={done.basket.id} number={done.basket.number} letter={done.basket.letter} name={done.basket.customer?.name || ""} />
+            </div>
+            <button type="button" className="btn-primary w-full !py-4 !text-[17px]" onClick={() => window.print()}>
+              Imprimir calcomanía
+            </button>
+            <p className="text-[14.5px] text-ink/70">Pégala en la canasta. La bolsa va en la fila <b className="font-heading text-xl text-ink">{done.basket.letter}</b>.</p>
+          </div>
           <div className="mt-4 flex flex-col gap-2">
-            <button type="button" className="btn-primary w-full !py-4 !text-[17px]" onClick={startOver}>Otra canasta</button>
-            <a href={"/equipo/calcomania/" + done.basket.id + "?auto=1"} target="_blank" rel="noreferrer" className="text-[15px] underline">Imprimir la calcomanía otra vez</a>
+            <button type="button" className="btn-secondary w-full !py-4 !text-[17px]" onClick={startOver}>Otra canasta</button>
+            <a href={"/equipo/calcomania/" + done.basket.id} target="_blank" rel="noreferrer" className="text-[14px] text-ink/60 underline">Abrir la calcomanía sola (para imprimir desde la computadora)</a>
           </div>
         </section>
       ) : (
@@ -339,23 +386,12 @@ export default function CanastaPage() {
               </div>
             )}
 
-            <label className="flex min-h-[44px] items-center gap-3 text-[15px]">
-              <input
-                type="checkbox"
-                checked={print}
-                onChange={(e) => {
-                  setPrint(e.target.checked);
-                  try { window.localStorage.setItem(PRINT_KEY, e.target.checked ? "1" : "0"); } catch { /* ignore */ }
-                }}
-                className="h-5 w-5 accent-[#957f67]"
-              />
-              Imprimir calcomanía (letra {customer ? customer.name.normalize("NFD").replace(/[̀-ͯ]/g, "").charAt(0).toUpperCase() : "?"} · #{num || "?"})
-            </label>
+
 
             {msg && <p role="status" className={"rounded-2xl px-4 py-3 text-[15px] " + (msg.warn ? "bg-amber-50 text-amber-900" : "bg-cream")}>{msg.text}</p>}
 
             <button type="button" className="btn-primary w-full !py-4 !text-[18px]" disabled={busy || uploading || !data?.sale} onClick={send}>
-              {busy ? "Mandando…" : print ? "Mandar e imprimir calcomanía" : "Mandar"}
+              {busy ? "Mandando…" : "Mandar foto y total"}
             </button>
           </section>
 
