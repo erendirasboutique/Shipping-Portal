@@ -63,6 +63,21 @@ const copy = {
     tracking: 'Tracking',
     track: 'Track your package',
     packagePhoto: 'Your package',
+    payTitle: 'Pay today or in 4 payments',
+    payFrom: 'From',
+    payEvery: 'every two weeks, nothing extra to do.',
+    payNow: 'Pay',
+    paySecure: 'Card, Apple Pay or installments · secure checkout by Stripe',
+    otherWays: 'Prefer another way?',
+    otherNote: 'Put #{n} in the payment note so we find it fast.',
+    reported: 'I paid · send screenshot',
+    reportHow: 'How did you pay?',
+    reportPhoto: 'Screenshot of your payment',
+    reportSend: 'Send',
+    reportSending: 'Sending…',
+    reportNeed: 'Pick how you paid and add the screenshot.',
+    reportError: 'It did not send. Try again or message us.',
+    cancel: 'Cancel',
   },
   es: {
     heading: 'Tu canasta',
@@ -89,6 +104,21 @@ const copy = {
     tracking: 'Rastreo',
     track: 'Rastrea tu paquete',
     packagePhoto: 'Tu paquete',
+    payTitle: 'Paga hoy o en 4 pagos',
+    payFrom: 'Desde',
+    payEvery: 'cada dos semanas, sin hacer nada extra.',
+    payNow: 'Pagar',
+    paySecure: 'Tarjeta, Apple Pay o en pagos · pago seguro con Stripe',
+    otherWays: '¿Prefieres otra forma?',
+    otherNote: 'Pon #{n} en la nota del pago para encontrarlo rápido.',
+    reported: 'Ya pagué · mandar captura',
+    reportHow: '¿Cómo pagaste?',
+    reportPhoto: 'Captura de tu pago',
+    reportSend: 'Mandar',
+    reportSending: 'Enviando…',
+    reportNeed: 'Elige cómo pagaste y agrega la captura.',
+    reportError: 'No se mandó. Intenta otra vez o escríbenos.',
+    cancel: 'Cancelar',
   },
 } as const;
 
@@ -111,6 +141,38 @@ export default function PortalBaskets({
   // Which basket is currently opening a checkout, so its button can show a
   // spinner and not be tapped twice.
   const [payingId, setPayingId] = useState<string | null>(null);
+
+  // "Ya pagué": she reports a Zelle / Venmo / Cash App... payment with a
+  // screenshot. The basket shows as paid; Saturday's scan shows it as
+  // "por confirmar" until someone checks the app.
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [reportMethod, setReportMethod] = useState('');
+  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportErr, setReportErr] = useState<string | null>(null);
+
+  async function sendReport(basketId: string) {
+    if (!reportMethod || !reportFile) {
+      setReportErr(copy[locale].reportNeed);
+      return;
+    }
+    setReportBusy(true);
+    setReportErr(null);
+    try {
+      const fd = new FormData();
+      fd.append('paymentMethod', reportMethod);
+      fd.append('paymentProof', reportFile);
+      const res = await fetch(`/api/live/portal/${token}/baskets/${basketId}/mark-paid`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('report');
+      setReportId(null);
+      setReportFile(null);
+      setReportMethod('');
+      await load();
+    } catch {
+      setReportErr(copy[locale].reportError);
+    }
+    setReportBusy(false);
+  }
 
   async function startCheckout(basketId: string) {
     setPayingId(basketId);
@@ -274,7 +336,10 @@ export default function PortalBaskets({
               <span className={`ob2__stamp ob2__stamp--${b.status}`}>{statusLabel(b.status)}</span>
             </div>
 
-            {/* Receipt tape: the itemization, as a boutique receipt. */}
+            {/* Receipt tape: the itemization, as a boutique receipt. Baskets
+                sent as a photo + total (the team stations) have no items:
+                the photo and total above already say it all. */}
+            {b.items.length > 0 && (
             <div className="ob2__tape">
               {b.order_number && <p className="ob2__order">{b.order_number}</p>}
 
@@ -328,14 +393,45 @@ export default function PortalBaskets({
                 </div>
               </div>
             </div>
+            )}
+            {b.items.length === 0 && b.order_number && (
+              <div className="ob2__tape"><p className="ob2__order">{b.order_number}</p></div>
+            )}
 
-            {/* How to pay — only while there's a balance to settle. */}
+            {/* How to pay — only while there's a balance to settle. Card and
+                pay-in-4 (Klarna, Afterpay, Zip, Affirm through Stripe) first,
+                then the other ways and "Ya pagué". */}
             {b.status === 'finalized' && (
               <div className="ob2__pay">
-                <p className="ob2__payLabel">{t.howToPay}</p>
+                <div className="ob2__bnpl">
+                  <p className="ob2__bnplTitle">{t.payTitle}</p>
+                  {(b.total_cents ?? 0) >= 4000 && (
+                    <p className="ob2__bnplFrom">
+                      {t.payFrom} <strong>{centsToDisplay(Math.ceil((b.total_cents ?? 0) / 4), locale)}</strong> {t.payEvery}
+                    </p>
+                  )}
+                  <ul className="ob2__bnplNames" aria-label="Klarna, Afterpay, Zip, Affirm">
+                    <li>Klarna</li>
+                    <li>Afterpay</li>
+                    <li>Zip</li>
+                    <li>Affirm</li>
+                  </ul>
+                  <button
+                    className="ob2__btn ob2__btn--big"
+                    disabled={payingId === b.id}
+                    onClick={() => startCheckout(b.id)}
+                  >
+                    {payingId === b.id ? t.payOpening : `${t.payNow} ${centsToDisplay(b.total_cents ?? 0, locale)}`}
+                  </button>
+                  <p className="ob2__bnplSecure">{t.paySecure}</p>
+                  {error && payingId === null && <p className="ob2__payErr">{error}</p>}
+                </div>
+
+                <p className="ob2__payLabel">{t.otherWays}</p>
                 <p className={instructions ? 'ob2__inst' : 'ob2__inst ob2__muted'}>
                   {instructions || t.noInstructions}
                 </p>
+                <p className="ob2__inst ob2__muted">{t.otherNote.replace('{n}', String(b.basket_number))}</p>
                 {b.due_at && (
                   <p className="ob2__due">
                     {t.dueBy}{' '}
@@ -346,14 +442,50 @@ export default function PortalBaskets({
                     })}
                   </p>
                 )}
-                <button
-                  className="ob2__btn"
-                  disabled={payingId === b.id}
-                  onClick={() => startCheckout(b.id)}
-                >
-                  {payingId === b.id ? t.payOpening : t.payCard}
-                </button>
-                {error && payingId === null && <p className="ob2__payErr">{error}</p>}
+
+                {reportId !== b.id ? (
+                  <button className="ob2__btn ob2__btn--ghost" onClick={() => { setReportId(b.id); setReportErr(null); }}>
+                    {t.reported}
+                  </button>
+                ) : (
+                  <div className="ob2__report">
+                    <p className="ob2__payLabel">{t.reportHow}</p>
+                    <div className="ob2__methods" role="radiogroup" aria-label={t.reportHow}>
+                      {[
+                        ['zelle', 'Zelle'],
+                        ['cash_app', 'Cash App'],
+                        ['venmo', 'Venmo'],
+                        ['paypal', 'PayPal'],
+                        ['apple_pay', 'Apple Pay'],
+                        ['other', locale === 'es' ? 'Otro' : 'Other'],
+                      ].map(([v, label]) => (
+                        <button
+                          key={v}
+                          type="button"
+                          role="radio"
+                          aria-checked={reportMethod === v}
+                          className={'ob2__method' + (reportMethod === v ? ' ob2__method--on' : '')}
+                          onClick={() => setReportMethod(v)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="ob2__payLabel" htmlFor={'proof-' + b.id}>{t.reportPhoto}</label>
+                    <input
+                      id={'proof-' + b.id}
+                      type="file"
+                      accept="image/*"
+                      className="ob2__file"
+                      onChange={(e) => setReportFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                    />
+                    {reportErr && <p className="ob2__payErr">{reportErr}</p>}
+                    <button className="ob2__btn" disabled={reportBusy} onClick={() => sendReport(b.id)}>
+                      {reportBusy ? t.reportSending : t.reportSend}
+                    </button>
+                    <button className="ob2__btn ob2__btn--ghost" onClick={() => setReportId(null)}>{t.cancel}</button>
+                  </div>
+                )}
               </div>
             )}
 

@@ -127,11 +127,13 @@ export async function middleware(request: NextRequest) {
   if (host.startsWith("app.")) {
     const url = request.nextUrl.clone();
 
-    if (
-      url.pathname === "/" ||
-      url.pathname === "/admin" ||
-      url.pathname === "/admin/"
-    ) {
+    // The team stations are home now. The old live tools still open at
+    // app.erendirasboutique.com/admin/live.
+    if (url.pathname === "/") {
+      url.pathname = "/equipo";
+      return NextResponse.redirect(url);
+    }
+    if (url.pathname === "/admin" || url.pathname === "/admin/") {
       url.pathname = "/admin/live";
       return NextResponse.redirect(url);
     }
