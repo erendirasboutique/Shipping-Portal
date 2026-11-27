@@ -36,6 +36,8 @@ const ICON = {
   team: "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21v-1a6 6 0 0 1 9-5.2M19 15v6M16 18h6",
   bell: "M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
   money: "M2 7h20v10H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 12h.01M18 12h.01",
+  camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
+  rows: "M4 6h16M4 12h16M4 18h10",
 };
 
 type NavItem = { href: string; label: string; d: string };
@@ -43,6 +45,10 @@ type NavItem = { href: string; label: string; d: string };
 // Short names for the tablet icon sidebar, where there's room for one word.
 const SHORT: Record<string, string> = {
   "Live List": "Live",
+  Estaciones: "Equipo",
+  "Fotos y totales": "Fotos",
+  "¿Ya pagó?": "Pagó",
+  "Filas A–Z": "Filas",
   "Create Label": "Create",
   "Batch Print": "Print",
   "Packing List": "Packing",
@@ -58,9 +64,20 @@ const SHORT: Record<string, string> = {
 const GROUPS: { label: string; items: NavItem[] }[] = [
   { label: "", items: [{ href: "/", label: "Dashboard", d: ICON.home }] },
   {
+    // The team stations for live-sale week (replace /admin/live day to day;
+    // the old live tools still work at /admin/live).
+    label: "Equipo",
+    items: [
+      { href: "/equipo", label: "Estaciones", d: ICON.users },
+      { href: "/equipo/canasta", label: "Fotos y totales", d: ICON.camera },
+      { href: "/pagos", label: "Pagos", d: ICON.money },
+      { href: "/equipo/escanear", label: "¿Ya pagó?", d: ICON.scan },
+      { href: "/equipo/filas", label: "Filas A–Z", d: ICON.rows },
+    ],
+  },
+  {
     label: "Shipping day",
     items: [
-      { href: "/pagos", label: "Pagos", d: ICON.money },
       { href: "/live-list", label: "Live List", d: ICON.users },
       { href: "/create-label", label: "Create Label", d: ICON.create },
       { href: "/batch-print", label: "Batch Print", d: ICON.print },
@@ -166,6 +183,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
+    if (href === "/equipo") return pathname === "/equipo";
     return pathname === href || pathname.startsWith(href + "/");
   }
 

@@ -1333,3 +1333,18 @@
 .live__quickToggle input { width: 18px; height: 18px; accent-color: var(--taupe); }
 .drawer__total { width: 100%; font-size: 1.25rem; text-align: right; }
 .ob2__item--single .ob2__itemName { font-style: italic; color: var(--taupe); }
+
+/* ---- pay today or in 4 (team stations update) ---- */
+.ob2__bnpl { background: var(--taupe); color: #fff; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.ob2__bnplTitle { margin: 0; font-family: var(--font-heading, Georgia), Georgia, serif; font-size: 1.55rem; line-height: 1.1; }
+.ob2__bnplFrom { margin: 0; font-size: 1rem; color: #f5f3ef; }
+.ob2__bnplFrom strong { font-weight: 600; color: #fff; }
+.ob2__bnplNames { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.ob2__bnplNames li { background: #fff; color: var(--ink); border-radius: 12px; padding: 8px 2px; text-align: center; font-size: 0.9rem; }
+.ob2__bnpl .ob2__btn--big { background: #fff; color: var(--ink); min-height: 56px; font-size: 1.15rem; }
+.ob2__bnplSecure { margin: 0; font-size: 0.82rem; color: #f5f3ef; text-align: center; }
+.ob2__report { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.ob2__methods { display: flex; flex-wrap: wrap; gap: 8px; }
+.ob2__method { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--sand); background: #fff; color: var(--ink); font: inherit; cursor: pointer; }
+.ob2__method--on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.ob2__file { font: inherit; }
