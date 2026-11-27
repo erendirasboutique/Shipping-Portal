@@ -15,6 +15,7 @@
 //   npm install pdf-lib
 
 import { NextRequest } from "next/server";
+import { seasonalLogoFile } from "@/lib/brand";
 import { PDFDocument, rgb } from "pdf-lib";
 
 export const runtime = "nodejs";
@@ -78,7 +79,13 @@ function hostAllowed(urlString: string): boolean {
 }
 
 async function fetchLogoBytes(origin: string): Promise<Uint8Array> {
-  // Served from public/logo2.png on the same deployment.
+  // Served from public/ on the same deployment: the season's version
+  // (e.g. logo2-christmas.png) if there is one, else logo2.png.
+  const file = await seasonalLogoFile("logo2.png");
+  if (file !== "logo2.png") {
+    const seasonal = await fetch(`${origin}/${file}`, { cache: "force-cache" }).catch(() => null);
+    if (seasonal?.ok) return new Uint8Array(await seasonal.arrayBuffer());
+  }
   const res = await fetch(`${origin}/logo2.png`, { cache: "force-cache" });
   if (!res.ok) {
     throw new Error(`Could not load logo2.png (status ${res.status})`);
