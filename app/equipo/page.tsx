@@ -12,6 +12,7 @@ const ICON: Record<string, string> = {
   pay: "M2 7h20v10H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   scan: "M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8",
   rows: "M4 6h16M4 12h16M4 18h10",
+  grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
 };
 
 function Card({ href, day, title, sub, icon, stat, strong }: { href: string; day: string; title: string; sub: string; icon: string; stat?: string; strong?: boolean }) {
@@ -65,6 +66,7 @@ export default function EquipoHome() {
         <Card href="/equipo/canasta" day="Mar · Mié · Jue noche" title="Fotos y totales" sub="Foto, total, mandar e imprimir calcomanía" icon={ICON.cam} stat={c ? `${c.sent} de ${c.total}\nenviadas` : undefined} />
         <Card href="/pagos" day="Viernes" title="Pagos" sub="Confirmar Zelle, Venmo, Cash App, PayPal" icon={ICON.pay} stat={data ? `${data.pagos_new} nuevos` : undefined} strong={!!data?.pagos_new} />
         <Card href="/equipo/escanear" day="Sábado" title="¿Ya pagó?" sub="Escanear la calcomanía y crear la etiqueta" icon={ICON.scan} />
+        <Card href="/equipo/canastas" day="Toda la semana" title="Todas las canastas" sub="Fotos, totales y quién ya pagó, de un vistazo" icon={ICON.grid} stat={c ? `${c.paid} de ${c.sent}\npagadas` : undefined} />
         <Card href="/equipo/filas" day="Toda la semana" title="Filas A–Z" sub="Quién falta por letra" icon={ICON.rows} />
       </nav>
     </Station>

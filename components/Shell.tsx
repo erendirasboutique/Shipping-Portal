@@ -38,6 +38,7 @@ const ICON = {
   money: "M2 7h20v10H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 12h.01M18 12h.01",
   camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
   rows: "M4 6h16M4 12h16M4 18h10",
+  grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
 };
 
 type NavItem = { href: string; label: string; d: string };
@@ -47,6 +48,7 @@ const SHORT: Record<string, string> = {
   "Live List": "Live",
   Estaciones: "Equipo",
   "Fotos y totales": "Fotos",
+  "Todas las canastas": "Canastas",
   "¿Ya pagó?": "Pagó",
   "Filas A–Z": "Filas",
   "Create Label": "Create",
@@ -70,6 +72,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/equipo", label: "Estaciones", d: ICON.users },
       { href: "/equipo/canasta", label: "Fotos y totales", d: ICON.camera },
+      { href: "/equipo/canastas", label: "Todas las canastas", d: ICON.grid },
       { href: "/pagos", label: "Pagos", d: ICON.money },
       { href: "/equipo/escanear", label: "¿Ya pagó?", d: ICON.scan },
       { href: "/equipo/filas", label: "Filas A–Z", d: ICON.rows },

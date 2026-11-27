@@ -15,6 +15,7 @@ export default function Station({
   sales,
   onSale,
   home = false,
+  wide = false,
   children,
 }: {
   title: string;
@@ -23,6 +24,8 @@ export default function Station({
   sales?: ESale[];
   onSale?: (id: string) => void;
   home?: boolean;
+  /** Use the full width on a laptop / tablet (the baskets board). */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   const [adding, setAdding] = useState(false);
@@ -60,7 +63,7 @@ export default function Station({
 
   return (
     <Shell>
-      <div className="mx-auto max-w-xl">
+      <div className={"mx-auto " + (wide ? "max-w-6xl" : "max-w-xl")}>
         {!home && (
           <Link href="/equipo" className="mb-2 inline-flex min-h-[44px] items-center gap-1.5 text-[16px] text-ink/70">
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>

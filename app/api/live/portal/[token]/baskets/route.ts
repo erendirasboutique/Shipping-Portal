@@ -37,7 +37,12 @@ export async function GET(_req: Request, { params }: Ctx) {
 
     const saleById = new Map<string, any>((sales.data ?? []).map((s: any) => [s.id, s]));
 
+    // First name only, for "Hola, Ana" at the top of the page.
+    const fullName = String(baskets[0]?.customer?.name || '').trim();
+    const firstName = fullName ? fullName.split(/\s+/)[0] : null;
+
     return NextResponse.json({
+      first_name: firstName,
       baskets: baskets.map((b) => {
         const sale = saleById.get(b.live_sale_id);
         return {
