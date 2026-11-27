@@ -1,7 +1,13 @@
 'use client';
 
+// The customer's order page (order.erendirasboutique.com/{token}), built
+// to the "F · Mi canasta" mockup: her basket photo and total, then pay
+// today or in 4 (Stripe: card, Apple Pay, Klarna, Afterpay, Zip, Affirm),
+// then the other ways to pay and "Ya pagué", then a link to her account.
+// Styles are in styles/order.css (classes start with mb-).
+
 import { useCallback, useEffect, useState } from 'react';
-import { centsToDisplay, formatSaleDate } from '@/lib/live/money';
+import { BRAND_LOGO } from '@/lib/brand';
 
 type PortalItem = {
   id: string;
@@ -39,108 +45,198 @@ type PortalBasket = {
 
 const copy = {
   en: {
-    heading: 'Your basket',
-    liveSaleLine: 'Live sale',
-    basket: 'Basket',
-    from: 'From the live on',
-    forming: 'Still adding',
-    ready: 'Ready to pay',
-    paid: 'Paid — shipping Saturday',
+    hello: 'Hi',
+    heading: 'Your live basket',
+    headingMany: 'Your live baskets',
+    photoAlt: 'Photo of your basket',
+    totalShip: 'Total with shipping',
+    total: 'Total',
+    waiting: 'Waiting for your payment · ships Saturday',
+    forming: 'Still adding to it',
+    paid: 'Paid · ships Saturday',
+    shipped: 'On its way',
     released: 'Released',
-    shipped: 'Shipped',
+    details: 'What’s in it',
     subtotal: 'Subtotal',
     shipping: 'Shipping',
     discount: 'Discount',
-    total: 'Total',
-    howToPay: 'How to pay',
-    dueBy: 'Please pay by',
-    payCard: 'Pay by card or installments',
-    payOpening: 'Opening secure checkout…',
-    payError: 'Payment could not start. Please try again or contact us.',
-    noInstructions: 'We sent you a message with the payment options.',
-    empty: 'Nothing here yet.',
-    each: 'each',
-    tracking: 'Tracking',
-    track: 'Track your package',
-    packagePhoto: 'Your package',
     payTitle: 'Pay today or in 4 payments',
     payFrom: 'From',
     payEvery: 'every two weeks, nothing extra to do.',
+    payPlain: 'Card or Apple Pay, or split it into payments.',
     payNow: 'Pay',
-    paySecure: 'Card, Apple Pay or installments · secure checkout by Stripe',
+    payOpening: 'Opening secure checkout…',
+    payError: 'Payment could not start. Please try again or message us.',
+    paySecure: 'Card, Apple Pay or installments · secure checkout with Stripe',
     otherWays: 'Prefer another way?',
-    otherNote: 'Put #{n} in the payment note so we find it fast.',
+    otherNote: 'Put {n} in the payment note so we find it fast.',
+    noInstructions: 'We sent you a message with the payment options.',
+    dueBy: 'Please pay by',
+    copied: 'Copied',
     reported: 'I paid · send screenshot',
     reportHow: 'How did you pay?',
     reportPhoto: 'Screenshot of your payment',
+    reportPick: 'Choose screenshot',
     reportSend: 'Send',
     reportSending: 'Sending…',
     reportNeed: 'Pick how you paid and add the screenshot.',
-    reportError: 'It did not send. Try again or message us.',
+    reportError: 'It didn’t send. Try again or message us.',
     cancel: 'Cancel',
+    tracking: 'Tracking',
+    track: 'Track your package',
+    packagePhoto: 'Your package',
+    account: 'See my orders and shipments',
+    accountSub: 'Your full account',
+    empty: 'Nothing here yet.',
+    loadError: 'We couldn’t load your basket. Pull down to try again.',
+    lang: 'ES',
+    langLabel: 'Cambiar a español',
+    other: 'Other',
   },
   es: {
-    heading: 'Tu canasta',
-    liveSaleLine: 'Venta en vivo',
-    basket: 'Canasta',
-    from: 'Del live del',
+    hello: 'Hola',
+    heading: 'Tu canasta del live',
+    headingMany: 'Tus canastas del live',
+    photoAlt: 'Foto de tu canasta',
+    totalShip: 'Total con envío',
+    total: 'Total',
+    waiting: 'Esperando tu pago · sale el sábado',
     forming: 'Todavía agregando',
-    ready: 'Lista para pagar',
-    paid: 'Pagada — se envía el sábado',
+    paid: 'Pagada · sale el sábado',
+    shipped: 'Ya va en camino',
     released: 'Liberada',
-    shipped: 'Enviada',
+    details: 'Lo que lleva',
     subtotal: 'Subtotal',
     shipping: 'Envío',
     discount: 'Descuento',
-    total: 'Total',
-    howToPay: 'Cómo pagar',
-    dueBy: 'Por favor paga antes del',
-    payCard: 'Pagar con tarjeta o a plazos',
-    payOpening: 'Abriendo pago seguro…',
-    payError: 'No se pudo iniciar el pago. Intenta de nuevo o contáctanos.',
-    noInstructions: 'Te enviamos un mensaje con las opciones de pago.',
-    empty: 'Nada por aquí todavía.',
-    each: 'c/u',
-    tracking: 'Rastreo',
-    track: 'Rastrea tu paquete',
-    packagePhoto: 'Tu paquete',
     payTitle: 'Paga hoy o en 4 pagos',
     payFrom: 'Desde',
     payEvery: 'cada dos semanas, sin hacer nada extra.',
+    payPlain: 'Tarjeta o Apple Pay, o divídelo en pagos.',
     payNow: 'Pagar',
+    payOpening: 'Abriendo pago seguro…',
+    payError: 'No se pudo iniciar el pago. Intenta de nuevo o escríbenos.',
     paySecure: 'Tarjeta, Apple Pay o en pagos · pago seguro con Stripe',
     otherWays: '¿Prefieres otra forma?',
-    otherNote: 'Pon #{n} en la nota del pago para encontrarlo rápido.',
+    otherNote: 'Pon {n} en la nota del pago para encontrarlo rápido.',
+    noInstructions: 'Te mandamos un mensaje con las formas de pago.',
+    dueBy: 'Por favor paga antes del',
+    copied: 'Copiado',
     reported: 'Ya pagué · mandar captura',
     reportHow: '¿Cómo pagaste?',
     reportPhoto: 'Captura de tu pago',
+    reportPick: 'Elegir captura',
     reportSend: 'Mandar',
-    reportSending: 'Enviando…',
+    reportSending: 'Mandando…',
     reportNeed: 'Elige cómo pagaste y agrega la captura.',
     reportError: 'No se mandó. Intenta otra vez o escríbenos.',
     cancel: 'Cancelar',
+    tracking: 'Rastreo',
+    track: 'Rastrear mi paquete',
+    packagePhoto: 'Tu paquete',
+    account: 'Ver mis pedidos y envíos',
+    accountSub: 'Tu cuenta completa',
+    empty: 'Nada por aquí todavía.',
+    loadError: 'No pudimos cargar tu canasta. Intenta otra vez.',
+    lang: 'EN',
+    langLabel: 'Switch to English',
+    other: 'Otro',
   },
 } as const;
+
+type Locale = 'en' | 'es';
+
+/** $100, $99.50 — no ".00" on round totals, like the mockup. */
+function money(cents: number | null | undefined, locale: Locale) {
+  const v = Number(cents || 0) / 100;
+  const round = Math.round(v * 100) % 100 === 0;
+  return new Intl.NumberFormat(locale === 'es' ? 'es-US' : 'en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: round ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(v);
+}
 
 function trackUrl(num: string) {
   const base = process.env.NEXT_PUBLIC_TRACK_URL ?? 'https://track.erendirasboutique.com';
   return `${base.replace(/\/+$/, '')}/?tracking=${encodeURIComponent(num)}`;
 }
 
-export default function PortalBaskets({
-  token,
-  locale: forced,
-}: {
-  token: string;
-  locale?: 'en' | 'es';
-}) {
-  const [locale, setLocale] = useState<'en' | 'es'>(forced ?? 'es');
-  const [baskets, setBaskets] = useState<PortalBasket[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+function accountUrl(token: string) {
+  const base = process.env.NEXT_PUBLIC_ACCOUNT_URL ?? 'https://my.erendirasboutique.com/account';
+  return `${base.replace(/\/+$/, '')}?t=${encodeURIComponent(token)}`;
+}
 
-  // Which basket is currently opening a checkout, so its button can show a
-  // spinner and not be tapped twice.
+/**
+ * The sale's how-to-pay text, split into tiles. Lines like "Zelle: 555…"
+ * or "Cash App - $erendiras" become a tile each; anything else is shown
+ * as plain text under them, so nothing typed on the sale is ever lost.
+ */
+const WAYS: [RegExp, string][] = [
+  [/^zelle/i, 'Zelle'],
+  [/^cash\s*app/i, 'Cash App'],
+  [/^venmo/i, 'Venmo'],
+  [/^pay\s*pal/i, 'PayPal'],
+  [/^apple\s*pay/i, 'Apple Pay'],
+];
+
+function parseWays(text: string | null) {
+  const tiles: { label: string; value: string }[] = [];
+  const rest: string[] = [];
+  String(text || '')
+    .split(/\r?\n/)
+    .forEach((raw) => {
+      const line = raw.trim().replace(/^[-•*·]\s*/, '');
+      if (!line) return;
+      const m = line.match(/^([^:：]{2,24}?)\s*(?:[:：]|\s[-–—]\s)\s*(.+)$/);
+      if (m) {
+        const hit = WAYS.find(([re]) => re.test(m[1].trim()));
+        if (hit) {
+          tiles.push({ label: hit[1], value: m[2].trim() });
+          return;
+        }
+      }
+      rest.push(line);
+    });
+  return { tiles, rest };
+}
+
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// Unpaid first (what she has to act on), then still-forming, then paid
+// and shipped. Newest first inside each group (the API already sorts so).
+const ORDER: Record<string, number> = { finalized: 0, open: 1, paid: 2, shipped: 3, released: 4 };
+
+export default function PortalBaskets({ token, locale: forced }: { token: string; locale?: Locale }) {
+  const [locale, setLocale] = useState<Locale>(forced ?? 'es');
+  const [baskets, setBaskets] = useState<PortalBasket[] | null>(null);
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState(false);
+
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [payErr, setPayErr] = useState<{ id: string; msg: string } | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // "Ya pagué": she reports a Zelle / Venmo / Cash App... payment with a
   // screenshot. The basket shows as paid; Saturday's scan shows it as
@@ -151,9 +247,96 @@ export default function PortalBaskets({
   const [reportBusy, setReportBusy] = useState(false);
   const [reportErr, setReportErr] = useState<string | null>(null);
 
+  const t = copy[locale];
+
+  // Spanish by default. ?lang=en (or the EN button) switches it.
+  useEffect(() => {
+    if (forced) return;
+    try {
+      if (new URL(window.location.href).searchParams.get('lang') === 'en') setLocale('en');
+    } catch {
+      // stays es
+    }
+  }, [forced]);
+
+  function toggleLang() {
+    const next: Locale = locale === 'es' ? 'en' : 'es';
+    setLocale(next);
+    try {
+      const url = new URL(window.location.href);
+      if (next === 'en') url.searchParams.set('lang', 'en');
+      else url.searchParams.delete('lang');
+      window.history.replaceState(null, '', url.toString());
+    } catch {
+      // the switch still works for this visit
+    }
+  }
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/live/portal/${token}/baskets`, { cache: 'no-store' });
+      const json = await res.json();
+      if (!res.ok) {
+        setLoadErr(true);
+        return;
+      }
+      setBaskets(json.baskets ?? []);
+      setFirstName(json.first_name ?? null);
+      setLoadErr(false);
+    } catch {
+      // Offline or a dropped connection: keep what's on screen.
+    }
+  }, [token]);
+
+  // Keep it current: poll every 20s while the tab is visible, refetch the
+  // moment she comes back to it.
+  useEffect(() => {
+    load();
+    let timer: number | undefined;
+    function stop() {
+      if (timer) window.clearInterval(timer);
+      timer = undefined;
+    }
+    function start() {
+      stop();
+      timer = window.setInterval(load, 20000);
+    }
+    function onVisible() {
+      if (document.visibilityState === 'visible') {
+        load();
+        start();
+      } else stop();
+    }
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', load);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', load);
+    };
+  }, [load]);
+
+  async function startCheckout(basketId: string) {
+    setPayingId(basketId);
+    setPayErr(null);
+    try {
+      const res = await fetch(`/api/live/portal/${token}/baskets/${basketId}/pay`, { method: 'POST', cache: 'no-store' });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.url) {
+        window.location.href = json.url;
+        return;
+      }
+      setPayErr({ id: basketId, msg: json.error ?? t.payError });
+    } catch {
+      setPayErr({ id: basketId, msg: t.payError });
+    }
+    setPayingId(null);
+  }
+
   async function sendReport(basketId: string) {
     if (!reportMethod || !reportFile) {
-      setReportErr(copy[locale].reportNeed);
+      setReportErr(t.reportNeed);
       return;
     }
     setReportBusy(true);
@@ -169,369 +352,254 @@ export default function PortalBaskets({
       setReportMethod('');
       await load();
     } catch {
-      setReportErr(copy[locale].reportError);
+      setReportErr(t.reportError);
     }
     setReportBusy(false);
   }
 
-  async function startCheckout(basketId: string) {
-    setPayingId(basketId);
-    setError(null);
-    try {
-      const res = await fetch(`/api/live/portal/${token}/baskets/${basketId}/pay`, {
-        method: 'POST',
-        cache: 'no-store',
-      });
-      const json = await res.json().catch(() => ({}));
-      if (res.ok && json.url) {
-        // Straight to Stripe's hosted page — card + BNPL live there.
-        window.location.href = json.url;
-        return;
-      }
-      // Show why, rather than a button that just does nothing.
-      setError(json.error ?? t.payError);
-      setPayingId(null);
-    } catch {
-      setError(t.payError);
-      setPayingId(null);
+  async function copyWay(key: string, value: string) {
+    if (await copyToClipboard(value)) {
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1600);
     }
   }
 
-  // Spanish is the default and stays the default. The customers are
-  // Spanish-speaking; browser language is a weak signal (a borrowed phone,
-  // an English-set device in Spanish-speaking hands) and shouldn't flip
-  // the whole page. Only an explicit ?lang=en switches it.
-  useEffect(() => {
-    if (forced) return;
-    try {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('lang') === 'en') setLocale('en');
-    } catch {
-      // stays es
-    }
-  }, [forced]);
+  const list = (baskets || [])
+    .map((b, i) => ({ b, i }))
+    .sort((x, y) => (ORDER[x.b.status] ?? 9) - (ORDER[y.b.status] ?? 9) || x.i - y.i)
+    .map((x) => x.b);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/live/portal/${token}/baskets`, { cache: 'no-store' });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error ?? 'We could not load your basket.');
-        return;
-      }
-      setBaskets(json.baskets ?? []);
-      setError(null);
-    } catch {
-      // Offline or a dropped connection. Keep whatever's on screen —
-      // a stale total beats an error message they can't act on.
-    }
-  }, [token]);
-
-  /**
-   * Keep it current.
-   *
-   * The basket changes under them: you add an item, fix a price, finalize,
-   * mark it paid, add tracking. A page fetched once and left open all
-   * evening quietly lies — and then they message you asking why the total
-   * is wrong.
-   *
-   * Polls every 20s while the tab is visible, stops when it isn't (nobody
-   * needs a phone in a pocket hitting the API all night), and refetches the
-   * moment they come back.
-   */
-  useEffect(() => {
-    load();
-
-    let timer: number | undefined;
-
-    function start() {
-      stop();
-      timer = window.setInterval(load, 20000);
-    }
-    function stop() {
-      if (timer) window.clearInterval(timer);
-      timer = undefined;
-    }
-    function onVisible() {
-      if (document.visibilityState === 'visible') {
-        load();
-        start();
-      } else {
-        stop();
-      }
-    }
-
-    if (document.visibilityState === 'visible') start();
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', load);
-
-    return () => {
-      stop();
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', load);
-    };
-  }, [load]);
-
-  const t = copy[locale];
-
-  if (error) {
-    return <p style={{ color: 'var(--alert)' }}>{error}</p>;
-  }
-
-  if (baskets === null) {
-    return <p className="live__muted">…</p>;
-  }
-
-  if (baskets.length === 0) {
-    return (
-      <div className="live__empty">
-        <p className="live__muted" style={{ margin: 0 }}>
-          {t.empty}
-        </p>
-      </div>
-    );
-  }
-
-  function statusLabel(status: string) {
-    if (status === 'open') return t.forming;
-    if (status === 'finalized') return t.ready;
-    if (status === 'released') return t.released;
-    if (status === 'shipped') return t.shipped;
-    return t.paid;
+  function pill(status: string) {
+    if (status === 'finalized') return { text: t.waiting, tone: 'due' };
+    if (status === 'open') return { text: t.forming, tone: 'soft' };
+    if (status === 'shipped') return { text: t.shipped, tone: 'good' };
+    if (status === 'released') return { text: t.released, tone: 'soft' };
+    return { text: t.paid, tone: 'good' };
   }
 
   return (
-    <div className="ob2">
-      {baskets.map((b) => {
-        const instructions =
-          locale === 'es' && b.payment_instructions_es
-            ? b.payment_instructions_es
-            : b.payment_instructions;
+    <div className="mb">
+      <header className="mb-head">
+        <img className="mb-logo" src={BRAND_LOGO} alt="Erendira's Boutique" />
+        {!forced && (
+          <button type="button" className="mb-lang" aria-label={t.langLabel} onClick={toggleLang}>
+            {t.lang}
+          </button>
+        )}
+      </header>
 
-        const paid = b.status === 'paid' || b.status === 'shipped';
+      <div className="mb-hello">
+        {firstName && <p className="mb-hi">{t.hello}, {firstName}</p>}
+        <h1 className="mb-h1">{list.length > 1 ? t.headingMany : t.heading}</h1>
+      </div>
+
+      {loadErr && <p className="mb-card mb-muted">{t.loadError}</p>}
+      {!loadErr && baskets === null && <div className="mb-card mb-skel" aria-busy="true" />}
+      {!loadErr && baskets && baskets.length === 0 && <p className="mb-card mb-muted">{t.empty}</p>}
+
+      {list.map((b) => {
+        const due = b.status === 'finalized';
+        const done = b.status === 'paid' || b.status === 'shipped';
+        const total = Number(b.total_cents || 0);
+        const p = pill(b.status);
+        const tag = `#${b.basket_number}`;
+        const instructions = locale === 'es' && b.payment_instructions_es ? b.payment_instructions_es : b.payment_instructions;
+        const ways = parseWays(instructions);
+        const withShip = (b.shipping_cents ?? 0) > 0 || b.items.length === 0;
 
         return (
-          <article key={b.id} className="ob2__ticket">
-            {/* Hero: their own basket photo, total set over a dark scrim.
-                The signature of the page — the thing they recognise from
-                the live, with what they owe laid right on top of it. */}
-            <div className="ob2__hero">
-              {b.photo_url ? (
-                <img className="ob2__heroImg" src={b.photo_url} alt="" />
-              ) : (
-                <div className="ob2__heroImg ob2__heroImg--none" />
+          <div key={b.id} className="mb-basket">
+            {/* Her basket: the photo she got on Messenger, number, total. */}
+            <section className="mb-card mb-card--photo">
+              <div className="mb-photo" role="img" aria-label={t.photoAlt}>
+                {b.photo_url ? <img src={b.photo_url} alt="" /> : <span className="mb-photo__none" />}
+                <span className="mb-num">{tag}</span>
+              </div>
+              {total > 0 && (
+                <div className="mb-total">
+                  <span className="mb-muted">{withShip ? t.totalShip : t.total}</span>
+                  <span className="mb-total__n">{money(total, locale)}</span>
+                </div>
               )}
-              <div className="ob2__heroVeil" />
-              <div className="ob2__heroText">
-                <span className="ob2__basketNo">
-                  {t.basket} #{b.basket_number}
-                </span>
-                <span className="ob2__heroTotal">{centsToDisplay(b.total_cents ?? 0, locale)}</span>
-                {b.sale_date && (
-                  <span className="ob2__heroFrom">
-                    {t.from} {b.sale_title || formatSaleDate(b.sale_date, locale)}
-                  </span>
-                )}
-              </div>
-              <span className={`ob2__stamp ob2__stamp--${b.status}`}>{statusLabel(b.status)}</span>
-            </div>
+              <span className={`mb-pill mb-pill--${p.tone}`}>
+                <span className="mb-dot" aria-hidden="true" />
+                {p.text}
+              </span>
 
-            {/* Receipt tape: the itemization, as a boutique receipt. Baskets
-                sent as a photo + total (the team stations) have no items:
-                the photo and total above already say it all. */}
-            {b.items.length > 0 && (
-            <div className="ob2__tape">
-              {b.order_number && <p className="ob2__order">{b.order_number}</p>}
-
-              <ul className="ob2__items">
-                {b.items.length === 0 && (
-                  <li className="ob2__item ob2__item--single">
-                    <span className="ob2__itemName">{t.liveSaleLine}</span>
-                    <span className="ob2__dots" aria-hidden="true" />
-                    <span className="ob2__itemPrice">
-                      {centsToDisplay(b.total_cents ?? 0, locale)}
-                    </span>
-                  </li>
-                )}
-                {b.items.map((i) => (
-                  <li key={i.id} className="ob2__item">
-                    {i.photo_url && (
-                      <img className="ob2__itemThumb" src={i.photo_url} alt="" loading="lazy" />
+              {b.items.length > 0 && (
+                <details className="mb-items">
+                  <summary>{t.details}</summary>
+                  <ul>
+                    {b.items.map((i) => (
+                      <li key={i.id}>
+                        <span>
+                          {locale === 'es' && i.description_es ? i.description_es : i.description}
+                          {i.quantity > 1 ? ` ×${i.quantity}` : ''}
+                        </span>
+                        <span>{money((i.unit_price_cents ?? 0) * i.quantity, locale)}</span>
+                      </li>
+                    ))}
+                    {(b.shipping_cents ?? 0) > 0 && (
+                      <li className="mb-items__sum">
+                        <span>{t.shipping}</span>
+                        <span>{money(b.shipping_cents, locale)}</span>
+                      </li>
                     )}
-                    <span className="ob2__itemName">
-                      {locale === 'es' && i.description_es ? i.description_es : i.description}
-                      {i.quantity > 1 && <span className="ob2__x"> ×{i.quantity}</span>}
-                    </span>
-                    <span className="ob2__dots" aria-hidden="true" />
-                    <span className="ob2__itemPrice">
-                      {centsToDisplay((i.unit_price_cents ?? 0) * i.quantity, locale)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="ob2__sums">
-                <div className="ob2__sumRow">
-                  <span>{t.subtotal}</span>
-                  <span>{centsToDisplay(b.subtotal_cents ?? 0, locale)}</span>
-                </div>
-                {(b.shipping_cents ?? 0) > 0 && (
-                  <div className="ob2__sumRow">
-                    <span>{t.shipping}</span>
-                    <span>{centsToDisplay(b.shipping_cents ?? 0, locale)}</span>
-                  </div>
-                )}
-                {(b.discount_cents ?? 0) > 0 && (
-                  <div className="ob2__sumRow">
-                    <span>{t.discount}</span>
-                    <span>−{centsToDisplay(b.discount_cents ?? 0, locale)}</span>
-                  </div>
-                )}
-                <div className="ob2__sumRow ob2__sumRow--total">
-                  <span>{t.total}</span>
-                  <span>{centsToDisplay(b.total_cents ?? 0, locale)}</span>
-                </div>
-              </div>
-            </div>
-            )}
-            {b.items.length === 0 && b.order_number && (
-              <div className="ob2__tape"><p className="ob2__order">{b.order_number}</p></div>
-            )}
-
-            {/* How to pay — only while there's a balance to settle. Card and
-                pay-in-4 (Klarna, Afterpay, Zip, Affirm through Stripe) first,
-                then the other ways and "Ya pagué". */}
-            {b.status === 'finalized' && (
-              <div className="ob2__pay">
-                <div className="ob2__bnpl">
-                  <p className="ob2__bnplTitle">{t.payTitle}</p>
-                  {(b.total_cents ?? 0) >= 4000 && (
-                    <p className="ob2__bnplFrom">
-                      {t.payFrom} <strong>{centsToDisplay(Math.ceil((b.total_cents ?? 0) / 4), locale)}</strong> {t.payEvery}
-                    </p>
-                  )}
-                  <ul className="ob2__bnplNames" aria-label="Klarna, Afterpay, Zip, Affirm">
-                    <li>Klarna</li>
-                    <li>Afterpay</li>
-                    <li>Zip</li>
-                    <li>Affirm</li>
+                    {(b.discount_cents ?? 0) > 0 && (
+                      <li className="mb-items__sum">
+                        <span>{t.discount}</span>
+                        <span>−{money(b.discount_cents, locale)}</span>
+                      </li>
+                    )}
                   </ul>
-                  <button
-                    className="ob2__btn ob2__btn--big"
-                    disabled={payingId === b.id}
-                    onClick={() => startCheckout(b.id)}
-                  >
-                    {payingId === b.id ? t.payOpening : `${t.payNow} ${centsToDisplay(b.total_cents ?? 0, locale)}`}
-                  </button>
-                  <p className="ob2__bnplSecure">{t.paySecure}</p>
-                  {error && payingId === null && <p className="ob2__payErr">{error}</p>}
-                </div>
+                </details>
+              )}
+            </section>
 
-                <p className="ob2__payLabel">{t.otherWays}</p>
-                <p className={instructions ? 'ob2__inst' : 'ob2__inst ob2__muted'}>
-                  {instructions || t.noInstructions}
+            {/* Pay today or in 4 — Stripe checkout. */}
+            {due && total > 0 && (
+              <section className="mb-pay" aria-labelledby={`pay-${b.id}`}>
+                <div className="mb-pay__top">
+                  <h2 id={`pay-${b.id}`} className="mb-h2 mb-h2--pay">{t.payTitle}</h2>
+                  {total >= 4000 ? (
+                    <p className="mb-pay__from">
+                      {t.payFrom} <span className="mb-pay__per">{money(Math.ceil(total / 4), locale)}</span> {t.payEvery}
+                    </p>
+                  ) : (
+                    <p className="mb-pay__from">{t.payPlain}</p>
+                  )}
+                </div>
+                <ul className="mb-bnpl" aria-label="Klarna, Afterpay, Zip, Affirm">
+                  <li>Klarna</li>
+                  <li>Afterpay</li>
+                  <li>Zip</li>
+                  <li>Affirm</li>
+                </ul>
+                <button type="button" className="mb-paybtn" disabled={payingId === b.id} onClick={() => startCheckout(b.id)}>
+                  {payingId === b.id ? t.payOpening : `${t.payNow} ${money(total, locale)}`}
+                </button>
+                {payErr && payErr.id === b.id && <p className="mb-pay__err" role="alert">{payErr.msg}</p>}
+                <p className="mb-secure">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+                  {t.paySecure}
                 </p>
-                <p className="ob2__inst ob2__muted">{t.otherNote.replace('{n}', String(b.basket_number))}</p>
-                {b.due_at && (
-                  <p className="ob2__due">
-                    {t.dueBy}{' '}
-                    {new Date(b.due_at).toLocaleString(locale === 'es' ? 'es-US' : 'en-US', {
-                      weekday: 'long',
-                      hour: 'numeric',
-                      minute: '2-digit',
+              </section>
+            )}
+
+            {/* Zelle, Cash App, Venmo, PayPal… and "Ya pagué". */}
+            {due && (
+              <section className="mb-card mb-card--pad" aria-labelledby={`otros-${b.id}`}>
+                <h2 id={`otros-${b.id}`} className="mb-h2">{t.otherWays}</h2>
+                {ways.tiles.length > 0 && (
+                  <div className="mb-ways">
+                    {ways.tiles.map((w, k) => {
+                      const key = `${b.id}-${k}`;
+                      return (
+                        <button key={key} type="button" className="mb-way" onClick={() => copyWay(key, w.value)}>
+                          <span className="mb-way__l">{copiedKey === key ? t.copied : w.label}</span>
+                          <span className="mb-way__v">{w.value}</span>
+                        </button>
+                      );
                     })}
+                  </div>
+                )}
+                {ways.rest.length > 0 && <p className="mb-inst">{ways.rest.join('\n')}</p>}
+                {!instructions && <p className="mb-inst">{t.noInstructions}</p>}
+                <p className="mb-note">
+                  {t.otherNote.split('{n}')[0]}
+                  <span className="mb-ink">{tag}</span>
+                  {t.otherNote.split('{n}')[1]}
+                </p>
+                {b.due_at && (
+                  <p className="mb-note">
+                    {t.dueBy}{' '}
+                    {new Date(b.due_at).toLocaleString(locale === 'es' ? 'es-US' : 'en-US', { weekday: 'long', hour: 'numeric', minute: '2-digit' })}
                   </p>
                 )}
 
                 {reportId !== b.id ? (
-                  <button className="ob2__btn ob2__btn--ghost" onClick={() => { setReportId(b.id); setReportErr(null); }}>
+                  <button type="button" className="mb-ghost" onClick={() => { setReportId(b.id); setReportErr(null); }}>
                     {t.reported}
                   </button>
                 ) : (
-                  <div className="ob2__report">
-                    <p className="ob2__payLabel">{t.reportHow}</p>
-                    <div className="ob2__methods" role="radiogroup" aria-label={t.reportHow}>
+                  <div className="mb-report">
+                    <p className="mb-label">{t.reportHow}</p>
+                    <div className="mb-methods" role="radiogroup" aria-label={t.reportHow}>
                       {[
                         ['zelle', 'Zelle'],
                         ['cash_app', 'Cash App'],
                         ['venmo', 'Venmo'],
                         ['paypal', 'PayPal'],
                         ['apple_pay', 'Apple Pay'],
-                        ['other', locale === 'es' ? 'Otro' : 'Other'],
+                        ['other', t.other],
                       ].map(([v, label]) => (
                         <button
                           key={v}
                           type="button"
                           role="radio"
                           aria-checked={reportMethod === v}
-                          className={'ob2__method' + (reportMethod === v ? ' ob2__method--on' : '')}
+                          className={'mb-method' + (reportMethod === v ? ' mb-method--on' : '')}
                           onClick={() => setReportMethod(v)}
                         >
                           {label}
                         </button>
                       ))}
                     </div>
-                    <label className="ob2__payLabel" htmlFor={'proof-' + b.id}>{t.reportPhoto}</label>
-                    <input
-                      id={'proof-' + b.id}
-                      type="file"
-                      accept="image/*"
-                      className="ob2__file"
-                      onChange={(e) => setReportFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
-                    />
-                    {reportErr && <p className="ob2__payErr">{reportErr}</p>}
-                    <button className="ob2__btn" disabled={reportBusy} onClick={() => sendReport(b.id)}>
+                    <label className="mb-label" htmlFor={`proof-${b.id}`}>{t.reportPhoto}</label>
+                    <label className="mb-file">
+                      <input
+                        id={`proof-${b.id}`}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setReportFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                      />
+                      <span>{reportFile ? reportFile.name : t.reportPick}</span>
+                    </label>
+                    {reportErr && <p className="mb-pay__err mb-pay__err--ink" role="alert">{reportErr}</p>}
+                    <button type="button" className="mb-solid" disabled={reportBusy} onClick={() => sendReport(b.id)}>
                       {reportBusy ? t.reportSending : t.reportSend}
                     </button>
-                    <button className="ob2__btn ob2__btn--ghost" onClick={() => setReportId(null)}>{t.cancel}</button>
+                    <button type="button" className="mb-link" onClick={() => setReportId(null)}>{t.cancel}</button>
                   </div>
                 )}
-              </div>
+              </section>
             )}
 
-            {paid && b.package_photo_url && (
-              <div className="ob2__track">
-                <span className="ob2__trackLabel">{t.packagePhoto}</span>
-                <a href={b.package_photo_url} target="_blank" rel="noreferrer">
-                  <img
-                    src={b.package_photo_url}
-                    alt={t.packagePhoto}
-                    loading="lazy"
-                    style={{ width: '100%', maxHeight: 420, objectFit: 'cover', borderRadius: 8, marginTop: 6, display: 'block' }}
-                  />
-                </a>
-              </div>
+            {/* After it ships: the box photo and tracking. */}
+            {done && (b.package_photo_url || b.tracking_number) && (
+              <section className="mb-card mb-card--pad">
+                {b.package_photo_url && (
+                  <>
+                    <h2 className="mb-h2">{t.packagePhoto}</h2>
+                    <a href={b.package_photo_url} target="_blank" rel="noreferrer" className="mb-pkg">
+                      <img src={b.package_photo_url} alt={t.packagePhoto} loading="lazy" />
+                    </a>
+                  </>
+                )}
+                {b.tracking_number && (
+                  <>
+                    <div className="mb-total mb-total--track">
+                      <span className="mb-muted">{t.tracking}</span>
+                      <span className="mb-trackno">{b.carrier ? `${b.carrier} · ` : ''}{b.tracking_number}</span>
+                    </div>
+                    <a className="mb-ghost" href={b.tracking_url || trackUrl(b.tracking_number)} target="_blank" rel="noreferrer">
+                      {t.track}
+                    </a>
+                  </>
+                )}
+              </section>
             )}
-
-            {paid && b.tracking_number && (
-              <div className="ob2__track">
-                <span className="ob2__trackLabel">{t.tracking}</span>
-                <span className="ob2__trackNo">
-                  {b.carrier ? `${b.carrier} · ` : ''}
-                  {b.tracking_number}
-                </span>
-                <a
-                  className="ob2__btn ob2__btn--ghost"
-                  href={b.tracking_url || trackUrl(b.tracking_number)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {t.track}
-                </a>
-              </div>
-            )}
-          </article>
+          </div>
         );
       })}
-    </div>
-  );
-}
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className={`ob__row${strong ? ' ob__row--total' : ''}`}>
-      <span className={strong ? undefined : 'live__muted'}>{label}</span>
-      <span className="live__mono">{value}</span>
+      <a className="mb-card mb-account" href={accountUrl(token)}>
+        <span className="mb-account__t">
+          <span>{t.account}</span>
+          <span className="mb-muted mb-small">{t.accountSub}</span>
+        </span>
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+      </a>
     </div>
   );
 }

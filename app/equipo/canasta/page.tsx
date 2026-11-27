@@ -85,6 +85,14 @@ export default function CanastaPage() {
     } catch {
       // nothing saved
     }
+    // Opened from "Todas las canastas": ?n=23 goes straight to that basket
+    // (a saved draft for another basket wins, so nothing typed is lost).
+    try {
+      const qn = new URLSearchParams(window.location.search).get("n");
+      if (qn && /^\d{1,4}$/.test(qn) && !restoredNum.current) setNum(qn);
+    } catch {
+      // no address bar
+    }
   }, []);
 
   const n = Number(num);

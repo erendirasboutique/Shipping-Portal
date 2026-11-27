@@ -1,0 +1,275 @@
+/* The customer's order page (order.erendirasboutique.com/{token}).
+   Matches the "F · Mi canasta" mockup. Brand fonts come from brand.css
+   (loaded in app/layout.tsx); Georgia if it can't load. */
+
+.mb-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f5f3ef;
+  color: #3f3327;
+  font-family: 'Ltt Recoleta', Georgia, serif;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mb {
+  max-width: 430px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 18px 18px 40px;
+  padding-top: max(18px, env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mb *, .mb *::before, .mb *::after { box-sizing: border-box; }
+.mb button { font-family: inherit; cursor: pointer; }
+.mb a { color: #3f3327; }
+
+.mb-head { display: flex; align-items: center; justify-content: space-between; }
+.mb-logo { height: 46px; width: auto; display: block; }
+.mb-lang {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 0;
+  background: #fff;
+  font-size: 15px;
+  color: #3f3327;
+}
+
+.mb-hello { padding: 0 4px; display: flex; flex-direction: column; gap: 4px; }
+.mb-hi { margin: 0; font-size: 16px; color: #6b5a48; }
+.mb-h1 {
+  margin: 0;
+  font-family: 'Charman Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 36px;
+  line-height: 1.05;
+}
+.mb-h2 {
+  margin: 0;
+  font-family: 'Charman Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.15;
+}
+.mb-h2--pay { font-size: 26px; line-height: 1.1; }
+
+.mb-muted { color: #6b5a48; }
+.mb-small { font-size: 14px; }
+.mb-ink { color: #3f3327; }
+
+.mb-basket { display: flex; flex-direction: column; gap: 16px; }
+
+.mb-card {
+  background: #fff;
+  border-radius: 26px;
+  padding: 18px;
+  margin: 0;
+}
+.mb-card--photo { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.mb-card--pad { display: flex; flex-direction: column; gap: 12px; }
+.mb-skel { height: 380px; background: linear-gradient(90deg, #fff, #faf8f5, #fff); }
+
+/* The basket photo */
+.mb-photo {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #e4d6c6, #cfbda9 60%, #e8c3a8);
+  min-height: 270px;
+}
+.mb-photo img { display: block; width: 100%; height: auto; max-height: 520px; object-fit: cover; }
+.mb-photo__none { display: block; height: 270px; }
+.mb-num {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-family: 'Charman Serif', Georgia, serif;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.mb-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 0 6px; font-size: 16px; }
+.mb-total__n { font-family: 'Charman Serif', Georgia, serif; font-size: 38px; line-height: 1; }
+.mb-total--track { padding: 0 2px; }
+.mb-trackno { font-size: 15px; text-align: right; word-break: break-all; }
+
+.mb-pill {
+  align-self: flex-start;
+  margin: 0 6px 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f3ef;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 14.5px;
+}
+.mb-dot { width: 8px; height: 8px; border-radius: 50%; background: #c96f4a; flex: none; }
+.mb-pill--good .mb-dot { background: #4a6547; }
+.mb-pill--soft .mb-dot { background: #957f67; }
+
+.mb-items { margin: -4px 6px 2px; font-size: 15px; }
+.mb-items summary { cursor: pointer; color: #6b5a48; list-style: none; }
+.mb-items summary::-webkit-details-marker { display: none; }
+.mb-items summary::after { content: ' ›'; }
+.mb-items[open] summary::after { content: ' ⌄'; }
+.mb-items ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mb-items li { display: flex; justify-content: space-between; gap: 12px; }
+.mb-items__sum { color: #6b5a48; }
+
+/* Pay today or in 4 */
+.mb-pay {
+  background: #957f67;
+  color: #fff;
+  border-radius: 28px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mb-pay__top { display: flex; flex-direction: column; gap: 4px; }
+.mb-pay__from { margin: 0; font-size: 16px; color: #f5f3ef; }
+.mb-pay__per { font-family: 'Charman Serif', Georgia, serif; font-size: 22px; color: #fff; }
+.mb-bnpl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.mb-bnpl li {
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 4px;
+  text-align: center;
+  font-size: 15px;
+  color: #3f3327;
+}
+.mb-paybtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 62px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  color: #3f3327;
+  font-family: 'Charman Serif', Georgia, serif !important;
+  font-size: 22px;
+}
+.mb-paybtn:disabled { opacity: 0.7; }
+.mb-pay__err { margin: 0; font-size: 14.5px; color: #fff; background: rgba(63, 51, 39, 0.25); border-radius: 12px; padding: 8px 12px; }
+.mb-pay__err--ink { color: #8a2c1c; background: #f8e9e4; }
+.mb-secure {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #f5f3ef;
+  text-align: center;
+}
+.mb-secure svg { flex: none; }
+
+/* Other ways to pay */
+.mb-ways { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 15px; }
+.mb-way {
+  background: #f5f3ef;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  color: #3f3327;
+  font-size: 15px;
+  min-width: 0;
+}
+.mb-way__l { color: #6b5a48; font-size: 13px; }
+.mb-way__v { max-width: 100%; overflow-wrap: anywhere; }
+.mb-inst { margin: 0; white-space: pre-line; font-size: 15px; line-height: 1.45; }
+.mb-note { margin: 0; font-size: 14.5px; line-height: 1.45; color: #6b5a48; }
+
+.mb-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 54px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(149, 127, 103, 0.35);
+  color: #3f3327;
+  text-decoration: none;
+  font-size: 17px;
+  width: 100%;
+}
+.mb-solid {
+  min-height: 54px;
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  background: #3f3327;
+  color: #fff;
+  font-size: 17px;
+}
+.mb-solid:disabled { opacity: 0.6; }
+.mb-link { background: none; border: 0; color: #6b5a48; font-size: 15px; text-decoration: underline; padding: 6px; }
+
+.mb-report { display: flex; flex-direction: column; gap: 10px; }
+.mb-label { margin: 0; font-size: 14.5px; color: #6b5a48; }
+.mb-methods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.mb-method {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(149, 127, 103, 0.35);
+  background: #fff;
+  color: #3f3327;
+  font-size: 15px;
+}
+.mb-method--on { background: #3f3327; border-color: #3f3327; color: #fff; }
+.mb-file {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  border-radius: 14px;
+  background: #f5f3ef;
+  font-size: 15px;
+  padding: 0 12px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.mb-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.mb-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mb-pkg img { display: block; width: 100%; max-height: 420px; object-fit: cover; border-radius: 18px; }
+
+.mb-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  text-decoration: none;
+}
+.mb-account__t { display: flex; flex-direction: column; gap: 2px; font-size: 16px; }
+
+.mb-lost { display: flex; flex-direction: column; gap: 8px; }
+.mb-lost p { margin: 0; line-height: 1.45; }
+
+.mb button:focus-visible, .mb a:focus-visible, .mb-file:focus-within {
+  outline: 2px solid #3f3327;
+  outline-offset: 2px;
+}
+.mb-pay button:focus-visible { outline-color: #fff; }
