@@ -4,6 +4,8 @@
 // opens it directly too.
 
 import { NextResponse } from "next/server";
+// bwip-js ships no types for this setup (same as app/api/returns/slip).
+// @ts-ignore
 import bwipjs from "bwip-js";
 import { staffUser } from "@/lib/liveList";
 
@@ -19,8 +21,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "bad id" }, { status: 400 });
   }
   const text = url.origin + "/equipo/escanear?b=" + id;
-  const svg = (bwipjs as any).toSVG({ bcid: "qrcode", text, eclevel: "M", paddingwidth: 0, paddingheight: 0 });
-  return new NextResponse(svg, {
-    headers: { "Content-Type": "image/svg+xml", "Cache-Control": "private, max-age=86400" },
+  const opts = { bcid: "qrcode", text, eclevel: "M", paddingwidth: 0, paddingheight: 0 };
+  const lib: any = bwipjs;
+  if (typeof lib.toSVG === "function") {
+    return new NextResponse(lib.toSVG(opts), {
+      headers: { "Content-Type": "image/svg+xml", "Cache-Control": "private, max-age=86400" },
+    });
+  }
+  const png: Buffer = await lib.toBuffer({ ...opts, scale: 6 });
+  return new NextResponse(png as any, {
+    headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=86400" },
   });
 }
