@@ -31,6 +31,9 @@ type Person = { name: string | null; email: string | null; phone: string | null;
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://ship.erendirasboutique.com").replace(/\/$/, "");
 export const CARD_URL = SITE + "/api/public/contact-card";
+// Send a message (live announcements, etc.) can come from its own address, like
+// hola@erendirasboutique.com. Shipping emails keep using EMAIL_FROM.
+const ANNOUNCE_FROM = process.env.EMAIL_FROM_ANNOUNCEMENTS || process.env.EMAIL_FROM;
 
 // ---------------------------------------------------------------- helpers
 
@@ -311,6 +314,7 @@ async function sendOne(r: { channel: "email" | "sms"; to: string; name: string |
   const u = unsubUrl(r.to);
   const e = renderBroadcastEmail(m, s, vars, u);
   return sendEmail(r.to, e.subject, e.html, e.text, s.reply_to, {
+    from: ANNOUNCE_FROM,
     attachments: m.attach_card_email && card ? [{ filename: "Erendiras-Boutique.vcf", content: Buffer.from(card).toString("base64") }] : undefined,
     headers: { "List-Unsubscribe": `<${unsubPostUrl(r.to)}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
   });
