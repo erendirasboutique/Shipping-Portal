@@ -3,6 +3,7 @@
 // anyone). Shipping updates for their own orders still go out.
 import { validUnsub } from "@/lib/broadcast";
 
+import { BRAND_LOGO } from "@/lib/brand";
 export const dynamic = "force-dynamic";
 export const metadata = { title: { absolute: "Darse de baja — Erendira's Boutique" }, robots: { index: false, follow: false } };
 
@@ -20,7 +21,7 @@ export default function UnsubscribePage({ searchParams }: { searchParams: { e?: 
   return (
     <div style={{ minHeight: "100vh", background: "#F5F3EF", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ maxWidth: 440, background: "#fff", borderRadius: 24, padding: "32px 28px", textAlign: "center", fontFamily: "'Avenir Next', Avenir, Helvetica, Arial, sans-serif", color: "#332b23" }}>
-        <img src="/logo2.png" alt="Erendira's Boutique" style={{ width: 160, height: "auto", margin: "0 auto 20px", display: "block" }} />
+        <img src={BRAND_LOGO} alt="Erendira's Boutique" style={{ width: 160, height: "auto", margin: "0 auto 20px", display: "block" }} />
         <h1 style={{ margin: "0 0 10px", fontFamily: "Palatino, 'Palatino Linotype', Georgia, serif", fontWeight: 400, fontSize: 28, color: "#332b23" }}>{title}</h1>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "#6b5f53" }}>{text}</p>
         {valid && !done ? (

@@ -23,6 +23,7 @@ import fontkit from "@pdf-lib/fontkit";
 import bwipjs from "bwip-js";
 import fs from "fs/promises";
 import path from "path";
+import { BRAND_LOGO } from "@/lib/brand";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export const dynamic = "force-dynamic";
 // Headings: Charman Serif. Body and everything else: Ltt Recoleta.
 const HEADING_FONTS = ["CharmanSerif-Regular.otf", "sltfthesilvereditorial-regular.otf"];
 const BODY_FONTS = ["LttRecoleta-CondensedMedium.otf", "CooperLtBT-Regular.ttf"];
-const LOGO_FILE = "EB_Logo_Fall BGBLANK.png";
+const LOGO_FILE = "EB_Logo_Fall BGBLANK.png"; // fallback if the shared brand logo can't load
 
 const RETURN_ADDRESS = "Erendira's Boutique — Returns · 17121 Hawthorne Ave, Fontana, CA 92335";
 const WEBSITE = "my.erendirasboutique.com";
@@ -414,7 +415,20 @@ export async function GET(req: NextRequest) {
 
   let logo: PDFImage | null = null;
   try {
-    logo = await pdf.embedPng(await fs.readFile(path.join(process.cwd(), "public", LOGO_FILE)));
+    // The shared brand logo (set on the Customer Portal's Branding page),
+    // so the slip matches the season. Falls back to the file on disk.
+    let bytes: Uint8Array | null = null;
+    try {
+      const res = await fetch(BRAND_LOGO, { next: { revalidate: 120 } });
+      if (res.ok) bytes = new Uint8Array(await res.arrayBuffer());
+    } catch {
+      bytes = null;
+    }
+    const isPng = !!bytes && bytes[0] === 0x89 && bytes[1] === 0x50;
+    const isJpg = !!bytes && bytes[0] === 0xff && bytes[1] === 0xd8;
+    if (bytes && isPng) logo = await pdf.embedPng(bytes);
+    else if (bytes && isJpg) logo = await pdf.embedJpg(bytes);
+    else logo = await pdf.embedPng(await fs.readFile(path.join(process.cwd(), "public", LOGO_FILE)));
   } catch {
     logo = null;
   }

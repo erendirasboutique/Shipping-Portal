@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { appendBrandedLabel, embedLogo, embedOrderFont, ORDER_FONT_FILE } from "@/lib/shipping/brandLabel";
 import fs from "fs/promises";
+import { seasonalLogoFile } from "@/lib/brand";
 import path from "path";
 
 export const maxDuration = 60;
@@ -15,13 +16,17 @@ export const maxDuration = 60;
 // EB number beside it — marks them printed, and streams the merged PDF back.
 
 async function fetchLogoBytes(origin: string): Promise<Uint8Array | null> {
-  try {
-    const res = await fetch(`${origin}/logobw.png`, { cache: "force-cache" });
-    if (!res.ok) return null;
-    return new Uint8Array(await res.arrayBuffer());
-  } catch {
-    return null;
+  // The season's black-only logo (e.g. logobw-christmas.png), else the usual one.
+  const file = await seasonalLogoFile("logobw.png");
+  for (const f of file === "logobw.png" ? [file] : [file, "logobw.png"]) {
+    try {
+      const res = await fetch(`${origin}/${f}`, { cache: "force-cache" });
+      if (res.ok) return new Uint8Array(await res.arrayBuffer());
+    } catch {
+      // try the next one
+    }
   }
+  return null;
 }
 
 // The EB number's font. Read from disk like the return slip does; if the
