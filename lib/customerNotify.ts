@@ -410,9 +410,9 @@ export async function sendEmail(
   html: string,
   text: string,
   replyTo?: string | null,
-  extra?: { attachments?: { filename: string; content: string }[]; headers?: Record<string, string> }
+  extra?: { attachments?: { filename: string; content: string }[]; headers?: Record<string, string>; from?: string | null }
 ): Promise<string | null> {
-  const payload: Record<string, any> = { from: process.env.EMAIL_FROM, to: [to], subject, html, text };
+  const payload: Record<string, any> = { from: extra?.from || process.env.EMAIL_FROM, to: [to], subject, html, text };
   if (replyTo) payload.reply_to = replyTo;
   if (extra?.attachments?.length) payload.attachments = extra.attachments;
   if (extra?.headers) payload.headers = extra.headers;
